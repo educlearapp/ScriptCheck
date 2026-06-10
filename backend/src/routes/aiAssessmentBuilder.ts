@@ -13,6 +13,7 @@ import { AiUploadPurpose } from "@prisma/client";
 import {
   AiBuilderError,
   approveBuilderRequest,
+  confirmMaterialReview,
   createBuilderRequest,
   deleteStudyMaterial,
   discardBuilderRequest,
@@ -270,6 +271,25 @@ router.patch(
         req.auth!.workspaceId,
         req.auth!.userId,
         manualText
+      );
+      return res.json(material);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/:id/materials/:materialId/confirm-review",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_CREATE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const material = await confirmMaterialReview(
+        String(req.params.id),
+        String(req.params.materialId),
+        req.auth!.workspaceId,
+        req.auth!.userId
       );
       return res.json(material);
     } catch (err) {

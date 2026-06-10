@@ -1,4 +1,4 @@
-import { sanitizeOcrText } from "./contentSanitizer";
+import { sanitizeOcrText, isValidConceptTerm, containsOcrGarbage } from "./contentSanitizer";
 
 export type StudyConcept = {
   term: string;
@@ -57,8 +57,9 @@ function dedupeConcepts(concepts: StudyConcept[]): StudyConcept[] {
 
   for (const c of concepts) {
     const key = c.term.toLowerCase();
-    if (seen.has(key) || key.length < 3 || key.length > 45) continue;
+    if (seen.has(key) || !isValidConceptTerm(c.term)) continue;
     if (/\b(is|are|means)\b/.test(key)) continue;
+    if (containsOcrGarbage(c.context) && !c.definition) continue;
     seen.add(key);
     result.push(c);
   }
@@ -214,9 +215,12 @@ export function conceptQuestionStem(concept: StudyConcept, style: string): strin
     case "comprehension":
       return `Read the following and answer: What is important to know about ${term}?\n\n"${concept.context.slice(0, 280)}${concept.context.length > 280 ? "…" : ""}"`;
     case "tf": {
-      const statement = concept.definition
+      if (!isValidConceptTerm(concept.term)) {
+        return "True or False: Learners should treat others with dignity and respect.";
+      }
+      const statement = concept.definition && !containsOcrGarbage(concept.definition)
         ? `${concept.term} ${concept.definition.split(/\s+/).slice(0, 8).join(" ")}…`
-        : `${concept.term} is discussed in the study material.`;
+        : `${concept.term} is an important Life Skills topic in the study material.`;
       return `True or False: ${statement}`;
     }
     case "mcq":

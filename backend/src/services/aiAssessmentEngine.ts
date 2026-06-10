@@ -393,16 +393,21 @@ export function generateFromBlueprint(input: BlueprintGenerationInput): AiGenera
 
     const bankHit = pickBankItemForSlot(slot, bankItems, usedBankIds);
     if (bankHit) {
-      usedBankIds.add(bankHit.id);
-      filled = mapBankToGenerated(slot, bankHit, diff);
+      const mapped = mapBankToGenerated(slot, bankHit, diff);
+      if (mapped) {
+        usedBankIds.add(bankHit.id);
+        filled = mapped;
+      }
     }
 
     if (!filled) {
       const extractedHit = pickExtractedForSlot(slot, extractedQuestions, usedExtractedNumbers);
       if (extractedHit) {
-        usedExtractedNumbers.add(extractedHit.questionNumber);
-        filled = mapExtractedToGenerated(slot, extractedHit, diff);
-        filled.questionText = sanitizeQuestionText(filled.questionText);
+        const mapped = mapExtractedToGenerated(slot, extractedHit, diff);
+        if (mapped) {
+          usedExtractedNumbers.add(extractedHit.questionNumber);
+          filled = mapped;
+        }
       }
     }
 

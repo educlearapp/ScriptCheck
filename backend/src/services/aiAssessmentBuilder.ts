@@ -38,6 +38,12 @@ import {
 } from "./frameworkEngine";
 import { sanitizeOcrText } from "./contentSanitizer";
 import {
+  assessGenerationReadiness,
+  isAssessmentFrameworkText,
+  isFrameworkRequiredContext,
+  scoreFrameworkSignals,
+} from "./frameworkDetector";
+import {
   extractQuestionsFromPastPaper,
   type ExtractedPaperQuestion,
 } from "./pastPaperExtractor";
@@ -254,13 +260,27 @@ export async function extractAllContent(
       const extraction = await extractTextFromFile(material.fileType, filePath);
       const effectiveText = sanitiseSourceText(extraction.text);
 
+      let extractionStatus = extraction.status;
+      if (
+        extraction.ocrAttempted &&
+        (extraction.ocrConfidence == null || extraction.ocrConfidence < 55)
+      ) {
+        extractionStatus = "NEEDS_REVIEW";
+      }
+
+      let uploadPurpose = material.uploadPurpose;
+      if (
+        effectiveText &&
+        uploadPurpose === "STUDY_MATERIAL" &&
+        isAssessmentFrameworkText(effectiveText)
+      ) {
+        uploadPurpose = "ASSESSMENT_FRAMEWORK";
+      }
+
       let extractedQuestions: ExtractedPaperQuestion[] | null = null;
       let duplicateWarnings: DuplicateCheckResult[] | null = null;
 
-      if (
-        material.uploadPurpose === "PAST_PAPER" &&
-        effectiveText
-      ) {
+      if (uploadPurpose === "PAST_PAPER" && effectiveText) {
         extractedQuestions = extractQuestionsFromPastPaper(
           effectiveText,
           material.fileName
@@ -276,20 +296,26 @@ export async function extractAllContent(
         );
       }
 
-      if (material.uploadPurpose === "ASSESSMENT_FRAMEWORK" && effectiveText) {
+      if (uploadPurpose === "ASSESSMENT_FRAMEWORK" && effectiveText) {
         await prisma.aiAssessmentBuilderRequest.update({
           where: { id: requestId },
-          data: { frameworkText: effectiveText },
+          data: {
+            frameworkText: effectiveText,
+            frameworkDetected: true,
+            sourceMode: "FRAMEWORK",
+          },
         });
       }
 
       const updated = await prisma.aiStudyMaterial.update({
         where: { id: material.id },
         data: {
+          uploadPurpose,
           extractedText: extraction.text || null,
-          extractionStatus: extraction.status,
+          extractionStatus,
           ocrAttempted: extraction.ocrAttempted,
           ocrConfidence: extraction.ocrConfidence ?? null,
+          reviewConfirmed: extractionStatus === "EXTRACTED",
           ...(extractedQuestions
             ? {
                 extractedQuestions: extractedQuestions as unknown as Prisma.InputJsonValue,
@@ -309,12 +335,56 @@ export async function extractAllContent(
     }
   }
 
+  await syncBestFrameworkFromMaterials(requestId, workspaceId);
+
   await prisma.aiAssessmentBuilderRequest.update({
     where: { id: requestId },
     data: { status: "SETTINGS" },
   });
 
   return results;
+}
+
+async function syncBestFrameworkFromMaterials(
+  requestId: string,
+  workspaceId: string
+) {
+  const request = await loadBuilderRequest(requestId, workspaceId);
+  if (!request) return;
+
+  let bestText: string | null = null;
+  let bestScore = 0;
+
+  for (const material of request.materials) {
+    const text = resolveMaterialText(material);
+    if (!text || isPlaceholderText(text)) continue;
+    const score = scoreFrameworkSignals(text);
+    if (score > bestScore) {
+      bestScore = score;
+      bestText = text;
+    }
+  }
+
+  if (bestText && bestScore >= 3) {
+    await prisma.aiAssessmentBuilderRequest.update({
+      where: { id: requestId },
+      data: {
+        frameworkText: bestText,
+        frameworkDetected: true,
+        sourceMode: "FRAMEWORK",
+      },
+    });
+
+    for (const material of request.materials) {
+      const text = resolveMaterialText(material);
+      if (text && isAssessmentFrameworkText(text)) {
+        await prisma.aiStudyMaterial.update({
+          where: { id: material.id },
+          data: { uploadPurpose: "ASSESSMENT_FRAMEWORK" },
+        });
+      }
+    }
+  }
 }
 
 export type SaveQuestionDecision = {
@@ -515,13 +585,50 @@ export async function updateMaterialText(
     where: { id: materialId },
     data: {
       manualText: trimmed || null,
-      extractionStatus: trimmed && !isPlaceholderText(trimmed) ? "EXTRACTED" : material.extractionStatus,
+      reviewConfirmed: Boolean(trimmed && !isPlaceholderText(trimmed)),
+      extractionStatus:
+        trimmed && !isPlaceholderText(trimmed)
+          ? "EXTRACTED"
+          : material.extractionStatus,
       ...(extractedQuestions
         ? {
             extractedQuestions: extractedQuestions as unknown as Prisma.InputJsonValue,
             duplicateWarnings: duplicateWarnings as unknown as Prisma.InputJsonValue,
           }
         : {}),
+    },
+  });
+
+  return serializeMaterial(updated);
+}
+
+export async function confirmMaterialReview(
+  requestId: string,
+  materialId: string,
+  workspaceId: string,
+  userId: string
+) {
+  const request = await loadBuilderRequest(requestId, workspaceId);
+  if (!request) throw new AiBuilderError("Builder request not found", 404);
+  assertEditable(request);
+
+  if (request.createdById !== userId) {
+    throw new AiBuilderError("Not permitted", 403);
+  }
+
+  const material = request.materials.find((m) => m.id === materialId);
+  if (!material) throw new AiBuilderError("Material not found", 404);
+
+  const text = resolveMaterialText(material);
+  if (!text || isPlaceholderText(text)) {
+    throw new AiBuilderError("Enter or correct extracted text before confirming review", 400);
+  }
+
+  const updated = await prisma.aiStudyMaterial.update({
+    where: { id: materialId },
+    data: {
+      reviewConfirmed: true,
+      extractionStatus: "EXTRACTED",
     },
   });
 
@@ -576,6 +683,37 @@ export async function saveBuilderSettings(
     throw new AiBuilderError("Select at least one Bloom level", 400);
   }
 
+  const [curriculum, phase, grade, subject] = await Promise.all([
+    prisma.curriculum.findUnique({
+      where: { id: input.curriculumId },
+      select: { code: true, name: true },
+    }),
+    prisma.phase.findUnique({
+      where: { id: input.phaseId },
+      select: { code: true, name: true },
+    }),
+    prisma.grade.findUnique({
+      where: { id: input.gradeId },
+      select: { code: true, name: true },
+    }),
+    prisma.subject.findUnique({
+      where: { id: input.subjectId },
+      select: { code: true, name: true },
+    }),
+  ]);
+
+  const frameworkRequired = isFrameworkRequiredContext({
+    curriculumCode: curriculum?.code,
+    curriculumName: curriculum?.name,
+    phaseCode: phase?.code,
+    phaseName: phase?.name,
+    gradeCode: grade?.code,
+    gradeName: grade?.name,
+    subjectCode: subject?.code,
+    subjectName: subject?.name,
+    totalMarks: input.totalMarks,
+  });
+
   await prisma.aiAssessmentBuilderRequest.update({
     where: { id: requestId },
     data: {
@@ -592,6 +730,7 @@ export async function saveBuilderSettings(
       questionTypes: input.questionTypes as AiQuestionType[],
       bloomLevels: input.bloomLevels as AiBloomLevel[],
       instructions: input.instructions?.trim() || null,
+      frameworkRequired,
       status: "SETTINGS",
     },
   });
@@ -619,15 +758,45 @@ function resolveFrameworkText(request: LoadedRequest): string | null {
   const fromField = request.frameworkText?.trim();
   if (fromField) return fromField;
 
-  const frameworkMaterial = request.materials.find(
-    (m) => m.uploadPurpose === "ASSESSMENT_FRAMEWORK"
-  );
-  if (frameworkMaterial) {
-    const text = resolveMaterialText(frameworkMaterial);
-    if (text && !isPlaceholderText(text)) return text;
+  let bestText: string | null = null;
+  let bestScore = 0;
+
+  for (const material of request.materials) {
+    const text = resolveMaterialText(material);
+    if (!text || isPlaceholderText(text)) continue;
+
+    if (material.uploadPurpose === "ASSESSMENT_FRAMEWORK") {
+      return text;
+    }
+
+    const score = scoreFrameworkSignals(text);
+    if (score > bestScore) {
+      bestScore = score;
+      bestText = text;
+    }
   }
 
+  if (bestText && bestScore >= 3) return bestText;
   return null;
+}
+
+function assertMaterialsReadyForGeneration(
+  materials: LoadedRequest["materials"]
+) {
+  for (const m of materials) {
+    if (m.extractionStatus === "NEEDS_REVIEW" && !m.reviewConfirmed) {
+      throw new AiBuilderError(
+        `OCR review required for "${m.fileName}" — review extracted text and confirm before generating`,
+        400
+      );
+    }
+    if (m.extractionStatus === "PENDING" || m.extractionStatus === "FAILED") {
+      throw new AiBuilderError(
+        `Material "${m.fileName}" must be extracted successfully before generating`,
+        400
+      );
+    }
+  }
 }
 
 async function loadBankItemsForGeneration(
@@ -672,16 +841,43 @@ export async function generateAiAssessment(
     throw new AiBuilderError("Complete assessment settings before generating", 400);
   }
 
+  assertMaterialsReadyForGeneration(request.materials);
+
   await prisma.aiAssessmentBuilderRequest.update({
     where: { id: requestId },
     data: { status: "GENERATING" },
   });
 
   try {
-    const [grade, subject] = await Promise.all([
-      prisma.grade.findUnique({ where: { id: request.gradeId! }, select: { name: true } }),
-      prisma.subject.findUnique({ where: { id: request.subjectId! }, select: { name: true } }),
+    const [grade, subject, curriculum, phase] = await Promise.all([
+      prisma.grade.findUnique({ where: { id: request.gradeId! }, select: { name: true, code: true } }),
+      prisma.subject.findUnique({ where: { id: request.subjectId! }, select: { name: true, code: true } }),
+      prisma.curriculum.findUnique({ where: { id: request.curriculumId! }, select: { name: true, code: true } }),
+      prisma.phase.findUnique({ where: { id: request.phaseId! }, select: { name: true, code: true } }),
     ]);
+
+    const frameworkRequired =
+      request.frameworkRequired ||
+      isFrameworkRequiredContext({
+        curriculumCode: curriculum?.code,
+        curriculumName: curriculum?.name,
+        phaseCode: phase?.code,
+        phaseName: phase?.name,
+        gradeCode: grade?.code,
+        gradeName: grade?.name,
+        subjectCode: subject?.code,
+        subjectName: subject?.name,
+        totalMarks: request.totalMarks,
+      });
+
+    const frameworkText = resolveFrameworkText(request);
+
+    if (frameworkRequired && !frameworkText) {
+      throw new AiBuilderError(
+        "Assessment framework is required for this CAPS Grade 6 Life Skills PSW test. Upload the PSW Modified Framework or ensure it is auto-detected from extracted text.",
+        400
+      );
+    }
 
     const genInput = {
       sourceText: "",
@@ -698,9 +894,12 @@ export async function generateAiAssessment(
 
     let draft: AiGeneratedDraft;
     let blueprint: PaperBlueprint | null = null;
-    const frameworkText = resolveFrameworkText(request);
 
-    if (frameworkText) {
+    if (frameworkRequired || frameworkText) {
+      if (!frameworkText) {
+        throw new AiBuilderError("Framework blueprint is required but framework text is missing", 400);
+      }
+
       blueprint = buildBlueprintFromFramework(frameworkText);
       const studyText = combineSourceText(request.materials, ["STUDY_MATERIAL"]);
       const pastPaperText = combineSourceText(request.materials, ["PAST_PAPER"]);
@@ -810,7 +1009,7 @@ export async function generateAiAssessment(
       data: {
         draftMetadata: draft as unknown as Prisma.InputJsonValue,
         qualityChecks: combinedQuality as unknown as Prisma.InputJsonValue,
-        ...(blueprint ? { totalMarks: blueprint.totalMarks } : {}),
+        ...(blueprint ? { totalMarks: blueprint.totalMarks, frameworkDetected: true } : {}),
         status: "REVIEW",
       },
     });
@@ -1192,6 +1391,7 @@ function serializeMaterial(material: {
   manualText: string | null;
   ocrAttempted: boolean;
   ocrConfidence: number | null;
+  reviewConfirmed: boolean;
   extractedQuestions: unknown;
   duplicateWarnings: unknown;
   createdAt: Date;
@@ -1209,6 +1409,7 @@ function serializeMaterial(material: {
     effectiveText: resolveMaterialText(material),
     ocrAttempted: material.ocrAttempted,
     ocrConfidence: material.ocrConfidence,
+    reviewConfirmed: material.reviewConfirmed,
     extractedQuestions: (material.extractedQuestions as ExtractedPaperQuestion[] | null) ?? [],
     duplicateWarnings: (material.duplicateWarnings as DuplicateCheckResult[] | null) ?? [],
     createdAt: material.createdAt.toISOString(),
@@ -1246,6 +1447,19 @@ export async function serializeBuilderRequest(request: LoadedRequest) {
       : null,
   ]);
 
+  const frameworkTextResolved = resolveFrameworkText(request);
+  const generationReadiness = assessGenerationReadiness({
+    frameworkText: frameworkTextResolved,
+    frameworkRequired: request.frameworkRequired,
+    frameworkDetected: request.frameworkDetected || Boolean(frameworkTextResolved),
+    materials: request.materials.map((m) => ({
+      fileName: m.fileName,
+      extractionStatus: m.extractionStatus,
+      reviewConfirmed: m.reviewConfirmed,
+      uploadPurpose: m.uploadPurpose,
+    })),
+  });
+
   return {
     id: request.id,
     workspaceId: request.workspaceId,
@@ -1268,6 +1482,9 @@ export async function serializeBuilderRequest(request: LoadedRequest) {
     sourceMode: request.sourceMode,
     selectedQuestionBankIds: (request.selectedQuestionBankIds as string[] | null) ?? [],
     frameworkText: request.frameworkText,
+    frameworkRequired: request.frameworkRequired,
+    frameworkDetected: request.frameworkDetected || Boolean(frameworkTextResolved),
+    generationReadiness,
     assessmentId: request.assessmentId,
     assessment: request.assessment,
     curriculum,

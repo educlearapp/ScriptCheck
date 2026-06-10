@@ -14,7 +14,6 @@ import type {
   CurriculumRef,
   ExtractedPaperQuestion,
   GradeRef,
-  PaperBlueprint,
   PhaseRef,
   QuestionBankItem,
   SubjectRef,
@@ -128,7 +127,10 @@ export default function AiAssessmentBuilder() {
   const [questionDecisions, setQuestionDecisions] = useState<
     Record<string, { action: "save" | "skip" | "merge"; mergedText?: string }>
   >({});
-  const [blueprint, setBlueprint] = useState<PaperBlueprint | null>(null);
+
+  const readiness = request?.generationReadiness ?? null;
+  const blueprint = readiness?.blueprint ?? null;
+  const canGenerate = readiness?.canGenerate ?? false;
 
   const loadRequest = useCallback(async (id: string) => {
     const data = await apiFetch<AiBuilderRequest>(`/ai-assessment-builder/${id}`);
@@ -286,19 +288,18 @@ export default function AiAssessmentBuilder() {
     }
   }
 
-  useEffect(() => {
+  async function handleConfirmReview(materialId: string) {
     if (!requestId) return;
-    const hasFramework =
-      request?.frameworkText ||
-      request?.materials.some((m) => m.uploadPurpose === "ASSESSMENT_FRAMEWORK");
-    if (!hasFramework) {
-      setBlueprint(null);
-      return;
+    setError("");
+    try {
+      await apiFetch(`/ai-assessment-builder/${requestId}/materials/${materialId}/confirm-review`, {
+        method: "POST",
+      });
+      await loadRequest(requestId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to confirm review");
     }
-    apiFetch<PaperBlueprint>(`/ai-assessment-builder/${requestId}/blueprint`)
-      .then(setBlueprint)
-      .catch(() => setBlueprint(null));
-  }, [requestId, request?.frameworkText, request?.materials]);
+  }
 
   useEffect(() => {
     const params = new URLSearchParams({ subjectId, forPicker: "true" });
@@ -616,6 +617,14 @@ export default function AiAssessmentBuilder() {
             Extract text from uploaded files using OCR (JPG, PNG, JPEG, scanned PDF). Review and correct text if needed.
           </p>
 
+          {(request?.frameworkDetected || request?.frameworkRequired) && (
+            <div className="ai-material-meta" style={{ marginBottom: "0.75rem" }}>
+              {request.frameworkDetected
+                ? "Framework auto-detected from uploaded material."
+                : "Framework required for this assessment — upload PSW Modified Framework."}
+            </div>
+          )}
+
           {request?.materials.map((m) => (
             <div key={m.id} className="ai-material-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -624,7 +633,7 @@ export default function AiAssessmentBuilder() {
                   className={`ai-extraction-badge ${
                     m.extractionStatus === "EXTRACTED"
                       ? "is-extracted"
-                      : m.extractionStatus === "MANUAL_REQUIRED"
+                      : m.extractionStatus === "NEEDS_REVIEW" || m.extractionStatus === "MANUAL_REQUIRED"
                         ? "is-manual"
                         : "is-pending"
                   }`}
@@ -632,10 +641,9 @@ export default function AiAssessmentBuilder() {
                   {m.extractionStatus.replaceAll("_", " ")}
                 </span>
               </div>
-              {m.ocrConfidence != null && (
-                <div className="ai-material-meta">
-                  OCR confidence: {m.ocrConfidence.toFixed(0)}%
-                  {m.ocrConfidence < 55 ? " — please review text below" : ""}
+              {(m.ocrConfidence == null || m.ocrConfidence < 55) && m.extractionStatus !== "EXTRACTED" && (
+                <div className="ai-material-meta sc-error" style={{ fontSize: "0.82rem" }}>
+                  Low or unknown OCR confidence — review and correct text before generating
                 </div>
               )}
               {(m.extractionStatus !== "PENDING" || m.effectiveText) && (
@@ -646,6 +654,22 @@ export default function AiAssessmentBuilder() {
                   onBlur={() => void handleSaveText(m.id)}
                   placeholder="Extracted or manually entered text…"
                 />
+              )}
+              {m.extractionStatus === "NEEDS_REVIEW" && !m.reviewConfirmed && (
+                <button
+                  type="button"
+                  className="sc-btn sc-btn-primary"
+                  style={{ marginTop: "0.5rem" }}
+                  onClick={() => void handleConfirmReview(m.id)}
+                >
+                  Confirm OCR Review
+                </button>
+              )}
+
+              {m.uploadPurpose === "ASSESSMENT_FRAMEWORK" && (
+                <div className="ai-material-meta" style={{ marginTop: "0.35rem" }}>
+                  Classified as Assessment Framework
+                </div>
               )}
 
               {m.uploadPurpose === "PAST_PAPER" && m.extractedQuestions?.length > 0 && (
@@ -970,24 +994,52 @@ export default function AiAssessmentBuilder() {
       {step === 3 && (
         <div className="sc-card sc-card-gold">
           <h2>Step 4 — Generate Assessment</h2>
-          <p className="sc-page-subtitle">
-            {blueprint
-              ? `Framework enforced: ${blueprint.name} (${blueprint.totalMarks} marks, ${blueprint.slots.length} question slots). AI fills content only.`
-              : "Generate questions, memo, and rubric from your study material."}
-          </p>
 
-          {blueprint && (
+          {(readiness?.frameworkRequired || readiness?.frameworkDetected) && (
             <div className="ai-material-list" style={{ marginBottom: "1rem" }}>
-              {blueprint.slots.slice(0, 8).map((slot) => (
-                <div key={slot.questionNumber} className="ai-material-meta">
-                  {slot.section} Q{slot.questionNumber} — {slot.label} ({slot.marks}m)
-                </div>
-              ))}
-              {blueprint.slots.length > 8 && (
-                <div className="ai-material-meta">…and {blueprint.slots.length - 8} more slots</div>
+              <div className="ai-material-meta">
+                <strong>Framework Detected:</strong> {readiness?.frameworkDetected ? "Yes" : "No"}
+              </div>
+              {blueprint && (
+                <>
+                  <div className="ai-material-meta">
+                    <strong>Framework Name:</strong> {readiness?.frameworkName ?? blueprint.name}
+                  </div>
+                  <div className="ai-material-meta">
+                    <strong>Blueprint Slots:</strong> {blueprint.slots.length}
+                  </div>
+                  <div className="ai-material-meta">
+                    <strong>Section A:</strong>{" "}
+                    {blueprint.sections.find((s) => s.name === "Section A")?.totalMarks ?? 15} marks
+                  </div>
+                  <div className="ai-material-meta">
+                    <strong>Section B:</strong>{" "}
+                    {blueprint.sections.find((s) => s.name === "Section B")?.totalMarks ?? 15} marks
+                  </div>
+                  <div className="ai-material-meta">
+                    <strong>Total:</strong> {blueprint.totalMarks} marks
+                  </div>
+                </>
               )}
             </div>
           )}
+
+          {readiness && !readiness.canGenerate && (
+            <div className="ai-quality-issues" style={{ marginBottom: "1rem" }}>
+              <strong>Generation blocked</strong>
+              {readiness.blockingReasons.map((reason, i) => (
+                <div key={i} className="ai-quality-issue is-error">
+                  {reason}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="sc-page-subtitle">
+            {blueprint
+              ? "Framework controls structure. AI fills content into fixed blueprint slots only."
+              : "Generate questions, memo, and rubric from your study material."}
+          </p>
 
           <div className="sc-gen-summary-grid">
             <div className="sc-gen-summary-item">
@@ -1009,7 +1061,7 @@ export default function AiAssessmentBuilder() {
             <button
               type="button"
               className="sc-btn sc-btn-primary"
-              disabled={loading}
+              disabled={loading || ((readiness?.frameworkRequired || readiness?.frameworkDetected) && !canGenerate)}
               onClick={() => void handleGenerate()}
             >
               {loading ? "Generating…" : "Generate Assessment"}

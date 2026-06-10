@@ -1,6 +1,6 @@
 {
   "name": "scriptcheck-backend",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "description": "ScriptCheck API",
   "main": "dist/index.js",
@@ -15,7 +15,8 @@
     "seed": "tsc && node dist/seed.js",
     "verify:ocr": "tsc && node dist/scripts/verifyOcrPipeline.js",
     "verify:past-paper": "tsc && node dist/scripts/verifyPastPaperExtraction.js",
-    "verify:framework": "tsc && node dist/scripts/verifyFrameworkEngine.js"
+    "verify:framework": "tsc && node dist/scripts/verifyFrameworkEngine.js",
+    "verify:framework-auto": "tsc && node dist/scripts/verifyFrameworkAutoDetection.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

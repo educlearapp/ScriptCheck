@@ -1,5 +1,6 @@
 import { AiBloomLevel, AiQuestionType } from "@prisma/client";
-import { containsOcrGarbage } from "./contentSanitizer";
+import { containsOcrGarbage, isValidQuestionText, sanitizeQuestionText } from "./contentSanitizer";
+import { PSW_FRAMEWORK_DISPLAY_NAME } from "./frameworkDetector";
 import type { AiGeneratedDraft, AiGeneratedQuestion } from "./aiAssessmentEngine";
 
 export type FrameworkSlot = {
@@ -132,7 +133,7 @@ export function getPswLifeSkillsGrade6Blueprint(): PaperBlueprint {
 
   return {
     id: "psw-life-skills-grade6",
-    name: "PSW Modified Framework — Grade 6 Life Skills",
+    name: PSW_FRAMEWORK_DISPLAY_NAME,
     slots,
     sections: buildSectionsFromSlots(slots),
     totalMarks: 30,
@@ -456,12 +457,15 @@ export function mapExtractedToGenerated(
   slot: FrameworkSlot,
   item: ExtractedItemForSlot,
   difficulty: string
-): AiGeneratedQuestion {
+): AiGeneratedQuestion | null {
+  const cleaned = sanitizeQuestionText(item.questionText);
+  if (!isValidQuestionText(cleaned)) return null;
+
   return {
     questionNumber: slot.questionNumber,
     section: slot.section,
     questionType: slot.questionType,
-    questionText: item.questionText,
+    questionText: cleaned,
     marks: slot.marks,
     bloomLevel: slot.bloom,
     difficulty,
@@ -475,12 +479,15 @@ export function mapBankToGenerated(
   slot: FrameworkSlot,
   item: BankItemForSlot,
   difficulty: string
-): AiGeneratedQuestion {
+): AiGeneratedQuestion | null {
+  const cleaned = sanitizeQuestionText(item.questionText);
+  if (!isValidQuestionText(cleaned)) return null;
+
   const q: AiGeneratedQuestion = {
     questionNumber: slot.questionNumber,
     section: slot.section,
     questionType: slot.questionType,
-    questionText: item.questionText,
+    questionText: cleaned,
     marks: slot.marks,
     bloomLevel: slot.bloom,
     difficulty: item.difficulty ?? difficulty,

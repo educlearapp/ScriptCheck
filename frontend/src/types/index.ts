@@ -330,7 +330,12 @@ export type AiBuilderStatus =
 
 export type AiMaterialType = "PDF" | "JPEG" | "PNG" | "DOCX" | "TXT";
 
-export type AiExtractionStatus = "PENDING" | "EXTRACTED" | "MANUAL_REQUIRED" | "FAILED";
+export type AiExtractionStatus =
+  | "PENDING"
+  | "EXTRACTED"
+  | "MANUAL_REQUIRED"
+  | "NEEDS_REVIEW"
+  | "FAILED";
 
 export type AiQuestionType =
   | "MULTIPLE_CHOICE"
@@ -389,6 +394,16 @@ export type DuplicateCheckResult = {
   isDuplicate: boolean;
 };
 
+export type AiGenerationReadiness = {
+  canGenerate: boolean;
+  frameworkDetected: boolean;
+  frameworkRequired: boolean;
+  frameworkName: string | null;
+  blueprint: PaperBlueprint | null;
+  blockingReasons: string[];
+  materialsNeedingReview: string[];
+};
+
 export type AiStudyMaterial = {
   id: string;
   fileType: AiMaterialType;
@@ -402,6 +417,7 @@ export type AiStudyMaterial = {
   effectiveText: string;
   ocrAttempted: boolean;
   ocrConfidence: number | null;
+  reviewConfirmed: boolean;
   extractedQuestions: ExtractedPaperQuestion[];
   duplicateWarnings: DuplicateCheckResult[];
   createdAt: string;
@@ -502,6 +518,9 @@ export type AiBuilderRequest = {
   sourceMode: AiBuilderSourceMode;
   selectedQuestionBankIds: string[];
   frameworkText: string | null;
+  frameworkRequired: boolean;
+  frameworkDetected: boolean;
+  generationReadiness: AiGenerationReadiness | null;
   assessmentId: string | null;
   assessment: { id: string; title: string; status: string } | null;
   curriculum: CurriculumRef | null;

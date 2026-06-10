@@ -72,6 +72,24 @@ export function runQualityChecks(
     });
   }
 
+  if (blueprint) {
+    const sectionMarks = new Map<string, number>();
+    for (const q of questions) {
+      const section = q.section ?? "Unknown";
+      sectionMarks.set(section, (sectionMarks.get(section) ?? 0) + q.marks);
+    }
+    for (const section of blueprint.sections) {
+      const actual = sectionMarks.get(section.name) ?? 0;
+      if (actual !== section.totalMarks) {
+        issues.push({
+          code: "FRAMEWORK_SECTION_MARKS",
+          severity: "error",
+          message: `${section.name} has ${actual} marks but framework requires ${section.totalMarks}`,
+        });
+      }
+    }
+  }
+
   for (const q of questions) {
     if (!q.marks || q.marks <= 0) {
       issues.push({

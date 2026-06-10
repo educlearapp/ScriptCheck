@@ -6,26 +6,31 @@
 const GARBAGE_PATTERNS: RegExp[] = [
   /\bIMG[_-]?\d{3,6}\b/gi,
   /\bDSC[_-]?\d{3,6}\b/gi,
-  /\b[a-z]{2,4}\d{4,}[a-z]{0,4}\b/gi, // Oca1ea37, Aals11000
-  /\b\d{4,}\s*[a-z]{1,3}\b/gi, // 11000 Bil
-  /\b[a-z]\s*\(\s*\d+\s*i\s*ne\.?\s*\)/gi, // L (3 i ne.)
+  /\b[a-z]{2,4}\d{4,}[a-z0-9]{0,4}\b/gi,
+  /\b\d{4,}\s*[a-z]{1,3}\b/gi,
+  /\b[a-z]\s*\(\s*\d+\s*i\s*ne\.?\)?/gi,
+  /\b[a-z]\s*\(\s*\d+\s*i\s*ne\b/gi,
   /\bpage\s+\d+\s+of\s+\d+\b/gi,
-  /\b\d+\s*\/\s*\d+\b/g, // page fractions when isolated
-  /[^\w\s]{3,}/g, // long symbol runs from scan noise
+  /\b\d+\s*\/\s*\d+\b/g,
+  /[^\w\s'"-]{3,}/g,
   /\baals\s+\d+\s+bil\b/gi,
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
 ];
 
-const FILENAME_PATTERN = /\b[\w-]+\.(jpg|jpeg|png|pdf|docx|txt)\b/gi;
+const FILENAME_PATTERN =
+  /\b[\w-]+\.(jpg|jpeg|png|pdf|docx|txt)\b|\bIMG[_-]?\d{3,6}\.(jpg|jpeg|png)\b/gi;
 
-const BROKEN_WORD_PATTERN = /\b[a-z]{1,2}\s+[a-z]{1,2}\s+[a-z]{1,2}\b/gi;
+const BROKEN_WORD_PATTERN = /\b[a-z]{1,2}\s+[a-z]{1,2}(\s+[a-z]{1,2})?\b/gi;
 
 const KNOWN_GARBAGE_PHRASES = [
   "aals 11000 bil",
+  "peacekeeping l (3 i ne.",
   "peacekeeping l (3 i ne.)",
   "oca1ea37",
   "img_6633",
   "scan artefact",
   "ocr integration pending",
+  "sl la",
 ];
 
 function normaliseForCheck(text: string): string {
@@ -41,9 +46,10 @@ export function isLowQualityToken(token: string): boolean {
   const t = token.trim();
   if (!t || t.length < 2) return true;
   if (/^\d+$/.test(t)) return true;
-  if (/^[a-z]\d+[a-z0-9]*$/i.test(t) && t.length <= 8) return true;
+  if (/^[a-z]\d+[a-z0-9]*$/i.test(t) && t.length <= 10) return true;
   if (/^[^a-zA-Z0-9]+$/.test(t)) return true;
   if (/\d{4,}/.test(t) && t.length <= 12) return true;
+  if (/^[a-z]{1,3}$/i.test(t) && !["the", "and", "for"].includes(t.toLowerCase())) return true;
   return false;
 }
 
@@ -52,9 +58,34 @@ export function containsOcrGarbage(text: string): boolean {
   const n = normaliseForCheck(text);
   if (KNOWN_GARBAGE_PHRASES.some((p) => n.includes(p))) return true;
   if (/\bimg[_-]?\d{3,}\b/i.test(text)) return true;
-  if (/\b[a-z]{2,4}\d{4,}[a-z]{0,4}\b/i.test(text)) return true;
-  if (/\b[a-z]\s*\(\s*\d+\s*i\s*ne\.?\s*\)/i.test(text)) return true;
+  if (/\b[a-z]{2,4}\d{4,}[a-z0-9]{0,4}\b/i.test(text)) return true;
+  if (/\b[a-z]\s*\(\s*\d+\s*i\s*ne/i.test(text)) return true;
+  if (/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i.test(text)) return true;
+  if (/\baals\b/i.test(n) && /\bbil\b/i.test(n)) return true;
+  if (/\bsl\s+la\b/i.test(n)) return true;
   return false;
+}
+
+/**
+ * Returns false for OCR-corrupted terms that must never become question content.
+ */
+export function isValidConceptTerm(term: string): boolean {
+  const t = term.trim();
+  if (!t || t.length < 3 || t.length > 45) return false;
+  if (containsOcrGarbage(t) || isGarbagePhrase(t)) return false;
+  if (/^[0-9a-f-]{20,}$/i.test(t)) return false;
+  if (/\.(jpg|jpeg|png|pdf|docx|txt)$/i.test(t)) return false;
+  if (/^\d/.test(t)) return false;
+  const words = t.split(/\s+/);
+  if (words.length <= 2 && words.every((w) => w.length <= 3)) return false;
+  if (words.filter((w) => isLowQualityToken(w)).length > words.length / 2) return false;
+  return true;
+}
+
+export function isValidQuestionText(text: string): boolean {
+  if (!text?.trim() || text.trim().length < 8) return false;
+  if (containsOcrGarbage(text)) return false;
+  return true;
 }
 
 function stripKnownGarbage(text: string): string {
@@ -64,6 +95,7 @@ function stripKnownGarbage(text: string): string {
     result = result.replace(re, " ");
   }
   result = result.replace(/\baals\b/gi, " ");
+  result = result.replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, " ");
   return result.replace(/\s{2,}/g, " ").trim();
 }
 
@@ -85,9 +117,6 @@ function cleanLine(line: string): string {
   return words.join(" ").replace(/\s{2,}/g, " ").trim();
 }
 
-/**
- * Sanitise OCR text before concept extraction or question generation.
- */
 export function sanitizeOcrText(text: string): string {
   if (!text?.trim()) return "";
 
@@ -99,6 +128,7 @@ export function sanitizeOcrText(text: string): string {
     if (!line) continue;
     if (line.length < 3) continue;
     if (isGarbagePhrase(line)) continue;
+    if (containsOcrGarbage(line)) continue;
     if (/^\d+$/.test(line)) continue;
     if (/^page\s+\d+$/i.test(line)) continue;
     cleaned.push(line);
@@ -107,16 +137,16 @@ export function sanitizeOcrText(text: string): string {
   return cleaned.join("\n").trim();
 }
 
-/**
- * Sanitise a single question string — used before inserting into draft.
- */
 export function sanitizeQuestionText(text: string): string {
-  const cleaned = sanitizeOcrText(text);
+  let cleaned = sanitizeOcrText(text);
   if (containsOcrGarbage(cleaned)) {
-    return cleaned
+    cleaned = cleaned
       .replace(/\bIMG[_-]?\d{3,6}\b/gi, "")
-      .replace(/\b[a-z]{2,4}\d{4,}[a-z]{0,4}\b/gi, "")
-      .replace(/\b[a-z]\s*\(\s*\d+\s*i\s*ne\.?\s*\)/gi, "")
+      .replace(/\b[a-z]{2,4}\d{4,}[a-z0-9]{0,4}\b/gi, "")
+      .replace(/\b[a-z]\s*\(\s*\d+\s*i\s*ne\.?\)?/gi, "")
+      .replace(/\baals\s+\d+\s+bil\b/gi, "")
+      .replace(/\baals\b/gi, "")
+      .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, "")
       .replace(/\s{2,}/g, " ")
       .trim();
   }
