@@ -11,6 +11,7 @@ import {
   UserAccessContext,
 } from "./permissions";
 import { WorkspaceRole } from "@prisma/client";
+import { countUncapturedLearners } from "./markCapture";
 
 const assessmentListInclude = {
   grade: { select: { id: true, name: true } },
@@ -94,8 +95,9 @@ export async function getTeacherDashboard(
   access: UserAccessContext
 ) {
   const scope = teacherScopeWhere(workspaceId, userId, access);
+  const now = new Date();
 
-  const [awaitingMarking, submittedToHod, recentlyPublished] = await Promise.all([
+  const [awaitingMarking, submittedToHod, recentlyPublished, moderationPending, overdueAssessments, upcomingDeadlines] = await Promise.all([
     prisma.assessment.findMany({
       where: {
         ...scope,
@@ -123,7 +125,69 @@ export async function getTeacherDashboard(
       orderBy: { publishedAt: "desc" },
       take: 8,
     }),
+    prisma.scriptBatch.findMany({
+      where: {
+        workspaceId,
+        createdById: hasBroadResultsAccess(access, workspaceId) ? undefined : userId,
+        status: {
+          in: [
+            ScriptBatchStatus.SUBMITTED_TO_HOD,
+            ScriptBatchStatus.HOD_REVIEW,
+            ScriptBatchStatus.RETURNED_TO_TEACHER,
+          ],
+        },
+      },
+      include: {
+        assessment: {
+          select: {
+            id: true,
+            title: true,
+            subject: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
+    prisma.assessment.findMany({
+      where: {
+        ...scope,
+        dueDate: { lt: now },
+        status: {
+          notIn: [AssessmentStatus.PUBLISHED, AssessmentStatus.MARKED],
+        },
+      },
+      include: assessmentListInclude,
+      orderBy: { dueDate: "asc" },
+      take: 8,
+    }),
+    prisma.assessment.findMany({
+      where: {
+        ...scope,
+        OR: [
+          { dueDate: { gte: now } },
+          { markingDeadline: { gte: now } },
+        ],
+        status: {
+          notIn: [AssessmentStatus.PUBLISHED],
+        },
+      },
+      include: assessmentListInclude,
+      orderBy: [{ dueDate: "asc" }, { markingDeadline: "asc" }],
+      take: 8,
+    }),
   ]);
+
+  const markingAssessments = awaitingMarking.filter(
+    (a) => a.status === AssessmentStatus.MARKING || a.status === AssessmentStatus.WRITTEN
+  );
+  const uncapturedCounts = await Promise.all(
+    markingAssessments.map(async (a) => ({
+      assessmentId: a.id,
+      count: await countUncapturedLearners(workspaceId, a.id),
+    }))
+  );
+  const marksNotCapturedCount = uncapturedCounts.reduce((sum, c) => sum + c.count, 0);
 
   const publishedSnapshots = recentlyPublished
     .map((a) => parseAnalyticsSnapshot(a.analyticsSnapshot)?.classAverage)
@@ -136,19 +200,41 @@ export async function getTeacherDashboard(
       submittedToHodCount: submittedToHod.length,
       publishedCount: recentlyPublished.length,
       averagePerformance: averageOf(publishedSnapshots),
+      moderationPendingCount: moderationPending.length,
+      marksNotCapturedCount,
+      overdueAssessmentsCount: overdueAssessments.length,
+      upcomingDeadlinesCount: upcomingDeadlines.length,
     },
     awaitingMarking: awaitingMarking.map(serializeAssessmentBrief),
     submittedToHod: submittedToHod.map(serializeAssessmentBrief),
     recentlyPublished: recentlyPublished.map(serializeAssessmentBrief),
+    moderationPending: moderationPending.map((batch) => ({
+      id: batch.id,
+      title: batch.title,
+      status: batch.status,
+      assessment: batch.assessment,
+    })),
+    overdueAssessments: overdueAssessments.map(serializeAssessmentBrief),
+    upcomingDeadlines: upcomingDeadlines.map((a) => ({
+      ...serializeAssessmentBrief(a),
+      dueDate: a.dueDate?.toISOString() ?? null,
+      markingDeadline: a.markingDeadline?.toISOString() ?? null,
+      moderationDeadline: a.moderationDeadline?.toISOString() ?? null,
+    })),
   };
 }
 
 export async function getHodDashboard(workspaceId: string, access: UserAccessContext) {
+  const now = new Date();
+
   const [
     scriptBatchesAwaiting,
     assessmentsAwaitingReview,
     resultsAwaitingPublish,
     publishedAssessments,
+    overdueModeration,
+    moderationQueue,
+    departmentStats,
   ] = await Promise.all([
     prisma.scriptBatch.count({
       where: {
@@ -177,6 +263,40 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
     prisma.assessment.findMany({
       where: { workspaceId, status: AssessmentStatus.PUBLISHED },
       select: { analyticsSnapshot: true },
+    }),
+    prisma.scriptBatch.findMany({
+      where: {
+        workspaceId,
+        status: { in: [ScriptBatchStatus.SUBMITTED_TO_HOD, ScriptBatchStatus.HOD_REVIEW] },
+        updatedAt: { lt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000) },
+      },
+      include: {
+        assessment: {
+          select: { id: true, title: true, subject: { select: { name: true } } },
+        },
+        createdBy: { select: { id: true, fullName: true } },
+      },
+      orderBy: { updatedAt: "asc" },
+      take: 10,
+    }),
+    prisma.scriptBatch.findMany({
+      where: {
+        workspaceId,
+        status: { in: [ScriptBatchStatus.SUBMITTED_TO_HOD, ScriptBatchStatus.HOD_REVIEW] },
+      },
+      include: {
+        assessment: {
+          select: { id: true, title: true, subject: { select: { name: true } } },
+        },
+        createdBy: { select: { id: true, fullName: true } },
+      },
+      orderBy: { updatedAt: "asc" },
+      take: 10,
+    }),
+    prisma.assessment.groupBy({
+      by: ["subjectId"],
+      where: { workspaceId, status: AssessmentStatus.PUBLISHED },
+      _count: { id: true },
     }),
   ]);
 
@@ -215,9 +335,28 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
       resultsAwaitingPublishCount: resultsAwaitingPublish.length,
       atRiskLearnerCount: atRiskTotal,
       departmentAverage: averageOf(classAverages),
+      overdueModerationCount: overdueModeration.length,
+      moderationQueueCount: moderationQueue.length,
+      publishedSubjectCount: departmentStats.length,
     },
     resultsAwaitingPublish: resultsAwaitingPublish.map(serializeAssessmentBrief),
     weakTopics,
+    moderationQueue: moderationQueue.map((batch) => ({
+      id: batch.id,
+      title: batch.title,
+      status: batch.status,
+      assessment: batch.assessment,
+      createdBy: batch.createdBy,
+      updatedAt: batch.updatedAt.toISOString(),
+    })),
+    overdueModeration: overdueModeration.map((batch) => ({
+      id: batch.id,
+      title: batch.title,
+      status: batch.status,
+      assessment: batch.assessment,
+      createdBy: batch.createdBy,
+      updatedAt: batch.updatedAt.toISOString(),
+    })),
   };
 }
 

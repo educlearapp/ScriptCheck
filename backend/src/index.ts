@@ -17,6 +17,10 @@ import dashboardRoutes from "./routes/dashboard";
 import resultsRoutes from "./routes/results";
 import publishedResultsRoutes from "./routes/publishedResults";
 import examSessionsRoutes from "./routes/examSessions";
+import subjectsRoutes from "./routes/subjects";
+import rubricsRoutes from "./routes/rubrics";
+import scheduleRoutes from "./routes/schedule";
+import markCaptureRoutes from "./routes/markCapture";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -25,7 +29,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "scriptcheck-api", phase: "lockdown-workflow-exam-security" });
+  res.json({ ok: true, service: "scriptcheck-api", phase: "assessment-setup-scheduling-rubric" });
 });
 
 app.use("/auth", authRoutes);
@@ -43,6 +47,10 @@ app.use("/dashboard", dashboardRoutes);
 app.use("/results", resultsRoutes);
 app.use("/published-results", publishedResultsRoutes);
 app.use("/exam-sessions", examSessionsRoutes);
+app.use("/subjects", subjectsRoutes);
+app.use("/rubrics", rubricsRoutes);
+app.use("/schedule", scheduleRoutes);
+app.use("/mark-capture", markCaptureRoutes);
 
 app.use(
   (

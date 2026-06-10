@@ -42,6 +42,10 @@ export default function CreateAssessment() {
   const [title, setTitle] = useState("");
   const [assessmentType, setAssessmentType] = useState<AssessmentType>("TEST");
   const [totalMarks, setTotalMarks] = useState("50");
+  const [term, setTerm] = useState("");
+  const [weightingPercent, setWeightingPercent] = useState("");
+  const [assessmentDate, setAssessmentDate] = useState("");
+  const [dueDate, setDueDate] = useState("");
 
   // Template flow
   const [templates, setTemplates] = useState<AssessmentTemplate[]>([]);
@@ -124,6 +128,10 @@ export default function CreateAssessment() {
           title, curriculumId, phaseId, gradeId, subjectId,
           assessmentType,
           totalMarks: Number(totalMarks),
+          term: term || null,
+          weightingPercent: weightingPercent ? Number(weightingPercent) : null,
+          assessmentDate: assessmentDate || null,
+          dueDate: dueDate || null,
         }),
       });
       navigate(`/assessments/${created.id}`);
@@ -256,6 +264,22 @@ export default function CreateAssessment() {
             <div>
               <label className="sc-label">Total marks</label>
               <input className="sc-input" type="number" min={1} value={totalMarks} onChange={(e) => setTotalMarks(e.target.value)} required disabled={!contextReady} />
+            </div>
+            <div>
+              <label className="sc-label">Term</label>
+              <input className="sc-input" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="e.g. Term 1" disabled={!contextReady} />
+            </div>
+            <div>
+              <label className="sc-label">Weighting %</label>
+              <input className="sc-input" type="number" min={0} max={100} value={weightingPercent} onChange={(e) => setWeightingPercent(e.target.value)} disabled={!contextReady} />
+            </div>
+            <div>
+              <label className="sc-label">Assessment date</label>
+              <input className="sc-input" type="date" value={assessmentDate} onChange={(e) => setAssessmentDate(e.target.value)} disabled={!contextReady} />
+            </div>
+            <div>
+              <label className="sc-label">Due date</label>
+              <input className="sc-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} disabled={!contextReady} />
             </div>
           </div>
           <div className="sc-form-actions">

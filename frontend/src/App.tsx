@@ -21,6 +21,9 @@ import HodModerationQueue from "./pages/moderation/HodModerationQueue";
 import BatchModerationDashboard from "./pages/moderation/BatchModerationDashboard";
 import DepartmentResults from "./pages/results/DepartmentResults";
 import PublishedResults from "./pages/results/PublishedResults";
+import SubjectsManagement from "./pages/subjects/SubjectsManagement";
+import RubricsManagement from "./pages/rubrics/RubricsManagement";
+import AssessmentSchedule from "./pages/schedule/AssessmentSchedule";
 
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
@@ -85,6 +88,18 @@ function AppRoutes() {
 
             <Route element={<RequirePermission permission="assessmentTemplates.view" />}>
               <Route path="/assessment-templates" element={<AssessmentTemplates />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="subjects.view" />}>
+              <Route path="/subjects" element={<SubjectsManagement />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="rubrics.view" />}>
+              <Route path="/rubrics" element={<RubricsManagement />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="schedule.view" />}>
+              <Route path="/schedule" element={<AssessmentSchedule />} />
             </Route>
           </Route>
         </Route>

@@ -73,6 +73,14 @@ enum AuditAction {
   SCRIPT_MARK_CAPTURED
   SCRIPT_MARK_UPDATED
   SCRIPT_VARIANCE_FLAGGED
+  ASSESSMENT_CREATED
+  ASSESSMENT_UPDATED
+  SUBJECT_CREATED
+  SUBJECT_UPDATED
+  SUBJECT_ARCHIVED
+  RUBRIC_CREATED
+  RUBRIC_UPDATED
+  RUBRIC_APPROVED
 }
 
 enum ModerationVarianceLevel {
@@ -185,6 +193,25 @@ enum AssessmentType {
   OTHER
 }
 
+enum RubricTemplateStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ARCHIVED
+}
+
+enum RubricTemplateScope {
+  REUSABLE
+  SUBJECT_SPECIFIC
+  TEACHER_CREATED
+}
+
+enum MarkCaptureSource {
+  SCRIPT_MARKING
+  MANUAL
+  IMPORT
+}
+
 // ─── Workspace (organisation) ─────────────────────────────────────────────────
 
 model Workspace {
@@ -208,6 +235,9 @@ model Workspace {
   learners                     Learner[]
   scriptBatches                ScriptBatch[]
   examSessions                 ExamSession[]
+  workspaceSubjects            WorkspaceSubject[]
+  rubricTemplates              RubricTemplate[]
+  learnerAssessmentMarks       LearnerAssessmentMark[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -240,6 +270,10 @@ model User {
   scriptPagesUploaded             ScriptPage[]                    @relation("ScriptPageUploader")
   scriptsFinalised                LearnerScript[]                 @relation("ScriptFinaliser")
   examSessionsCreated             ExamSession[]                   @relation("ExamSessionCreator")
+  workspaceSubjectsCreated        WorkspaceSubject[]              @relation("WorkspaceSubjectCreator")
+  rubricTemplatesCreated          RubricTemplate[]                @relation("RubricTemplateCreator")
+  rubricTemplatesApproved         RubricTemplate[]                @relation("RubricTemplateApprover")
+  learnerAssessmentMarksCaptured  LearnerAssessmentMark[]         @relation("MarkCaptureAuthor")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -308,9 +342,10 @@ model Curriculum {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  phases      Phase[]
-  subjects    Subject[]
-  assessments Assessment[]
+  phases            Phase[]
+  subjects          Subject[]
+  assessments       Assessment[]
+  workspaceSubjects WorkspaceSubject[]
 }
 
 model Phase {
@@ -325,7 +360,8 @@ model Phase {
   curriculum  Curriculum   @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
   grades      Grade[]
   subjects    Subject[]
-  assessments Assessment[]
+  assessments       Assessment[]
+  workspaceSubjects WorkspaceSubject[]
 
   @@unique([curriculumId, code])
   @@index([curriculumId, orderIndex])
@@ -341,8 +377,9 @@ model Grade {
   updatedAt  DateTime @updatedAt
 
   phase       Phase         @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  assessments Assessment[]
-  learners    Learner[]
+  assessments       Assessment[]
+  learners          Learner[]
+  workspaceSubjects WorkspaceSubject[]
 
   @@unique([phaseId, code])
   @@index([phaseId, orderIndex])
@@ -361,7 +398,9 @@ model Subject {
 
   curriculum  Curriculum   @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
   phase       Phase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  assessments Assessment[]
+  assessments       Assessment[]
+  workspaceSubjects WorkspaceSubject[]
+  rubricTemplates   RubricTemplate[]
 
   @@unique([phaseId, code])
   @@index([curriculumId, phaseId])
@@ -384,8 +423,16 @@ model Assessment {
   term           String?
   session        String?
 
-  totalMarks      Int
-  durationMinutes Int?
+  totalMarks       Int
+  weightingPercent Float?
+  durationMinutes  Int?
+
+  assessmentDate      DateTime?
+  dueDate             DateTime?
+  markingDeadline     DateTime?
+  moderationDeadline  DateTime?
+
+  rubricTemplateId String?
 
   status AssessmentStatus @default(DRAFT)
 
@@ -409,7 +456,9 @@ model Assessment {
   generatedVersions   GeneratedAssessment[]
   scriptBatches       ScriptBatch[]
   learnerScripts      LearnerScript[]
-  examSessions        ExamSession[]
+  examSessions           ExamSession[]
+  rubricTemplate         RubricTemplate?         @relation(fields: [rubricTemplateId], references: [id], onDelete: SetNull)
+  learnerAssessmentMarks LearnerAssessmentMark[]
 
   analyticsSnapshot Json?
 
@@ -420,6 +469,9 @@ model Assessment {
   @@index([workspaceId, curriculumId])
   @@index([creatorTeacherId])
   @@index([assignedUserId])
+  @@index([workspaceId, assessmentDate])
+  @@index([workspaceId, dueDate])
+  @@index([rubricTemplateId])
 }
 
 model AssessmentModerationAudit {
@@ -637,8 +689,9 @@ model Learner {
 
   workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   grade              Grade               @relation(fields: [gradeId], references: [id])
-  learnerScripts     LearnerScript[]
-  examDeviceSessions ExamDeviceSession[]
+  learnerScripts          LearnerScript[]
+  examDeviceSessions      ExamDeviceSession[]
+  learnerAssessmentMarks  LearnerAssessmentMark[]
 
   @@unique([workspaceId, learnerNumber])
   @@index([workspaceId, active])
@@ -704,7 +757,8 @@ model LearnerScript {
   questionMarks  ScriptQuestionMark[]
   layers         ScriptAnnotationLayer[]
   feedback       LearnerFeedback[]
-  pages          ScriptPage[]
+  pages                 ScriptPage[]
+  learnerAssessmentMark LearnerAssessmentMark?
 
   @@unique([batchId, learnerId])
   @@index([batchId, status])
@@ -839,4 +893,108 @@ model LearnerFeedback {
 
   @@index([learnerScriptId, createdAt])
   @@index([createdById])
+}
+
+// ─── Workspace subject offerings (school-managed) ─────────────────────────────
+
+model WorkspaceSubject {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  name             String
+  code             String
+  curriculumId     String
+  phaseId          String
+  gradeId          String
+  catalogSubjectId String?
+  department       String?
+  active           Boolean   @default(true)
+  archivedAt       DateTime?
+  createdById      String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  curriculum     Curriculum  @relation(fields: [curriculumId], references: [id])
+  phase          Phase       @relation(fields: [phaseId], references: [id])
+  grade          Grade       @relation(fields: [gradeId], references: [id])
+  catalogSubject Subject?    @relation(fields: [catalogSubjectId], references: [id], onDelete: SetNull)
+  createdBy      User        @relation("WorkspaceSubjectCreator", fields: [createdById], references: [id])
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId, active])
+  @@index([workspaceId, department])
+  @@index([workspaceId, gradeId])
+}
+
+// ─── Rubric templates (structured marking criteria) ───────────────────────────
+
+model RubricTemplate {
+  id           String               @id @default(cuid())
+  workspaceId  String
+  name         String
+  description  String?
+  subjectId    String?
+  scope        RubricTemplateScope
+  status       RubricTemplateStatus @default(DRAFT)
+  totalMarks   Int                  @default(0)
+  createdById  String
+  approvedById String?
+  approvedAt   DateTime?
+  archivedAt   DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subject    Subject?         @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  createdBy  User             @relation("RubricTemplateCreator", fields: [createdById], references: [id])
+  approvedBy User?            @relation("RubricTemplateApprover", fields: [approvedById], references: [id])
+  criteria   RubricCriterion[]
+  assessments Assessment[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, subjectId])
+  @@index([createdById])
+}
+
+model RubricCriterion {
+  id               String @id @default(cuid())
+  rubricTemplateId String
+  name             String
+  description      String?
+  maxMarks         Int
+  orderIndex       Int
+
+  template RubricTemplate @relation(fields: [rubricTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([rubricTemplateId, orderIndex])
+  @@index([rubricTemplateId])
+}
+
+// ─── One-time mark capture (canonical learner marks) ──────────────────────────
+
+model LearnerAssessmentMark {
+  id              String            @id @default(cuid())
+  workspaceId     String
+  assessmentId    String
+  learnerId       String
+  learnerScriptId String?           @unique
+  teacherMark     Float?
+  hodMark         Float?
+  finalMark       Float?
+  finalPercentage Float?
+  source          MarkCaptureSource @default(SCRIPT_MARKING)
+  capturedAt      DateTime          @default(now())
+  capturedById    String
+  updatedAt       DateTime          @updatedAt
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment    Assessment     @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  learner       Learner        @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  learnerScript LearnerScript? @relation(fields: [learnerScriptId], references: [id], onDelete: SetNull)
+  capturedBy    User           @relation("MarkCaptureAuthor", fields: [capturedById], references: [id])
+
+  @@unique([assessmentId, learnerId])
+  @@index([workspaceId, assessmentId])
+  @@index([learnerId, assessmentId])
+  @@index([assessmentId, finalMark])
 }

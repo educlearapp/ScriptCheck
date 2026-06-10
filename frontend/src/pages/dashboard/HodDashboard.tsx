@@ -44,6 +44,21 @@ export default function HodDashboard() {
       </div>
 
       <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
+        <div className="sc-card sc-card-gold" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.moderationQueueCount ?? "—"}</div>
+          <div>Moderation queue</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.overdueModerationCount ?? "—"}</div>
+          <div>Overdue moderation</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.publishedSubjectCount ?? "—"}</div>
+          <div>Department subjects tracked</div>
+        </div>
+      </div>
+
+      <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-detail-label">Department average</div>
           <div className="sc-stat-value">{formatPct(stats?.departmentAverage)}</div>
@@ -57,6 +72,30 @@ export default function HodDashboard() {
           <div className="sc-stat-value">{data?.weakTopics.length ?? "—"}</div>
         </div>
       </div>
+
+      {data?.moderationQueue.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Moderation queue</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <tbody>
+                {data.moderationQueue.map((batch) => (
+                  <tr key={batch.id}>
+                    <td>{batch.title}</td>
+                    <td>{batch.assessment.subject.name}</td>
+                    <td>{batch.createdBy?.fullName}</td>
+                    <td>
+                      <Link to={`/assessments/${batch.assessment.id}/scripts`} className="sc-btn sc-btn-primary">
+                        Moderate
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {data?.resultsAwaitingPublish.length ? (
         <section style={{ marginTop: "1.5rem" }}>

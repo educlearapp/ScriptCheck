@@ -31,11 +31,26 @@ export default function TeacherDashboard() {
       <div className="sc-grid-3" style={{ marginTop: "1.5rem" }}>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-stat-value">{stats?.awaitingMarkingCount ?? "—"}</div>
-          <div>Awaiting marking</div>
+          <div>Assessments awaiting marking</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.submittedToHodCount ?? "—"}</div>
-          <div>Submitted to HOD</div>
+          <div className="sc-stat-value">{stats?.moderationPendingCount ?? "—"}</div>
+          <div>Moderation pending</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.marksNotCapturedCount ?? "—"}</div>
+          <div>Marks not captured</div>
+        </div>
+      </div>
+
+      <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.overdueAssessmentsCount ?? "—"}</div>
+          <div>Assessments overdue</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.upcomingDeadlinesCount ?? "—"}</div>
+          <div>Upcoming deadlines</div>
         </div>
         <div className="sc-card sc-card-gold" style={{ padding: "1.25rem" }}>
           <div className="sc-stat-value">{stats?.publishedCount ?? "—"}</div>
@@ -98,6 +113,52 @@ export default function TeacherDashboard() {
         </section>
       ) : null}
 
+      {data?.overdueAssessments.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Overdue assessments</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <tbody>
+                {data.overdueAssessments.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.title}</td>
+                    <td>{item.subject.name}</td>
+                    <td>
+                      <Link to={`/assessments/${item.id}`} className="sc-btn sc-btn-ghost">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {data?.upcomingDeadlines.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Upcoming deadlines</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <tbody>
+                {data.upcomingDeadlines.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.title}</td>
+                    <td>{item.dueDate ? new Date(item.dueDate).toLocaleDateString() : "—"}</td>
+                    <td>
+                      <Link to={`/assessments/${item.id}`} className="sc-btn sc-btn-ghost">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
       {data?.recentlyPublished.length ? (
         <section style={{ marginTop: "1.5rem" }}>
           <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Recently published</h2>
@@ -129,6 +190,9 @@ export default function TeacherDashboard() {
           </Link>
           <Link to="/results" className="sc-btn sc-btn-ghost">
             View results
+          </Link>
+          <Link to="/schedule" className="sc-btn sc-btn-ghost">
+            Assessment schedule
           </Link>
           <Link to="/assessments" className="sc-btn sc-btn-ghost">
             All assessments

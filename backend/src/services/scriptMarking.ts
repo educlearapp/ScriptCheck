@@ -17,6 +17,7 @@ import {
 } from "./scriptWorkflow";
 import { computeMarkTotals } from "./markTotals";
 import { ModerationVarianceLevel } from "@prisma/client";
+import { syncMarkFromScript } from "./markCapture";
 
 export class ScriptError extends Error {
   constructor(
@@ -635,6 +636,10 @@ export async function saveScriptMarks(
     scriptId,
     previousVarianceLevel
   );
+
+  await syncMarkFromScript(scriptId, userId).catch((err) => {
+    console.error("[markCapture] sync failed", err);
+  });
 
   return {
     script: await getLearnerScript(scriptId, workspaceId),

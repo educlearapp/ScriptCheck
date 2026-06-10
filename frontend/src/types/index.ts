@@ -57,7 +57,13 @@ export type Permission =
   | "dashboard.academic.view"
   | "feedback.create"
   | "feedback.view"
-  | "reports.generate";
+  | "reports.generate"
+  | "subjects.view"
+  | "subjects.manage"
+  | "rubrics.view"
+  | "rubrics.create"
+  | "rubrics.approve"
+  | "schedule.view";
 
 export type AuthUser = {
   id: string;
@@ -186,7 +192,13 @@ export type Assessment = {
   term: string | null;
   session: string | null;
   totalMarks: number;
+  weightingPercent: number | null;
   durationMinutes: number | null;
+  assessmentDate: string | null;
+  dueDate: string | null;
+  markingDeadline: string | null;
+  moderationDeadline: string | null;
+  rubricTemplateId: string | null;
   status: AssessmentStatus;
   creatorTeacher: { id: string; fullName: string };
   assignedUser: { id: string; fullName: string } | null;
@@ -775,6 +787,15 @@ export type DepartmentResultItem = {
   learnersAtRiskCount: number | null;
 };
 
+export type DashboardBatchItem = {
+  id: string;
+  title: string;
+  status: string;
+  assessment: { id: string; title: string; subject: { name: string } };
+  createdBy?: { id: string; fullName: string };
+  updatedAt?: string;
+};
+
 export type TeacherDashboardData = {
   scope: "teacher";
   stats: {
@@ -782,10 +803,21 @@ export type TeacherDashboardData = {
     submittedToHodCount: number;
     publishedCount: number;
     averagePerformance: number | null;
+    moderationPendingCount: number;
+    marksNotCapturedCount: number;
+    overdueAssessmentsCount: number;
+    upcomingDeadlinesCount: number;
   };
   awaitingMarking: DepartmentResultItem[];
   submittedToHod: DepartmentResultItem[];
   recentlyPublished: DepartmentResultItem[];
+  moderationPending: DashboardBatchItem[];
+  overdueAssessments: DepartmentResultItem[];
+  upcomingDeadlines: (DepartmentResultItem & {
+    dueDate: string | null;
+    markingDeadline: string | null;
+    moderationDeadline: string | null;
+  })[];
 };
 
 export type HodDashboardData = {
@@ -796,9 +828,86 @@ export type HodDashboardData = {
     resultsAwaitingPublishCount: number;
     atRiskLearnerCount: number;
     departmentAverage: number | null;
+    overdueModerationCount: number;
+    moderationQueueCount: number;
+    publishedSubjectCount: number;
   };
   resultsAwaitingPublish: DepartmentResultItem[];
   weakTopics: { topic: string; averagePercentage: number; assessmentCount: number }[];
+  moderationQueue: DashboardBatchItem[];
+  overdueModeration: DashboardBatchItem[];
+};
+
+export type WorkspaceSubject = {
+  id: string;
+  name: string;
+  code: string;
+  department: string | null;
+  active: boolean;
+  archivedAt: string | null;
+  curriculum: CurriculumRef;
+  phase: PhaseRef;
+  grade: GradeRef;
+  catalogSubject: SubjectRef | null;
+  createdBy: { id: string; fullName: string };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RubricCriterion = {
+  id?: string;
+  name: string;
+  description: string | null;
+  maxMarks: number;
+  orderIndex: number;
+};
+
+export type RubricTemplateScope = "REUSABLE" | "SUBJECT_SPECIFIC" | "TEACHER_CREATED";
+export type RubricTemplateStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "ARCHIVED";
+
+export type RubricTemplate = {
+  id: string;
+  name: string;
+  description: string | null;
+  scope: RubricTemplateScope;
+  status: RubricTemplateStatus;
+  totalMarks: number;
+  subject: SubjectRef | null;
+  createdBy: { id: string; fullName: string };
+  approvedBy: { id: string; fullName: string } | null;
+  approvedAt: string | null;
+  criteria: RubricCriterion[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ScheduleEventType =
+  | "ASSESSMENT"
+  | "EXAMINATION"
+  | "MODERATION_DEADLINE"
+  | "MARKING_DEADLINE";
+
+export type ScheduleEvent = {
+  id: string;
+  type: ScheduleEventType;
+  title: string;
+  date: string;
+  assessmentId: string;
+  assessmentType: AssessmentType;
+  status: AssessmentStatus;
+  subject: { id: string; name: string };
+  grade: { id: string; name: string };
+  creatorTeacher: { id: string; fullName: string };
+  dueDate: string | null;
+  markingDeadline: string | null;
+  moderationDeadline: string | null;
+};
+
+export type AssessmentScheduleData = {
+  scope: "teacher" | "hod" | "school";
+  rangeStart: string;
+  rangeEnd: string;
+  events: ScheduleEvent[];
 };
 
 export type PrincipalDashboardData = {

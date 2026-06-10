@@ -3,7 +3,7 @@ import { AssessmentStatus, AssessmentType, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/requirePermission";
-import { PERMISSIONS } from "../services/permissions";
+import { hasPermission, PERMISSIONS } from "../services/permissions";
 import {
   CurriculumValidationError,
   validateCurriculumSelection,
@@ -59,7 +59,16 @@ type AssessmentWithRelations = Prisma.AssessmentGetPayload<{
   include: typeof assessmentInclude;
 }>;
 
-function serializeAssessment(assessment: AssessmentWithRelations) {
+function serializeAssessment(
+  assessment: AssessmentWithRelations & {
+    weightingPercent?: number | null;
+    assessmentDate?: Date | null;
+    dueDate?: Date | null;
+    markingDeadline?: Date | null;
+    moderationDeadline?: Date | null;
+    rubricTemplateId?: string | null;
+  }
+) {
   return {
     id: assessment.id,
     title: assessment.title,
@@ -72,7 +81,13 @@ function serializeAssessment(assessment: AssessmentWithRelations) {
     term: assessment.term,
     session: assessment.session,
     totalMarks: assessment.totalMarks,
+    weightingPercent: assessment.weightingPercent ?? null,
     durationMinutes: assessment.durationMinutes,
+    assessmentDate: assessment.assessmentDate?.toISOString() ?? null,
+    dueDate: assessment.dueDate?.toISOString() ?? null,
+    markingDeadline: assessment.markingDeadline?.toISOString() ?? null,
+    moderationDeadline: assessment.moderationDeadline?.toISOString() ?? null,
+    rubricTemplateId: assessment.rubricTemplateId ?? null,
     status: assessment.status,
     creatorTeacher: assessment.creatorTeacher,
     assignedUser: assessment.assignedUser,
@@ -679,6 +694,12 @@ router.post(
         }
       }
 
+      const body = req.body ?? {};
+      const weighting = body.weightingPercent != null ? Number(body.weightingPercent) : null;
+      if (weighting != null && (!Number.isFinite(weighting) || weighting < 0 || weighting > 100)) {
+        return res.status(400).json({ error: "weightingPercent must be between 0 and 100" });
+      }
+
       const assessment = await prisma.assessment.create({
         data: {
           workspaceId: req.auth!.workspaceId,
@@ -692,10 +713,16 @@ router.post(
           term: term ? String(term).trim() : null,
           session: session ? String(session).trim() : null,
           totalMarks: marks,
+          weightingPercent: weighting,
           durationMinutes:
             durationMinutes != null && durationMinutes !== ""
               ? Number(durationMinutes)
               : null,
+          assessmentDate: body.assessmentDate ? new Date(body.assessmentDate) : null,
+          dueDate: body.dueDate ? new Date(body.dueDate) : null,
+          markingDeadline: body.markingDeadline ? new Date(body.markingDeadline) : null,
+          moderationDeadline: body.moderationDeadline ? new Date(body.moderationDeadline) : null,
+          rubricTemplateId: body.rubricTemplateId ? String(body.rubricTemplateId) : null,
           status: AssessmentStatus.DRAFT,
           creatorTeacherId: req.auth!.userId,
           assignedUserId: assignedUserId || null,
@@ -703,9 +730,126 @@ router.post(
         include: assessmentInclude,
       });
 
+      await logAudit({
+        action: "ASSESSMENT_CREATED",
+        actorId: req.auth!.userId,
+        workspaceId: req.auth!.workspaceId,
+        metadata: { assessmentId: assessment.id, title: assessment.title },
+        ...auditRequestMeta(req),
+      });
+
       return res.status(201).json(serializeAssessment(assessment));
     } catch (err) {
       return handleCreateError(res, err);
+    }
+  }
+);
+
+router.patch(
+  "/:id",
+  requireAuth,
+  async (req: AuthenticatedRequest, res) => {
+    const id = String(req.params.id);
+    const body = req.body ?? {};
+
+    try {
+      const existing = await prisma.assessment.findFirst({
+        where: { id, workspaceId: req.auth!.workspaceId },
+      });
+      if (!existing) {
+        return res.status(404).json({ error: "Assessment not found" });
+      }
+
+      const canEdit =
+        hasPermission(req.access!, req.auth!.workspaceId, PERMISSIONS.ASSESSMENTS_EDIT) ||
+        (hasPermission(req.access!, req.auth!.workspaceId, PERMISSIONS.ASSESSMENTS_EDIT_OWN) &&
+          existing.creatorTeacherId === req.auth!.userId);
+
+      if (!canEdit) {
+        return res.status(403).json({ error: "Not permitted to edit this assessment" });
+      }
+
+      if (!["DRAFT", "RETURNED_TO_TEACHER"].includes(existing.status)) {
+        return res.status(403).json({ error: "Assessment cannot be edited in its current status" });
+      }
+
+      if (
+        body.assessmentType &&
+        !Object.values(AssessmentType).includes(body.assessmentType)
+      ) {
+        return res.status(400).json({ error: "Invalid assessment type" });
+      }
+
+      if (body.totalMarks != null) {
+        const marks = Number(body.totalMarks);
+        if (!Number.isFinite(marks) || marks <= 0) {
+          return res.status(400).json({ error: "totalMarks must be a positive number" });
+        }
+      }
+
+      const assessment = await prisma.assessment.update({
+        where: { id },
+        data: {
+          ...(body.title != null ? { title: String(body.title).trim() } : {}),
+          ...(body.description !== undefined
+            ? { description: body.description ? String(body.description).trim() : null }
+            : {}),
+          ...(body.assessmentType != null ? { assessmentType: body.assessmentType } : {}),
+          ...(body.term !== undefined ? { term: body.term ? String(body.term).trim() : null } : {}),
+          ...(body.session !== undefined
+            ? { session: body.session ? String(body.session).trim() : null }
+            : {}),
+          ...(body.totalMarks != null ? { totalMarks: Number(body.totalMarks) } : {}),
+          ...(body.weightingPercent !== undefined
+            ? { weightingPercent: body.weightingPercent != null ? Number(body.weightingPercent) : null }
+            : {}),
+          ...(body.durationMinutes !== undefined
+            ? {
+                durationMinutes:
+                  body.durationMinutes != null && body.durationMinutes !== ""
+                    ? Number(body.durationMinutes)
+                    : null,
+              }
+            : {}),
+          ...(body.assessmentDate !== undefined
+            ? { assessmentDate: body.assessmentDate ? new Date(body.assessmentDate) : null }
+            : {}),
+          ...(body.dueDate !== undefined
+            ? { dueDate: body.dueDate ? new Date(body.dueDate) : null }
+            : {}),
+          ...(body.markingDeadline !== undefined
+            ? {
+                markingDeadline: body.markingDeadline
+                  ? new Date(body.markingDeadline)
+                  : null,
+              }
+            : {}),
+          ...(body.moderationDeadline !== undefined
+            ? {
+                moderationDeadline: body.moderationDeadline
+                  ? new Date(body.moderationDeadline)
+                  : null,
+              }
+            : {}),
+          ...(body.rubricTemplateId !== undefined
+            ? { rubricTemplateId: body.rubricTemplateId ? String(body.rubricTemplateId) : null }
+            : {}),
+        },
+        include: assessmentInclude,
+      });
+
+      await logAudit({
+        action: "ASSESSMENT_UPDATED",
+        actorId: req.auth!.userId,
+        workspaceId: req.auth!.workspaceId,
+        metadata: { assessmentId: assessment.id },
+        ...auditRequestMeta(req),
+      });
+
+      return res.json(serializeAssessment(assessment));
+    } catch (err) {
+      console.error("[assessments/patch]", err);
+      return res.status(500).json({ error: "Failed to update assessment" });
     }
   }
 );

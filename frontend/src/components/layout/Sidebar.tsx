@@ -49,6 +49,24 @@ const NAV_ITEMS: NavItem[] = [
     permission: "assessmentTemplates.view",
   },
   {
+    to: "/schedule",
+    label: "Assessment Schedule",
+    icon: "📅",
+    permission: "schedule.view",
+  },
+  {
+    to: "/subjects",
+    label: "Subjects",
+    icon: "◇",
+    permission: "subjects.view",
+  },
+  {
+    to: "/rubrics",
+    label: "Rubrics",
+    icon: "▦",
+    permission: "rubrics.view",
+  },
+  {
     to: "/curriculum",
     label: "Curriculum Management",
     icon: "◎",
