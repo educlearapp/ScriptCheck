@@ -1,0 +1,113 @@
+.sc-assessment-detail .sc-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.sc-detail-back {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--sc-text-muted);
+  text-decoration: none;
+}
+
+.sc-detail-back:hover {
+  color: var(--sc-gold-light);
+}
+
+.sc-detail-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sc-text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.sc-detail-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--sc-text-muted);
+}
+
+.sc-marks-mismatch {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--sc-warning);
+}
+
+.sc-detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.sc-detail-description {
+  margin: 1rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--sc-border);
+  color: var(--sc-text-muted);
+  font-size: 0.9rem;
+}
+
+.sc-detail-questions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 1.5rem 0 1rem;
+  flex-wrap: wrap;
+}
+
+.sc-detail-questions-header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+}
+
+.sc-question-text-cell {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sc-memo-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.sc-memo-item {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--sc-border);
+}
+
+.sc-memo-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.sc-memo-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--sc-gold-light);
+}
+
+.sc-memo-item p {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--sc-text-muted);
+}
+
+.sc-memo-answer span,
+.sc-memo-notes span {
+  color: var(--sc-gold);
+  font-weight: 600;
+}

@@ -1,0 +1,842 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Workspace types ──────────────────────────────────────────────────────────
+
+enum WorkspaceType {
+  INDIVIDUAL_EDUCATOR
+  SCHOOL
+  EXAMINATION_BODY
+}
+
+enum WorkspaceRole {
+  TEACHER
+  HOD
+  MODERATOR
+  EXAMINATION_OFFICER
+  PRINCIPAL
+  SCHOOL_ADMIN
+  EXAM_BODY_ADMIN
+}
+
+enum AuditAction {
+  USER_REGISTERED
+  WORKSPACE_CREATED
+  USER_INVITED
+  ROLE_ASSIGNED
+  ROLE_REMOVED
+  LOGIN
+  LOGOUT
+  PERMISSION_ACTION
+  ASSESSMENT_GENERATION_REQUESTED
+  ASSESSMENT_GENERATED
+  ASSESSMENT_APPROVED
+  ASSESSMENT_REGENERATED
+  QUESTION_BANK_ITEM_CREATED
+  QUESTION_BANK_ITEM_APPROVED
+  QUESTION_BANK_ITEM_ARCHIVED
+  QUESTION_BANK_SAVED_FROM_ASSESSMENT
+  CURRICULUM_TOPIC_CREATED
+  QUESTION_BANK_ITEM_USED
+  ASSESSMENT_TEMPLATE_CREATED
+  ASSESSMENT_TEMPLATE_USED
+  ASSESSMENT_TEMPLATE_ARCHIVED
+  SCRIPT_BATCH_CREATED
+  LEARNER_SCRIPT_CREATED
+  SCRIPT_MARK_SAVED
+  SCRIPT_MARKED_COMPLETE
+  SCRIPT_BATCH_SUBMITTED_TO_HOD
+  SCRIPT_BATCH_APPROVED
+  SCRIPT_BATCH_RETURNED
+  RESULTS_PUBLISH_REQUESTED
+  RESULTS_PUBLISHED
+  RESULTS_REOPENED
+  LEARNER_FEEDBACK_CREATED
+  ASSESSMENT_REPORT_GENERATED
+  LEARNER_REPORT_GENERATED
+  SCRIPT_PAGE_UPLOADED
+  SCRIPT_ANNOTATION_CREATED
+  SCRIPT_ANNOTATION_UPDATED
+  SCRIPT_STATUS_CHANGED
+  SCRIPT_LAYER_LOCKED
+  SCRIPT_LAYER_UNLOCKED
+  SCRIPT_FINALISED
+  EXAM_SESSION_STARTED
+  EXAM_DEVICE_REGISTERED
+  EXAM_DEVICE_SESSION_ENDED
+  SCRIPT_MARK_CAPTURED
+  SCRIPT_MARK_UPDATED
+  SCRIPT_VARIANCE_FLAGGED
+}
+
+enum ModerationVarianceLevel {
+  NONE
+  OK
+  WARNING
+  SIGNIFICANT
+  CRITICAL
+}
+
+enum QuestionBankSource {
+  AI_GENERATED
+  TEACHER_CREATED
+  HOD_APPROVED
+  EXAM_BODY
+}
+
+enum QuestionBankStatus {
+  DRAFT
+  APPROVED
+  ARCHIVED
+}
+
+enum AssessmentTemplateStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ScriptBatchStatus {
+  DRAFT
+  MARKING
+  TEACHER_REVIEW
+  SUBMITTED_TO_HOD
+  HOD_REVIEW
+  RETURNED_TO_TEACHER
+  APPROVED
+  PUBLISHED
+}
+
+enum LearnerScriptStatus {
+  NOT_MARKED
+  IN_PROGRESS
+  UPLOADED
+  MARKING
+  MARKED
+  SUBMITTED_TO_HOD
+  HOD_REVIEW
+  MODERATION
+  RETURNED_TO_TEACHER
+  APPROVED
+  MODERATED
+  FINALISED
+}
+
+enum AnnotationLayerType {
+  ORIGINAL
+  TEACHER_RED
+  HOD_GREEN
+  FINAL
+}
+
+enum AssessmentGenerationStatus {
+  DRAFT
+  GENERATING
+  GENERATED
+  FAILED
+}
+
+enum GenerationMode {
+  QUESTIONS_ONLY
+  QUESTIONS_AND_MEMO
+  FULL_PACKAGE
+}
+
+enum GenerationDifficulty {
+  EASY
+  STANDARD
+  CHALLENGING
+}
+
+// ─── Assessment enums ─────────────────────────────────────────────────────────
+
+enum AssessmentStatus {
+  DRAFT
+  SUBMITTED_TO_HOD
+  RETURNED_TO_TEACHER
+  AI_REVIEW
+  HOD_REVIEW
+  APPROVED
+  WRITTEN
+  MARKING
+  MARKED
+  PUBLISHED
+}
+
+enum ModerationAction {
+  SUBMIT_TO_HOD
+  APPROVE
+  RETURN_TO_TEACHER
+}
+
+enum AssessmentType {
+  TEST
+  EXAM
+  ASSIGNMENT
+  SBA_TASK
+  PROJECT
+  PRACTICAL
+  ORAL
+  OTHER
+}
+
+// ─── Workspace (organisation) ─────────────────────────────────────────────────
+
+model Workspace {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  type      WorkspaceType
+  email     String?
+  phone     String?
+  address   String?
+  logoUrl   String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  memberships                  WorkspaceMembership[]
+  assessments                  Assessment[]
+  auditLogs                    AuditLog[]
+  assessmentGenerationRequests AssessmentGenerationRequest[]
+  questionBankItems            QuestionBankItem[]
+  assessmentTemplates          AssessmentTemplate[]
+  learners                     Learner[]
+  scriptBatches                ScriptBatch[]
+  examSessions                 ExamSession[]
+}
+
+// ─── User (global identity — no workspace or role on the record itself) ───────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  fullName     String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships        WorkspaceMembership[]
+  createdAssessments              Assessment[]                    @relation("AssessmentCreator")
+  assignedAssessments             Assessment[]                    @relation("AssessmentAssignee")
+  moderationAudits                AssessmentModerationAudit[]
+  auditLogsAsActor                AuditLog[]                      @relation("AuditActor")
+  auditLogsAsTarget               AuditLog[]                      @relation("AuditTarget")
+  assessmentGenerationRequests    AssessmentGenerationRequest[]   @relation("GenerationRequestCreator")
+  generatedAssessments            GeneratedAssessment[]           @relation("GeneratedAssessmentAuthor")
+  questionBankItemsCreated        QuestionBankItem[]              @relation("QuestionBankCreator")
+  questionBankItemsApproved       QuestionBankItem[]              @relation("QuestionBankApprover")
+  assessmentTemplatesCreated      AssessmentTemplate[]            @relation("TemplateCreator")
+  scriptBatchesCreated            ScriptBatch[]                   @relation("ScriptBatchCreator")
+  teacherScriptMarks              ScriptQuestionMark[]            @relation("TeacherMarker")
+  hodScriptMarks                  ScriptQuestionMark[]            @relation("HodModerator")
+  scriptAnnotationLayers          ScriptAnnotationLayer[]         @relation("AnnotationAuthor")
+  learnerFeedbackAuthored         LearnerFeedback[]               @relation("FeedbackAuthor")
+  scriptPagesUploaded             ScriptPage[]                    @relation("ScriptPageUploader")
+  scriptsFinalised                LearnerScript[]                 @relation("ScriptFinaliser")
+  examSessionsCreated             ExamSession[]                   @relation("ExamSessionCreator")
+}
+
+// ─── Workspace membership (user ↔ workspace) ────────────────────────────────
+
+model WorkspaceMembership {
+  id          String   @id @default(cuid())
+  userId      String
+  workspaceId String
+  isActive    Boolean  @default(true)
+  invitedAt   DateTime?
+  joinedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  roles     MembershipRole[]
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+// ─── Membership roles (multiple roles per workspace membership) ───────────────
+
+model MembershipRole {
+  id           String        @id @default(cuid())
+  membershipId String
+  role         WorkspaceRole
+  createdAt    DateTime      @default(now())
+
+  membership WorkspaceMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, role])
+  @@index([membershipId])
+}
+
+// ─── Audit log foundation ─────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  workspaceId   String?
+  actorId       String?
+  targetUserId  String?
+  action        AuditAction
+  metadata      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+
+  workspace  Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  actor      User?      @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  targetUser User?      @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+// ─── Curriculum catalog (global reference data) ─────────────────────────────
+
+model Curriculum {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  phases      Phase[]
+  subjects    Subject[]
+  assessments Assessment[]
+}
+
+model Phase {
+  id           String   @id @default(cuid())
+  curriculumId String
+  code         String
+  name         String
+  orderIndex   Int
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  curriculum  Curriculum   @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  grades      Grade[]
+  subjects    Subject[]
+  assessments Assessment[]
+
+  @@unique([curriculumId, code])
+  @@index([curriculumId, orderIndex])
+}
+
+model Grade {
+  id         String   @id @default(cuid())
+  phaseId    String
+  code       String
+  name       String
+  orderIndex Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  phase       Phase         @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  assessments Assessment[]
+  learners    Learner[]
+
+  @@unique([phaseId, code])
+  @@index([phaseId, orderIndex])
+}
+
+model Subject {
+  id           String   @id @default(cuid())
+  curriculumId String
+  phaseId      String
+  code         String
+  name         String
+  category     String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  curriculum  Curriculum   @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  phase       Phase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  assessments Assessment[]
+
+  @@unique([phaseId, code])
+  @@index([curriculumId, phaseId])
+  @@index([phaseId, active])
+}
+
+// ─── Assessment (core entity — workspace-scoped, catalog-linked) ──────────────
+
+model Assessment {
+  id          String           @id @default(cuid())
+  workspaceId String
+  title       String
+  description String?
+
+  curriculumId   String
+  phaseId        String
+  gradeId        String
+  subjectId      String
+  assessmentType AssessmentType
+  term           String?
+  session        String?
+
+  totalMarks      Int
+  durationMinutes Int?
+
+  status AssessmentStatus @default(DRAFT)
+
+  creatorTeacherId String
+  assignedUserId   String?
+
+  aiMetadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace        Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  curriculum       Curriculum                  @relation(fields: [curriculumId], references: [id])
+  phase            Phase                       @relation(fields: [phaseId], references: [id])
+  grade            Grade                       @relation(fields: [gradeId], references: [id])
+  subject          Subject                     @relation(fields: [subjectId], references: [id])
+  creatorTeacher   User                        @relation("AssessmentCreator", fields: [creatorTeacherId], references: [id])
+  assignedUser     User?                       @relation("AssessmentAssignee", fields: [assignedUserId], references: [id])
+  moderationAudits    AssessmentModerationAudit[]
+  questions           AssessmentQuestion[]
+  generatedVersions   GeneratedAssessment[]
+  scriptBatches       ScriptBatch[]
+  learnerScripts      LearnerScript[]
+  examSessions        ExamSession[]
+
+  analyticsSnapshot Json?
+
+  resultsPublishRequestedAt DateTime?
+  publishedAt               DateTime?
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, curriculumId])
+  @@index([creatorTeacherId])
+  @@index([assignedUserId])
+}
+
+model AssessmentModerationAudit {
+  id            String           @id @default(cuid())
+  assessmentId  String
+  action        ModerationAction
+  fromStatus    AssessmentStatus
+  toStatus      AssessmentStatus
+  performedById String
+  comment       String?
+  createdAt     DateTime         @default(now())
+
+  assessment  Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  performedBy User       @relation(fields: [performedById], references: [id])
+
+  @@index([assessmentId, createdAt])
+  @@index([performedById])
+}
+
+model AssessmentQuestion {
+  id             String   @id @default(cuid())
+  assessmentId   String
+  questionNumber String
+  section        String?
+  questionText   String
+  topic          String?
+  marks          Int
+  cognitiveLevel String?
+  difficulty     String?
+  expectedAnswer String?
+  memoNotes      String?
+  rubricNotes    String?
+  orderIndex     Int
+
+  analyticsMetadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  scriptMarks ScriptQuestionMark[]
+
+  @@unique([assessmentId, orderIndex])
+  @@index([assessmentId])
+  @@index([assessmentId, topic])
+  @@index([assessmentId, cognitiveLevel])
+  @@index([assessmentId, difficulty])
+}
+
+// ─── AI assessment generation foundation ──────────────────────────────────────
+
+model AssessmentGenerationRequest {
+  id             String                   @id @default(cuid())
+  workspaceId    String
+  createdById    String
+  curriculumId   String
+  phaseId        String
+  gradeId        String
+  subjectId      String
+  assessmentType AssessmentType
+  outputMode     GenerationMode
+  term           String?
+  title          String
+  totalMarks     Int
+  difficulty     GenerationDifficulty
+  instructions   String?
+  topics         Json
+  status         AssessmentGenerationStatus @default(DRAFT)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  workspace  Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy  User                  @relation("GenerationRequestCreator", fields: [createdById], references: [id])
+  generated  GeneratedAssessment[]
+
+  @@index([workspaceId, status])
+  @@index([createdById, createdAt])
+}
+
+model GeneratedAssessment {
+  id                  String   @id @default(cuid())
+  requestId           String
+  assessmentId        String?
+  version             Int
+  generatedBy         String
+  generationMetadata  Json
+  createdAt           DateTime @default(now())
+
+  request     AssessmentGenerationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  assessment  Assessment?                 @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  author      User                        @relation("GeneratedAssessmentAuthor", fields: [generatedBy], references: [id])
+
+  @@unique([requestId, version])
+  @@index([requestId, createdAt])
+  @@index([assessmentId])
+}
+
+// ─── Curriculum topics (topic foundation for AI & analytics) ──────────────────
+
+model CurriculumTopic {
+  id           String   @id @default(cuid())
+  curriculumId String
+  phaseId      String
+  gradeId      String
+  subjectId    String
+  topic        String
+  subtopic     String   @default("")
+  orderIndex   Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([curriculumId, phaseId, gradeId, subjectId, topic, subtopic])
+  @@index([curriculumId, phaseId, gradeId, subjectId, active])
+}
+
+// ─── Question bank (reusable questions) ───────────────────────────────────────
+
+model QuestionBankItem {
+  id             String             @id @default(cuid())
+  workspaceId    String
+  curriculumId   String
+  phaseId        String
+  gradeId        String
+  subjectId      String
+  topic          String?
+  subtopic       String?
+  questionText   String
+  expectedAnswer String?
+  memoNotes      String?
+  rubricNotes    String?
+  marks          Int
+  difficulty     String?
+  cognitiveLevel String?
+  source         QuestionBankSource
+  status         QuestionBankStatus @default(DRAFT)
+  createdById    String
+  approvedById   String?
+  approvedAt     DateTime?
+  archivedAt     DateTime?
+  usageCount     Int                @default(0)
+  firstUsedAt    DateTime?
+  lastUsedAt     DateTime?
+  metadata       Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy  User      @relation("QuestionBankCreator", fields: [createdById], references: [id])
+  approvedBy User?     @relation("QuestionBankApprover", fields: [approvedById], references: [id])
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, curriculumId, subjectId])
+  @@index([workspaceId, topic])
+  @@index([createdById])
+}
+
+// ─── Assessment templates (reusable assessment structures) ────────────────────
+
+model AssessmentTemplate {
+  id           String                   @id @default(cuid())
+  workspaceId  String
+  curriculumId String
+  phaseId      String
+  gradeId      String
+  subjectId    String
+  name         String
+  description  String?
+  createdById  String
+  status       AssessmentTemplateStatus @default(ACTIVE)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  workspace  Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy  User                        @relation("TemplateCreator", fields: [createdById], references: [id])
+  questions  AssessmentTemplateQuestion[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, curriculumId, subjectId])
+  @@index([createdById])
+}
+
+model AssessmentTemplateQuestion {
+  id             String @id @default(cuid())
+  templateId     String
+  questionText   String
+  topic          String?
+  subtopic       String?
+  expectedAnswer String?
+  memoNotes      String?
+  rubricNotes    String?
+  marks          Int
+  difficulty     String?
+  cognitiveLevel String?
+  orderIndex     Int
+
+  template AssessmentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, orderIndex])
+}
+
+// ─── Learner scripts & manual marking ───────────────────────────────────────────
+
+model Learner {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  learnerNumber String
+  firstName     String
+  lastName      String
+  gradeId       String
+  className     String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grade              Grade               @relation(fields: [gradeId], references: [id])
+  learnerScripts     LearnerScript[]
+  examDeviceSessions ExamDeviceSession[]
+
+  @@unique([workspaceId, learnerNumber])
+  @@index([workspaceId, active])
+  @@index([gradeId])
+}
+
+model ScriptBatch {
+  id            String            @id @default(cuid())
+  workspaceId   String
+  assessmentId  String
+  createdById   String
+  title         String
+  status        ScriptBatchStatus @default(DRAFT)
+  totalLearners Int               @default(0)
+  totalScripts  Int               @default(0)
+  totalPages      Int               @default(0)
+  examSessionMode Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment     Assessment      @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  createdBy      User            @relation("ScriptBatchCreator", fields: [createdById], references: [id])
+  learnerScripts LearnerScript[]
+  examSessions   ExamSession[]
+
+  @@index([workspaceId, status])
+  @@index([assessmentId])
+  @@index([createdById])
+}
+
+model LearnerScript {
+  id               String              @id @default(cuid())
+  batchId          String
+  learnerId        String
+  assessmentId     String
+  scriptNumber     String
+  pageCount        Int                 @default(0)
+  status           LearnerScriptStatus @default(NOT_MARKED)
+  teacherTotal     Float?
+  hodTotal         Float?
+  finalTotal       Float?
+  confidence       Float?
+  submittedToHodAt   DateTime?
+  approvedAt       DateTime?
+  teacherLayerLocked Boolean             @default(false)
+  hodLayerLocked     Boolean             @default(false)
+  finalisedAt                DateTime?
+  finalisedById              String?
+  markDifference             Float?
+  teacherPercentage          Float?
+  hodPercentage              Float?
+  finalPercentage            Float?
+  moderationVariancePercent  Float?
+  varianceLevel              ModerationVarianceLevel @default(NONE)
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+
+  batch          ScriptBatch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  learner        Learner                @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  assessment     Assessment             @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  finalisedBy    User?                  @relation("ScriptFinaliser", fields: [finalisedById], references: [id])
+  questionMarks  ScriptQuestionMark[]
+  layers         ScriptAnnotationLayer[]
+  feedback       LearnerFeedback[]
+  pages          ScriptPage[]
+
+  @@unique([batchId, learnerId])
+  @@index([batchId, status])
+  @@index([assessmentId])
+  @@index([learnerId])
+}
+
+model ScriptQuestionMark {
+  id                   String   @id @default(cuid())
+  learnerScriptId      String
+  assessmentQuestionId String
+  questionNumber       String
+  maxMarks             Int
+  teacherMark          Float?
+  hodMark              Float?
+  finalMark            Float?
+  teacherComment       String?
+  hodComment           String?
+  teacherAnnotatedText String?
+  hodAnnotatedText     String?
+  teacherMarkedById    String?
+  hodModeratedById     String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  learnerScript      LearnerScript      @relation(fields: [learnerScriptId], references: [id], onDelete: Cascade)
+  assessmentQuestion AssessmentQuestion @relation(fields: [assessmentQuestionId], references: [id], onDelete: Cascade)
+  teacherMarkedBy    User?              @relation("TeacherMarker", fields: [teacherMarkedById], references: [id])
+  hodModeratedBy     User?              @relation("HodModerator", fields: [hodModeratedById], references: [id])
+
+  @@unique([learnerScriptId, assessmentQuestionId])
+  @@index([learnerScriptId])
+  @@index([assessmentQuestionId])
+}
+
+model ScriptPage {
+  id              String   @id @default(cuid())
+  learnerScriptId String
+  pageNumber      Int
+  fileName        String
+  filePath        String
+  mimeType        String
+  fileSize        Int
+  width           Int?
+  height          Int?
+  uploadedById    String
+  uploadedAt      DateTime @default(now())
+
+  learnerScript LearnerScript @relation(fields: [learnerScriptId], references: [id], onDelete: Cascade)
+  uploadedBy    User          @relation("ScriptPageUploader", fields: [uploadedById], references: [id])
+
+  @@unique([learnerScriptId, pageNumber])
+  @@index([learnerScriptId])
+}
+
+model ScriptAnnotationLayer {
+  id              String              @id @default(cuid())
+  learnerScriptId String
+  layerType       AnnotationLayerType
+  color           String
+  createdById     String
+  annotationData  Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  learnerScript LearnerScript @relation(fields: [learnerScriptId], references: [id], onDelete: Cascade)
+  createdBy     User          @relation("AnnotationAuthor", fields: [createdById], references: [id])
+
+  @@unique([learnerScriptId, layerType])
+  @@index([learnerScriptId])
+}
+
+model ExamSession {
+  id                String    @id @default(cuid())
+  workspaceId       String
+  assessmentId      String?
+  scriptBatchId     String?
+  title             String
+  examSessionMode   Boolean   @default(true)
+  kioskInstructions String?
+  startedAt         DateTime  @default(now())
+  endedAt           DateTime?
+  createdById       String
+  active            Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workspace      Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment     Assessment?         @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  scriptBatch    ScriptBatch?        @relation(fields: [scriptBatchId], references: [id], onDelete: SetNull)
+  createdBy      User                @relation("ExamSessionCreator", fields: [createdById], references: [id])
+  deviceSessions ExamDeviceSession[]
+
+  @@index([workspaceId, active])
+  @@index([assessmentId])
+  @@index([scriptBatchId])
+}
+
+model ExamDeviceSession {
+  id            String    @id @default(cuid())
+  examSessionId String
+  learnerId     String
+  deviceId      String
+  deviceLabel   String?
+  userAgent     String?
+  ipAddress     String?
+  registeredAt  DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  endedAt       DateTime?
+  active        Boolean   @default(true)
+
+  examSession ExamSession @relation(fields: [examSessionId], references: [id], onDelete: Cascade)
+  learner     Learner     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([examSessionId, learnerId, active])
+  @@index([examSessionId, active])
+  @@index([deviceId])
+}
+
+model LearnerFeedback {
+  id                String   @id @default(cuid())
+  learnerScriptId   String
+  teacherFeedback   String?
+  hodFeedback       String?
+  interventionNotes String?
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  learnerScript LearnerScript @relation(fields: [learnerScriptId], references: [id], onDelete: Cascade)
+  createdBy     User          @relation("FeedbackAuthor", fields: [createdById], references: [id])
+
+  @@index([learnerScriptId, createdAt])
+  @@index([createdById])
+}

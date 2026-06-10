@@ -1,0 +1,69 @@
+.sc-results-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.sc-results-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sc-results-section {
+  margin-top: 1.5rem;
+}
+
+.sc-results-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  color: var(--sc-gold-light);
+}
+
+.sc-results-scope-badge {
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.sc-results-empty {
+  color: var(--sc-text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.sc-results-risk td {
+  color: var(--sc-warning);
+}
+
+.sc-results-pct-low {
+  color: var(--sc-warning);
+}
+
+.sc-results-pct-high {
+  color: var(--sc-success, #3ecf8e);
+}
+
+.sc-results-table-wrap {
+  overflow-x: auto;
+}
+
+.sc-reports-card {
+  border-color: var(--sc-gold-dark, #b8962e);
+}
+
+.sc-reports-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sc-reports-learner-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  justify-content: space-between;
+}

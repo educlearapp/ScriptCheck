@@ -1,0 +1,70 @@
+.sc-qb-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.sc-qb-picker-modal {
+  background: var(--sc-bg-card);
+  border: 1px solid var(--sc-border-gold);
+  border-radius: var(--sc-radius);
+  width: min(960px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sc-qb-picker-header {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--sc-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.sc-qb-picker-body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sc-qb-picker-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.sc-qb-picker-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--sc-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.sc-hod-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--sc-success, #4ade80);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.sc-detail-action-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

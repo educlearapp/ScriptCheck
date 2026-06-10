@@ -1,0 +1,208 @@
+:root {
+  --sc-bg: #050505;
+  --sc-bg-elevated: #111111;
+  --sc-bg-card: #151515;
+  --sc-border: #2a2a2a;
+  --sc-border-gold: rgba(212, 175, 55, 0.35);
+  --sc-text: #f5f5f5;
+  --sc-text-muted: #a0a0a0;
+  --sc-gold: #d4af37;
+  --sc-gold-light: #f0d77b;
+  --sc-gold-dark: #9a7b1a;
+  --sc-success: #3ecf8e;
+  --sc-warning: #f5a623;
+  --sc-danger: #ff5c5c;
+  --sc-radius: 12px;
+  --sc-radius-sm: 8px;
+  --sc-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --sc-font: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sc-font);
+  background: radial-gradient(circle at top, #151515 0%, #050505 55%, #000 100%);
+  color: var(--sc-text);
+}
+
+a {
+  color: var(--sc-gold-light);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.sc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.sc-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sc-btn-primary {
+  background: linear-gradient(135deg, var(--sc-gold) 0%, var(--sc-gold-dark) 100%);
+  color: #111;
+  box-shadow: 0 4px 18px rgba(212, 175, 55, 0.25);
+}
+
+.sc-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(212, 175, 55, 0.35);
+}
+
+.sc-btn-ghost {
+  background: transparent;
+  border-color: var(--sc-border);
+  color: var(--sc-text);
+}
+
+.sc-btn-ghost:hover:not(:disabled) {
+  border-color: var(--sc-border-gold);
+  color: var(--sc-gold-light);
+}
+
+.sc-card {
+  background: linear-gradient(180deg, #181818 0%, #101010 100%);
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius);
+  box-shadow: var(--sc-shadow);
+}
+
+.sc-card-gold {
+  border-color: var(--sc-border-gold);
+}
+
+.sc-input,
+.sc-select {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid var(--sc-border);
+  background: #0d0d0d;
+  color: var(--sc-text);
+}
+
+.sc-input:focus,
+.sc-select:focus {
+  outline: none;
+  border-color: var(--sc-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+}
+
+.sc-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--sc-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.sc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sc-badge-gold {
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--sc-gold-light);
+  border: 1px solid var(--sc-border-gold);
+}
+
+.sc-badge-muted {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sc-text-muted);
+  border: 1px solid var(--sc-border);
+}
+
+.sc-page-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sc-page-subtitle {
+  margin: 0;
+  color: var(--sc-text-muted);
+}
+
+.sc-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.sc-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.sc-stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--sc-gold-light);
+}
+
+.sc-table-wrap {
+  overflow-x: auto;
+}
+
+.sc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sc-table th,
+.sc-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--sc-border);
+}
+
+.sc-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sc-text-muted);
+}
+
+.sc-table tbody tr:hover {
+  background: rgba(212, 175, 55, 0.04);
+}

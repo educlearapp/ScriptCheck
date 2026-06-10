@@ -1,0 +1,16 @@
+{
+  "name": "scriptcheck",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ScriptCheck — AI-assisted assessment, moderation and marking platform",
+  "scripts": {
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ]
+}

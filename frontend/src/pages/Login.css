@@ -1,0 +1,48 @@
+.sc-login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+
+.sc-login-card {
+  width: min(440px, 100%);
+  padding: 2rem;
+}
+
+.sc-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.sc-login-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: #111;
+  background: linear-gradient(135deg, var(--sc-gold) 0%, var(--sc-gold-dark) 100%);
+}
+
+.sc-login-brand h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.sc-login-brand p {
+  margin: 0.25rem 0 0;
+  color: var(--sc-text-muted);
+  font-size: 0.9rem;
+}
+
+.sc-login-footnote {
+  margin: 1.5rem 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--sc-text-muted);
+}

@@ -1,0 +1,61 @@
+.sc-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--sc-border);
+  background: rgba(8, 8, 8, 0.85);
+  backdrop-filter: blur(8px);
+}
+
+.sc-topbar-eyebrow {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sc-text-muted);
+}
+
+.sc-topbar-heading {
+  font-size: 0.95rem;
+  color: var(--sc-gold-light);
+  font-weight: 600;
+}
+
+.sc-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sc-topbar-workspace-select {
+  min-width: 180px;
+  max-width: 240px;
+}
+
+.sc-topbar-user {
+  text-align: right;
+}
+
+.sc-topbar-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.sc-topbar-email {
+  font-size: 0.75rem;
+  color: var(--sc-text-muted);
+}
+
+@media (max-width: 700px) {
+  .sc-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .sc-topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
