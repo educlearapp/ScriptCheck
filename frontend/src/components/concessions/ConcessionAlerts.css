@@ -1,0 +1,50 @@
+.concession-alerts {
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.concession-alerts--compact {
+  padding: 0.75rem 1rem;
+}
+
+.concession-alerts__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--sc-gold-light, #d4af37);
+  margin-bottom: 0.75rem;
+}
+
+.concession-alerts__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.concession-alerts__item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+}
+
+.concession-alerts__icon {
+  color: #e6b422;
+  flex-shrink: 0;
+}
+
+.concession-alerts__class {
+  color: var(--sc-text-muted, #999);
+  font-weight: normal;
+}
+
+.concession-alerts__summary {
+  color: var(--sc-text-muted, #bbb);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}

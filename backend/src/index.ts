@@ -21,6 +21,8 @@ import subjectsRoutes from "./routes/subjects";
 import rubricsRoutes from "./routes/rubrics";
 import scheduleRoutes from "./routes/schedule";
 import markCaptureRoutes from "./routes/markCapture";
+import markImportRoutes from "./routes/markImport";
+import concessionsRoutes from "./routes/concessions";
 import analysisRoutes from "./routes/analysis";
 
 const app = express();
@@ -30,7 +32,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "scriptcheck-api", phase: "paper-vault" });
+  res.json({ ok: true, service: "scriptcheck-api", phase: "bulk-mark-import" });
 });
 
 app.use("/auth", authRoutes);
@@ -52,6 +54,8 @@ app.use("/subjects", subjectsRoutes);
 app.use("/rubrics", rubricsRoutes);
 app.use("/schedule", scheduleRoutes);
 app.use("/mark-capture", markCaptureRoutes);
+app.use("/mark-import", markImportRoutes);
+app.use("/concessions", concessionsRoutes);
 app.use("/analysis", analysisRoutes);
 
 app.use(

@@ -94,6 +94,10 @@ enum AuditAction {
   PAPER_ARCHIVED
   PAPER_DOWNLOADED
   PAPER_DOWNLOAD_BLOCKED
+  BULK_MARK_IMPORT_STARTED
+  BULK_MARK_IMPORT_COMPLETED
+  BULK_MARK_IMPORT_FAILED
+  BULK_MARK_CAPTURED
 }
 
 enum ModerationVarianceLevel {
@@ -226,6 +230,16 @@ enum MarkCaptureSource {
   IMPORT
 }
 
+enum ConcessionType {
+  EXTRA_TIME
+  READER
+  SCRIBE
+  ENLARGED_PAPER
+  SEPARATE_VENUE
+  ASSISTIVE_TECHNOLOGY
+  OTHER
+}
+
 enum AtRiskReason {
   BELOW_THRESHOLD
   CONSECUTIVE_DECLINE
@@ -277,6 +291,7 @@ model Workspace {
   learnerAssessmentMarks       LearnerAssessmentMark[]
   learnerAtRiskFlags           LearnerAtRiskFlag[]
   paperVaultDocuments          PaperVaultDocument[]
+  learnerConcessions           LearnerConcession[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -736,6 +751,7 @@ model Learner {
   examDeviceSessions      ExamDeviceSession[]
   learnerAssessmentMarks  LearnerAssessmentMark[]
   atRiskFlags             LearnerAtRiskFlag[]
+  concessions             LearnerConcession[]
 
   @@unique([workspaceId, learnerNumber])
   @@index([workspaceId, active])
@@ -1051,6 +1067,7 @@ model LearnerAssessmentMark {
   hodMark         Float?
   finalMark       Float?
   finalPercentage Float?
+  comment         String?
   source          MarkCaptureSource @default(SCRIPT_MARKING)
   capturedAt      DateTime          @default(now())
   capturedById    String
@@ -1118,4 +1135,26 @@ model PaperVaultDocument {
   @@index([assessmentId, status])
   @@index([documentGroupId, isCurrentVersion])
   @@index([uploadedById])
+}
+
+// ─── Learner concessions register ─────────────────────────────────────────────
+
+model LearnerConcession {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  learnerId     String
+  concessionType ConcessionType
+  description   String?
+  effectiveDate DateTime
+  expiryDate    DateTime?
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  learner   Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, active])
+  @@index([learnerId, active])
+  @@index([workspaceId, learnerId, active])
 }

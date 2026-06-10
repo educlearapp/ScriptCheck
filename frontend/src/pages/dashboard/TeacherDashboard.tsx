@@ -39,15 +39,26 @@ export default function TeacherDashboard() {
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-stat-value">{stats?.marksNotCapturedCount ?? "—"}</div>
-          <div>Marks not captured</div>
+          <div>Marks outstanding</div>
         </div>
       </div>
 
       <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.recentImportsCount ?? "—"}</div>
+          <div>Recent imports</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.importFailuresCount ?? "—"}</div>
+          <div>Import failures (30d)</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-stat-value">{stats?.overdueAssessmentsCount ?? "—"}</div>
           <div>Assessments overdue</div>
         </div>
+      </div>
+
+      <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-stat-value">{stats?.upcomingDeadlinesCount ?? "—"}</div>
           <div>Upcoming deadlines</div>
@@ -55,6 +66,10 @@ export default function TeacherDashboard() {
         <div className="sc-card sc-card-gold" style={{ padding: "1.25rem" }}>
           <div className="sc-stat-value">{stats?.publishedCount ?? "—"}</div>
           <div>Published results</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.moderationPendingCount ?? "—"}</div>
+          <div>Moderation pending</div>
         </div>
       </div>
 
@@ -150,6 +165,35 @@ export default function TeacherDashboard() {
                       <Link to={`/assessments/${item.id}`} className="sc-btn sc-btn-ghost">
                         View
                       </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {data?.recentImports?.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Recent imports</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <tbody>
+                {data.recentImports.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.fileName ?? "Import"}</td>
+                    <td>{item.rowsImported ?? "—"} rows</td>
+                    <td>{new Date(item.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      {item.assessmentId ? (
+                        <Link
+                          to={`/assessments/${item.assessmentId}/results`}
+                          className="sc-btn sc-btn-ghost"
+                        >
+                          Results
+                        </Link>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

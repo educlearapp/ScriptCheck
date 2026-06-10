@@ -42,6 +42,10 @@ import {
   assertReportableAssessment,
   generateAssessmentSummaryPdf,
 } from "../services/pdfReports";
+import {
+  generateExamPrepCsv,
+  generateExamPrepPdf,
+} from "../services/examPrepReport";
 import assessmentQuestionsRoutes from "./assessmentQuestions";
 import paperVaultRoutes from "./paperVault";
 
@@ -259,6 +263,76 @@ router.get(
         `inline; filename="${safeTitle}-summary.pdf"`
       );
       return res.send(pdf);
+    } catch (err) {
+      return handleResultsError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/:id/reports/exam-prep.pdf",
+  requireAuth,
+  requirePermission(PERMISSIONS.REPORTS_GENERATE),
+  async (req: AuthenticatedRequest, res) => {
+    const id = String(req.params.id);
+
+    try {
+      const pdf = await generateExamPrepPdf(
+        id,
+        req.auth!.workspaceId,
+        req.access!
+      );
+
+      const assessment = await prisma.assessment.findFirst({
+        where: { id, workspaceId: req.auth!.workspaceId },
+        select: { title: true },
+      });
+
+      const safeTitle = (assessment?.title ?? "assessment")
+        .replace(/[^a-zA-Z0-9-_]+/g, "-")
+        .slice(0, 80);
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${safeTitle}-exam-prep.pdf"`
+      );
+      return res.send(pdf);
+    } catch (err) {
+      return handleResultsError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/:id/reports/exam-prep.csv",
+  requireAuth,
+  requirePermission(PERMISSIONS.REPORTS_GENERATE),
+  async (req: AuthenticatedRequest, res) => {
+    const id = String(req.params.id);
+
+    try {
+      const csv = await generateExamPrepCsv(
+        id,
+        req.auth!.workspaceId,
+        req.access!
+      );
+
+      const assessment = await prisma.assessment.findFirst({
+        where: { id, workspaceId: req.auth!.workspaceId },
+        select: { title: true },
+      });
+
+      const safeTitle = (assessment?.title ?? "assessment")
+        .replace(/[^a-zA-Z0-9-_]+/g, "-")
+        .slice(0, 80);
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${safeTitle}-exam-prep.csv"`
+      );
+      return res.send(csv);
     } catch (err) {
       return handleResultsError(res, err);
     }

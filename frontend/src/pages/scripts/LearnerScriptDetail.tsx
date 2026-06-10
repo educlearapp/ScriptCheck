@@ -7,6 +7,7 @@ import RubricMarkingPanel from "../../components/scripts/RubricMarkingPanel";
 import ScriptPageList from "../../components/scripts/ScriptPageList";
 import ScriptViewer from "../../components/scripts/ScriptViewer";
 import ScriptWorkflowBar from "../../components/scripts/ScriptWorkflowBar";
+import ConcessionAlerts from "../../components/concessions/ConcessionAlerts";
 import { useAuth } from "../../auth/AuthContext";
 import { hasPermission, isHodDashboard } from "../../auth/permissions";
 import type {
@@ -436,6 +437,10 @@ export default function LearnerScriptDetailPage() {
           </p>
         </div>
       </header>
+
+      {hasPermission(user, "concessions.view") ? (
+        <ConcessionAlerts assessmentId={script.assessment.id} compact />
+      ) : null}
 
       <ScriptWorkflowBar
         workflow={workflow}

@@ -27,6 +27,9 @@ import RubricsManagement from "./pages/rubrics/RubricsManagement";
 import AssessmentSchedule from "./pages/schedule/AssessmentSchedule";
 import AssessmentAnalysis from "./pages/analysis/AssessmentAnalysis";
 import LearnerHistory from "./pages/learners/LearnerHistory";
+import MarkImportWizard from "./pages/marks/MarkImportWizard";
+import BulkMarkCapture from "./pages/marks/BulkMarkCapture";
+import ConcessionsRegister from "./pages/concessions/ConcessionsRegister";
 
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
@@ -106,6 +109,15 @@ function AppRoutes() {
 
             <Route element={<RequirePermission permission="schedule.view" />}>
               <Route path="/schedule" element={<AssessmentSchedule />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="marks.import" />}>
+              <Route path="/assessments/:id/import" element={<MarkImportWizard />} />
+              <Route path="/assessments/:id/capture" element={<BulkMarkCapture />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="concessions.view" />}>
+              <Route path="/concessions" element={<ConcessionsRegister />} />
             </Route>
           </Route>
         </Route>

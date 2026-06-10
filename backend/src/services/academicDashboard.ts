@@ -13,6 +13,11 @@ import {
 import { WorkspaceRole } from "@prisma/client";
 import { countUncapturedLearners } from "./markCapture";
 import { countAtRiskLearners } from "./atRisk";
+import {
+  countImportValidationFailures,
+  listRecentImports,
+} from "./markImport";
+import { countActiveConcessionLearners } from "./concessions";
 
 const assessmentListInclude = {
   grade: { select: { id: true, name: true } },
@@ -190,6 +195,11 @@ export async function getTeacherDashboard(
   );
   const marksNotCapturedCount = uncapturedCounts.reduce((sum, c) => sum + c.count, 0);
 
+  const [recentImports, importFailures] = await Promise.all([
+    listRecentImports(workspaceId, userId, access, 5),
+    countImportValidationFailures(workspaceId),
+  ]);
+
   const publishedSnapshots = recentlyPublished
     .map((a) => parseAnalyticsSnapshot(a.analyticsSnapshot)?.classAverage)
     .filter((v): v is number => v != null);
@@ -205,7 +215,10 @@ export async function getTeacherDashboard(
       marksNotCapturedCount,
       overdueAssessmentsCount: overdueAssessments.length,
       upcomingDeadlinesCount: upcomingDeadlines.length,
+      recentImportsCount: recentImports.length,
+      importFailuresCount: importFailures,
     },
+    recentImports,
     awaitingMarking: awaitingMarking.map(serializeAssessmentBrief),
     submittedToHod: submittedToHod.map(serializeAssessmentBrief),
     recentlyPublished: recentlyPublished.map(serializeAssessmentBrief),
@@ -302,8 +315,20 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
   ]);
 
   const topicMap = new Map<string, { total: number; count: number }>();
-  const atRiskTotal = await countAtRiskLearners(workspaceId);
+  const [atRiskTotal, importFailures, concessionLearners, recentImports] =
+    await Promise.all([
+      countAtRiskLearners(workspaceId),
+      countImportValidationFailures(workspaceId),
+      countActiveConcessionLearners(workspaceId),
+      listRecentImports(workspaceId, access.userId, access, 8),
+    ]);
   const classAverages: number[] = [];
+
+  const importedAssessmentIds = new Set(
+    recentImports
+      .filter((i) => i.action === "BULK_MARK_IMPORT_COMPLETED")
+      .map((i) => i.assessmentId)
+  );
 
   for (const assessment of publishedAssessments) {
     const snapshot = parseAnalyticsSnapshot(assessment.analyticsSnapshot);
@@ -338,7 +363,11 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
       overdueModerationCount: overdueModeration.length,
       moderationQueueCount: moderationQueue.length,
       publishedSubjectCount: departmentStats.length,
+      importFailuresCount: importFailures,
+      concessionLearnerCount: concessionLearners,
+      importedAssessmentsCount: importedAssessmentIds.size,
     },
+    recentImports,
     resultsAwaitingPublish: resultsAwaitingPublish.map(serializeAssessmentBrief),
     weakTopics,
     moderationQueue: moderationQueue.map((batch) => ({

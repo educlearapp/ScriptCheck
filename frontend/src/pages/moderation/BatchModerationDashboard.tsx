@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiDownloadPath, apiFetch } from "../../api";
 import MarkVarianceBadge from "../../components/scripts/MarkVarianceBadge";
+import ConcessionAlerts from "../../components/concessions/ConcessionAlerts";
 import { hasPermission } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
 import type {
@@ -64,6 +65,10 @@ export default function BatchModerationDashboard() {
       <p className="sc-page-subtitle">
         {analytics.assessment.title} · Batch moderation analytics
       </p>
+
+      {hasPermission(user, "concessions.view") ? (
+        <ConcessionAlerts assessmentId={analytics.assessment.id} compact />
+      ) : null}
 
       <div className="sc-analytics-grid">
         <div className="sc-analytics-card">

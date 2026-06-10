@@ -8,6 +8,8 @@ import {
   hasPermission,
   isAssessmentReadOnly,
 } from "../../auth/permissions";
+import ConcessionAlerts from "../../components/concessions/ConcessionAlerts";
+import { apiDownload, apiOpenPdf } from "../../api";
 import type {
   AssessmentDetail,
   AssessmentQuestion,
@@ -323,6 +325,39 @@ export default function AssessmentDetailPage() {
               View Results
             </Link>
           ) : null}
+          {assessment && hasPermission(user, "marks.import") ? (
+            <>
+              <Link to={`/assessments/${id}/capture`} className="sc-btn sc-btn-ghost">
+                Bulk Capture
+              </Link>
+              <Link to={`/assessments/${id}/import`} className="sc-btn sc-btn-ghost">
+                Import Marks
+              </Link>
+            </>
+          ) : null}
+          {assessment && hasPermission(user, "reports.generate") ? (
+            <>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                onClick={() => apiOpenPdf(`/assessments/${id}/reports/exam-prep.pdf`)}
+              >
+                Exam Prep Report
+              </button>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                onClick={() =>
+                  apiDownload(
+                    `/assessments/${id}/reports/exam-prep.csv`,
+                    "exam-prep.csv"
+                  )
+                }
+              >
+                Exam Prep CSV
+              </button>
+            </>
+          ) : null}
           {canSaveTemplate && !readOnly ? (
             <button
               type="button"
@@ -359,6 +394,10 @@ export default function AssessmentDetailPage() {
       </div>
 
       {actionError ? <p className="sc-error">{actionError}</p> : null}
+
+      {hasPermission(user, "concessions.view") && id ? (
+        <ConcessionAlerts assessmentId={id} />
+      ) : null}
 
       <div className="sc-grid-3 sc-detail-info-grid">
         <div className="sc-card" style={{ padding: "1.25rem" }}>

@@ -55,6 +55,12 @@ const NAV_ITEMS: NavItem[] = [
     permission: "schedule.view",
   },
   {
+    to: "/concessions",
+    label: "Concessions",
+    icon: "♿",
+    permission: "concessions.view",
+  },
+  {
     to: "/subjects",
     label: "Subjects",
     icon: "◇",

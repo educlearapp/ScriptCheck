@@ -4,6 +4,7 @@ import { apiDownload, apiFetch, apiOpenPdf } from "../../api";
 import { hasPermission } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
 import type { AssessmentResults } from "../../types";
+import ConcessionAlerts from "../../components/concessions/ConcessionAlerts";
 import "./AssessmentResults.css";
 
 function formatPct(value: number | null | undefined): string {
@@ -348,6 +349,10 @@ export default function AssessmentResultsPage() {
         <p className="sc-page-subtitle" style={{ color: "var(--sc-gold-light)" }}>
           Published results are read-only. HOD or admin can reopen if changes are needed.
         </p>
+      ) : null}
+
+      {hasPermission(user, "concessions.view") && id ? (
+        <ConcessionAlerts assessmentId={id} />
       ) : null}
 
       <div className="sc-grid-3">

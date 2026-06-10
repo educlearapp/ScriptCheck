@@ -70,6 +70,21 @@ export default function HodDashboard() {
 
       <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.importedAssessmentsCount ?? "—"}</div>
+          <div>Imported assessments</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.importFailuresCount ?? "—"}</div>
+          <div>Validation failures (30d)</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.concessionLearnerCount ?? "—"}</div>
+          <div>Concession learners</div>
+        </div>
+      </div>
+
+      <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-detail-label">Department average</div>
           <div className="sc-stat-value">{formatPct(stats?.departmentAverage)}</div>
         </div>
@@ -122,6 +137,26 @@ export default function HodDashboard() {
                         Review & publish
                       </Link>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {data?.recentImports?.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Recent mark imports</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <tbody>
+                {data.recentImports.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.actor?.fullName ?? "—"}</td>
+                    <td>{item.fileName ?? "Import"}</td>
+                    <td>{item.rowsImported ?? "—"}</td>
+                    <td>{item.action === "BULK_MARK_IMPORT_FAILED" ? "Failed" : "OK"}</td>
                   </tr>
                 ))}
               </tbody>

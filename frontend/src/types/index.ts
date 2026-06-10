@@ -70,7 +70,10 @@ export type Permission =
   | "paperVault.approve"
   | "paperVault.lock"
   | "paperVault.release"
-  | "paperVault.archive";
+  | "paperVault.archive"
+  | "concessions.view"
+  | "concessions.manage"
+  | "marks.import";
 
 export type AuthUser = {
   id: string;
@@ -817,6 +820,18 @@ export type DashboardBatchItem = {
   updatedAt?: string;
 };
 
+export type MarkImportAuditItem = {
+  id: string;
+  action: string;
+  assessmentId: string;
+  fileName?: string;
+  rowsImported?: number;
+  rowsSkipped?: number;
+  error?: string;
+  actor?: { id: string; fullName: string };
+  createdAt: string;
+};
+
 export type TeacherDashboardData = {
   scope: "teacher";
   stats: {
@@ -828,7 +843,10 @@ export type TeacherDashboardData = {
     marksNotCapturedCount: number;
     overdueAssessmentsCount: number;
     upcomingDeadlinesCount: number;
+    recentImportsCount: number;
+    importFailuresCount: number;
   };
+  recentImports: MarkImportAuditItem[];
   awaitingMarking: DepartmentResultItem[];
   submittedToHod: DepartmentResultItem[];
   recentlyPublished: DepartmentResultItem[];
@@ -852,7 +870,11 @@ export type HodDashboardData = {
     overdueModerationCount: number;
     moderationQueueCount: number;
     publishedSubjectCount: number;
+    importFailuresCount: number;
+    concessionLearnerCount: number;
+    importedAssessmentsCount: number;
   };
+  recentImports: MarkImportAuditItem[];
   resultsAwaitingPublish: DepartmentResultItem[];
   weakTopics: { topic: string; averagePercentage: number; assessmentCount: number }[];
   moderationQueue: DashboardBatchItem[];
@@ -1260,4 +1282,116 @@ export type NavItem = {
   label: string;
   icon: string;
   permission?: Permission;
+};
+
+export type Learner = {
+  id: string;
+  learnerNumber: string;
+  firstName: string;
+  lastName: string;
+  gradeId: string;
+  className: string | null;
+  active: boolean;
+};
+
+export type ConcessionType =
+  | "EXTRA_TIME"
+  | "READER"
+  | "SCRIBE"
+  | "ENLARGED_PAPER"
+  | "SEPARATE_VENUE"
+  | "ASSISTIVE_TECHNOLOGY"
+  | "OTHER";
+
+export type LearnerConcession = {
+  id: string;
+  learnerId: string;
+  learner: {
+    id: string;
+    learnerNumber: string;
+    fullName: string;
+    className: string | null;
+  };
+  concessionType: ConcessionType;
+  concessionLabel: string;
+  description: string | null;
+  effectiveDate: string;
+  expiryDate: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConcessionAlert = {
+  learnerId: string;
+  learnerNumber: string;
+  fullName: string;
+  className: string | null;
+  summary: string;
+  concessions: Array<{
+    type: ConcessionType;
+    label: string;
+    description: string | null;
+  }>;
+};
+
+export type BulkCaptureRow = {
+  learnerId: string;
+  learnerNumber: string;
+  learnerName: string;
+  className: string | null;
+  mark: number | null;
+  comment: string | null;
+  status: "not_captured" | "captured" | "imported" | "script";
+  markId: string | null;
+};
+
+export type MarkImportParseResult = {
+  fileName: string;
+  headers: string[];
+  rows: Record<string, string>[];
+  suggestedMapping: {
+    learnerNumber?: string;
+    learnerName?: string;
+    mark?: string;
+    comment?: string;
+  };
+};
+
+export type MarkImportValidation = {
+  validRows: Array<{
+    row: number;
+    learnerId: string;
+    learnerNumber: string;
+    learnerName: string;
+    mark: number;
+    comment: string | null;
+  }>;
+  errors: Array<{
+    row: number;
+    learnerNumber?: string;
+    learnerName?: string;
+    mark?: string;
+    level: "error" | "warning";
+    message: string;
+  }>;
+  warnings: Array<{
+    row: number;
+    learnerNumber?: string;
+    learnerName?: string;
+    mark?: string;
+    level: "error" | "warning";
+    message: string;
+  }>;
+  skippedRows: Array<{
+    row: number;
+    message: string;
+  }>;
+  summary: {
+    totalRows: number;
+    validCount: number;
+    errorCount: number;
+    warningCount: number;
+    skippedCount: number;
+  };
 };
