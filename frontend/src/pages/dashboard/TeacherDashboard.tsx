@@ -14,16 +14,18 @@ export default function TeacherDashboard() {
   const [data, setData] = useState<TeacherDashboardData | null>(null);
 
   useEffect(() => {
-    apiFetch<TeacherDashboardData>("/dashboard/academic")
+    apiFetch<TeacherDashboardData>("/dashboard/teacher")
       .then(setData)
       .catch(() => setData(null));
   }, []);
 
   const stats = data?.stats;
+  const workload = data?.workload;
+  const timeSaved = data?.timeSaved;
 
   return (
     <div>
-      <h1 className="sc-page-title">Teacher Dashboard</h1>
+      <h1 className="sc-page-title">Teacher Intelligence Dashboard</h1>
       <p className="sc-page-subtitle">
         Welcome back, {user?.fullName}. Track marking, moderation and published results.
       </p>
@@ -83,6 +85,50 @@ export default function TeacherDashboard() {
           {formatPct(stats?.averagePerformance)}
         </div>
       </div>
+
+      <section style={{ marginTop: "1.5rem" }}>
+        <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>My workload</h2>
+        <div className="sc-grid-3" style={{ gap: "1rem" }}>
+          <div className="sc-card" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{workload?.scriptsAwaitingMarking ?? "—"}</div>
+            <div>Scripts awaiting marking</div>
+          </div>
+          <div className="sc-card" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{workload?.moderationRequests ?? "—"}</div>
+            <div>Moderation requests</div>
+          </div>
+          <div className="sc-card" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{workload?.upcomingDeadlines ?? "—"}</div>
+            <div>Upcoming deadlines</div>
+          </div>
+          <div className="sc-card" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{workload?.publishedAssessments ?? "—"}</div>
+            <div>Published assessments</div>
+          </div>
+        </div>
+      </section>
+
+      <section style={{ marginTop: "1.5rem" }}>
+        <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Time saved</h2>
+        <div className="sc-grid-3" style={{ gap: "1rem" }}>
+          <div className="sc-card sc-card-gold" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{timeSaved?.scriptsProcessed ?? "—"}</div>
+            <div>Scripts processed</div>
+          </div>
+          <div className="sc-card" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{timeSaved?.reportsGenerated ?? "—"}</div>
+            <div>Reports generated</div>
+          </div>
+          <div className="sc-card" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{timeSaved?.moderationsCompleted ?? "—"}</div>
+            <div>Moderations completed</div>
+          </div>
+          <div className="sc-card" style={{ padding: "1.25rem" }}>
+            <div className="sc-stat-value">{timeSaved?.estimatedHoursSaved ?? "—"}h</div>
+            <div>Estimated hours saved</div>
+          </div>
+        </div>
+      </section>
 
       {data?.awaitingMarking.length ? (
         <section style={{ marginTop: "1.5rem" }}>

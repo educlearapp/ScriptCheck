@@ -16,7 +16,7 @@ export default function HodDashboard() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<HodDashboardData>("/dashboard/academic"),
+      apiFetch<HodDashboardData>("/dashboard/hod"),
       apiFetch<AtRiskLearner[]>("/analysis/at-risk"),
     ])
       .then(([dash, risk]) => {
@@ -33,78 +33,77 @@ export default function HodDashboard() {
 
   return (
     <div>
-      <h1 className="sc-page-title">HOD Dashboard</h1>
+      <h1 className="sc-page-title">HOD Performance Centre</h1>
       <p className="sc-page-subtitle">
-        Department oversight for {user?.fullName}. Moderate scripts and publish results.
+        Department oversight for {user?.fullName}. Support and management view.
       </p>
 
       <div className="sc-grid-3" style={{ marginTop: "1.5rem" }}>
         <div className="sc-card sc-card-gold" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.scriptBatchesAwaitingModeration ?? "—"}</div>
-          <div>Script batches awaiting moderation</div>
+          <div className="sc-stat-value">{formatPct(stats?.departmentAverage)}</div>
+          <div>Department average</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.assessmentsAwaitingHodReview ?? "—"}</div>
-          <div>Assessments awaiting HOD review</div>
+          <div className="sc-stat-value">{formatPct(stats?.moderationCompliance)}</div>
+          <div>Moderation compliance</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.resultsAwaitingPublishCount ?? "—"}</div>
-          <div>Results awaiting publish</div>
+          <div className="sc-stat-value">{stats?.outstandingAssessments ?? "—"}</div>
+          <div>Outstanding assessments</div>
         </div>
       </div>
 
       <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.atRiskLearnerCount ?? "—"}</div>
+          <div>At-risk learners</div>
+        </div>
         <div className="sc-card sc-card-gold" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{formatPct(stats?.examReadinessScore)}</div>
+          <div>
+            Exam readiness{" "}
+            <span className="sc-badge sc-badge-muted" style={{ fontSize: "0.7rem" }}>
+              {stats?.examReadinessStatus?.replaceAll("_", " ") ?? "—"}
+            </span>
+          </div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-stat-value">{stats?.moderationQueueCount ?? "—"}</div>
           <div>Moderation queue</div>
         </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.overdueModerationCount ?? "—"}</div>
-          <div>Overdue moderation</div>
-        </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.publishedSubjectCount ?? "—"}</div>
-          <div>Department subjects tracked</div>
-        </div>
       </div>
 
-      <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.importedAssessmentsCount ?? "—"}</div>
-          <div>Imported assessments</div>
-        </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.importFailuresCount ?? "—"}</div>
-          <div>Validation failures (30d)</div>
-        </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.portalAdoptionCount ?? "—"}</div>
-          <div>Portal adoption (30d)</div>
-        </div>
-      </div>
-
-      <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.portalReportDownloads ?? "—"}</div>
-          <div>Report downloads</div>
-        </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.concessionLearnerCount ?? "—"}</div>
-          <div>Concession learners</div>
-        </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-detail-label">Department average</div>
-          <div className="sc-stat-value">{formatPct(stats?.departmentAverage)}</div>
-        </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-detail-label">At-risk learners</div>
-          <div className="sc-stat-value">{stats?.atRiskLearnerCount ?? "—"}</div>
-        </div>
-        <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-detail-label">Weak topics tracked</div>
-          <div className="sc-stat-value">{data?.weakTopics.length ?? "—"}</div>
-        </div>
-      </div>
+      {data?.teacherOverview.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Teacher overview</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <thead>
+                <tr>
+                  <th>Teacher</th>
+                  <th>Created</th>
+                  <th>Marked</th>
+                  <th>Moderations</th>
+                  <th>Outstanding</th>
+                  <th>Learner avg</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.teacherOverview.map((teacher) => (
+                  <tr key={teacher.teacherId}>
+                    <td>{teacher.teacherName}</td>
+                    <td>{teacher.assessmentsCreated}</td>
+                    <td>{teacher.assessmentsMarked}</td>
+                    <td>{teacher.moderationsCompleted}</td>
+                    <td>{teacher.outstandingTasks}</td>
+                    <td>{formatPct(teacher.learnerAverage)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {data?.moderationQueue.length ? (
         <section style={{ marginTop: "1.5rem" }}>
@@ -122,67 +121,6 @@ export default function HodDashboard() {
                         Moderate
                       </Link>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
-      {data?.resultsAwaitingPublish.length ? (
-        <section style={{ marginTop: "1.5rem" }}>
-          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Results awaiting publish approval</h2>
-          <div className="sc-card" style={{ padding: 0 }}>
-            <table className="sc-table">
-              <tbody>
-                {data.resultsAwaitingPublish.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.title}</td>
-                    <td>{item.creatorTeacher.fullName}</td>
-                    <td>
-                      <Link to={`/assessments/${item.id}/results`} className="sc-btn sc-btn-primary">
-                        Review & publish
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
-      {data?.recentImports?.length ? (
-        <section style={{ marginTop: "1.5rem" }}>
-          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Recent mark imports</h2>
-          <div className="sc-card" style={{ padding: 0 }}>
-            <table className="sc-table">
-              <tbody>
-                {data.recentImports.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.actor?.fullName ?? "—"}</td>
-                    <td>{item.fileName ?? "Import"}</td>
-                    <td>{item.rowsImported ?? "—"}</td>
-                    <td>{item.action === "BULK_MARK_IMPORT_FAILED" ? "Failed" : "OK"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
-      {data?.portalActivity?.length ? (
-        <section style={{ marginTop: "1.5rem" }}>
-          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Portal activity</h2>
-          <div className="sc-card" style={{ padding: 0 }}>
-            <table className="sc-table">
-              <tbody>
-                {data.portalActivity.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.action.replaceAll("_", " ")}</td>
-                    <td>{new Date(item.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -223,42 +161,16 @@ export default function HodDashboard() {
         </section>
       ) : null}
 
-      {data?.weakTopics.length ? (
-        <section style={{ marginTop: "1.5rem" }}>
-          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Weak topics across department</h2>
-          <div className="sc-card" style={{ padding: 0 }}>
-            <table className="sc-table">
-              <thead>
-                <tr>
-                  <th>Topic</th>
-                  <th>Avg %</th>
-                  <th>Assessments</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.weakTopics.map((topic) => (
-                  <tr key={topic.topic}>
-                    <td>{topic.topic}</td>
-                    <td>{formatPct(topic.averagePercentage)}</td>
-                    <td>{topic.assessmentCount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
       <div className="sc-card" style={{ marginTop: "1.5rem", padding: "1.5rem" }}>
         <div className="sc-form-actions">
           <Link to="/moderation/queue" className="sc-btn sc-btn-primary">
             Moderation queue
           </Link>
+          <Link to="/interventions" className="sc-btn sc-btn-ghost">
+            Interventions
+          </Link>
           <Link to="/results" className="sc-btn sc-btn-ghost">
             Department results
-          </Link>
-          <Link to="/assessments" className="sc-btn sc-btn-ghost">
-            Browse assessments
           </Link>
         </div>
       </div>

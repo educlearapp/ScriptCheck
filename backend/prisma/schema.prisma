@@ -102,6 +102,12 @@ enum AuditAction {
   PORTAL_LOGOUT
   PORTAL_REPORT_DOWNLOADED
   PORTAL_ACCESS_DENIED
+  EXAM_READINESS_GENERATED
+  INTERVENTION_CREATED
+  INTERVENTION_UPDATED
+  EXECUTIVE_REPORT_GENERATED
+  PRINCIPAL_DASHBOARD_VIEWED
+  HOD_DASHBOARD_VIEWED
 }
 
 enum ModerationVarianceLevel {
@@ -255,6 +261,24 @@ enum AtRiskReason {
   MULTIPLE_FAILURES
 }
 
+enum InterventionStatus {
+  OPEN
+  IN_PROGRESS
+  IMPROVED
+  ESCALATED
+  CLOSED
+}
+
+enum ExamReadinessStatus {
+  READY
+  ATTENTION_REQUIRED
+}
+
+enum ExamReadinessScope {
+  SCHOOL
+  DEPARTMENT
+}
+
 enum PaperDocumentType {
   QUESTION_PAPER
   MEMORANDUM
@@ -299,6 +323,8 @@ model Workspace {
   rubricTemplates              RubricTemplate[]
   learnerAssessmentMarks       LearnerAssessmentMark[]
   learnerAtRiskFlags           LearnerAtRiskFlag[]
+  learnerInterventions         LearnerIntervention[]
+  examReadinessSnapshots       ExamReadinessSnapshot[]
   paperVaultDocuments          PaperVaultDocument[]
   learnerConcessions           LearnerConcession[]
   portalAccounts               PortalAccount[]
@@ -343,6 +369,8 @@ model User {
   rubricTeacherMarks              ScriptRubricMark[]              @relation("RubricTeacherMarker")
   rubricHodMarks                  ScriptRubricMark[]              @relation("RubricHodModerator")
   paperVaultDocumentsUploaded     PaperVaultDocument[]            @relation("PaperVaultUploader")
+  interventionsCreated            LearnerIntervention[]           @relation("InterventionCreator")
+  interventionsUpdated            LearnerIntervention[]           @relation("InterventionUpdater")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -763,6 +791,7 @@ model Learner {
   examDeviceSessions      ExamDeviceSession[]
   learnerAssessmentMarks  LearnerAssessmentMark[]
   atRiskFlags             LearnerAtRiskFlag[]
+  interventions           LearnerIntervention[]
   concessions             LearnerConcession[]
   portalAccount           PortalAccount?
   parentLinks             ParentLearnerLink[]
@@ -1115,6 +1144,48 @@ model LearnerAtRiskFlag {
   @@index([workspaceId, active])
   @@index([learnerId, active])
   @@index([workspaceId, learnerId, reason, active])
+}
+
+model LearnerIntervention {
+  id                String             @id @default(cuid())
+  workspaceId       String
+  learnerId         String
+  riskReason        AtRiskReason
+  dateFlagged       DateTime
+  teacherNotes      String?
+  parentMeetingDate DateTime?
+  interventionNotes String?
+  reviewDate        DateTime?
+  status            InterventionStatus @default(OPEN)
+  createdById       String
+  updatedById       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  learner   Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  createdBy User      @relation("InterventionCreator", fields: [createdById], references: [id])
+  updatedBy User?     @relation("InterventionUpdater", fields: [updatedById], references: [id])
+
+  @@index([workspaceId, status])
+  @@index([learnerId, status])
+  @@index([workspaceId, learnerId])
+}
+
+model ExamReadinessSnapshot {
+  id                  String              @id @default(cuid())
+  workspaceId         String
+  scope               ExamReadinessScope  @default(SCHOOL)
+  department          String?
+  readinessPercentage Float
+  status              ExamReadinessStatus
+  components          Json
+  calculatedAt        DateTime            @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, scope, calculatedAt])
+  @@index([workspaceId, department])
 }
 
 // ─── Secure examination paper vault ───────────────────────────────────────────

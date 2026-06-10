@@ -1,4 +1,4 @@
-import { AssessmentStatus, Prisma, ScriptBatchStatus } from "@prisma/client";
+import { AssessmentStatus, LearnerScriptStatus, Prisma, ScriptBatchStatus } from "@prisma/client";
 import { prisma } from "../prisma";
 import {
   hasBroadResultsAccess,
@@ -23,6 +23,8 @@ import {
   countPortalReportDownloads,
   getRecentPortalActivity,
 } from "./portalReports";
+import { deriveAcademicSnapshot, getSchoolAcademicTrends } from "./academicTrends";
+import { getLatestExamReadiness } from "./examReadiness";
 
 const assessmentListInclude = {
   grade: { select: { id: true, name: true } },
@@ -216,6 +218,70 @@ export async function getTeacherDashboard(
     .map((a) => parseAnalyticsSnapshot(a.analyticsSnapshot)?.classAverage)
     .filter((v): v is number => v != null);
 
+  const teacherBatchFilter = hasBroadResultsAccess(access, workspaceId)
+    ? { workspaceId }
+    : { workspaceId, createdById: userId };
+
+  const [
+    scriptsAwaitingMarking,
+    moderationRequests,
+    scriptsProcessed,
+    reportsGenerated,
+    moderationsCompleted,
+  ] = await Promise.all([
+    prisma.learnerScript.count({
+      where: {
+        batch: teacherBatchFilter,
+        status: {
+          in: [LearnerScriptStatus.NOT_MARKED, LearnerScriptStatus.IN_PROGRESS, LearnerScriptStatus.MARKING],
+        },
+      },
+    }),
+    prisma.scriptBatch.count({
+      where: {
+        ...teacherBatchFilter,
+        status: {
+          in: [
+            ScriptBatchStatus.SUBMITTED_TO_HOD,
+            ScriptBatchStatus.HOD_REVIEW,
+            ScriptBatchStatus.RETURNED_TO_TEACHER,
+          ],
+        },
+      },
+    }),
+    prisma.learnerScript.count({
+      where: {
+        batch: teacherBatchFilter,
+        status: {
+          in: [
+            LearnerScriptStatus.MARKED,
+            LearnerScriptStatus.SUBMITTED_TO_HOD,
+            LearnerScriptStatus.HOD_REVIEW,
+            LearnerScriptStatus.APPROVED,
+            LearnerScriptStatus.FINALISED,
+          ],
+        },
+      },
+    }),
+    prisma.auditLog.count({
+      where: {
+        workspaceId,
+        actorId: userId,
+        action: { in: ["ASSESSMENT_REPORT_GENERATED", "LEARNER_REPORT_GENERATED"] },
+      },
+    }),
+    prisma.scriptBatch.count({
+      where: {
+        ...teacherBatchFilter,
+        status: { in: [ScriptBatchStatus.APPROVED, ScriptBatchStatus.PUBLISHED] },
+      },
+    }),
+  ]);
+
+  const estimatedHoursSaved = round1(
+    scriptsProcessed * 0.25 + reportsGenerated * 0.5 + moderationsCompleted * 1
+  );
+
   return {
     scope: "teacher" as const,
     stats: {
@@ -231,6 +297,18 @@ export async function getTeacherDashboard(
       importFailuresCount: importFailures,
       portalLogins30d,
       portalReportDownloads30d: portalDownloads30d,
+    },
+    workload: {
+      scriptsAwaitingMarking,
+      moderationRequests,
+      upcomingDeadlines: upcomingDeadlines.length,
+      publishedAssessments: recentlyPublished.length,
+    },
+    timeSaved: {
+      scriptsProcessed,
+      reportsGenerated,
+      moderationsCompleted,
+      estimatedHoursSaved,
     },
     recentImports,
     portalActivity,
@@ -370,6 +448,88 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
     .sort((a, b) => a.averagePercentage - b.averagePercentage)
     .slice(0, 8);
 
+  const [moderationCompliance, readiness, teachers] = await Promise.all([
+    computeModerationCompliance(workspaceId),
+    getLatestExamReadiness(workspaceId),
+    prisma.user.findMany({
+      where: {
+        memberships: {
+          some: {
+            workspaceId,
+            isActive: true,
+            roles: { some: { role: WorkspaceRole.TEACHER } },
+          },
+        },
+      },
+      select: { id: true, fullName: true },
+    }),
+  ]);
+
+  const teacherOverview = await Promise.all(
+    teachers.map(async (teacher) => {
+      const [created, marked, moderations, outstanding, marks] = await Promise.all([
+        prisma.assessment.count({
+          where: { workspaceId, creatorTeacherId: teacher.id },
+        }),
+        prisma.learnerScript.count({
+          where: {
+            batch: { workspaceId, createdById: teacher.id },
+            status: {
+              in: [
+                LearnerScriptStatus.MARKED,
+                LearnerScriptStatus.SUBMITTED_TO_HOD,
+                LearnerScriptStatus.HOD_REVIEW,
+                LearnerScriptStatus.APPROVED,
+                LearnerScriptStatus.FINALISED,
+              ],
+            },
+          },
+        }),
+        prisma.scriptBatch.count({
+          where: {
+            workspaceId,
+            createdById: teacher.id,
+            status: { in: [ScriptBatchStatus.APPROVED, ScriptBatchStatus.PUBLISHED] },
+          },
+        }),
+        prisma.assessment.count({
+          where: {
+            workspaceId,
+            creatorTeacherId: teacher.id,
+            status: {
+              notIn: [AssessmentStatus.PUBLISHED, AssessmentStatus.MARKED, AssessmentStatus.DRAFT],
+            },
+          },
+        }),
+        prisma.learnerAssessmentMark.findMany({
+          where: {
+            workspaceId,
+            finalPercentage: { not: null },
+            assessment: { creatorTeacherId: teacher.id },
+          },
+          select: { finalPercentage: true },
+        }),
+      ]);
+
+      const learnerAverage =
+        marks.length > 0
+          ? round1(
+              marks.reduce((sum, m) => sum + (m.finalPercentage ?? 0), 0) / marks.length
+            )
+          : null;
+
+      return {
+        teacherId: teacher.id,
+        teacherName: teacher.fullName,
+        assessmentsCreated: created,
+        assessmentsMarked: marked,
+        moderationsCompleted: moderations,
+        outstandingTasks: outstanding,
+        learnerAverage,
+      };
+    })
+  );
+
   return {
     scope: "hod" as const,
     stats: {
@@ -386,7 +546,13 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
       importedAssessmentsCount: importedAssessmentIds.size,
       portalAdoptionCount: portalLogins30d,
       portalReportDownloads: portalDownloads,
+      moderationCompliance,
+      outstandingAssessments: assessmentsAwaitingReview + scriptBatchesAwaiting,
+      examReadinessScore: readiness.readinessPercentage,
+      examReadinessStatus: readiness.status,
     },
+    teacherOverview,
+    examReadiness: readiness,
     recentImports,
     portalActivity,
     resultsAwaitingPublish: resultsAwaitingPublish.map(serializeAssessmentBrief),
@@ -410,39 +576,112 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
   };
 }
 
+async function computeModerationCompliance(workspaceId: string): Promise<number | null> {
+  const [submitted, completed] = await Promise.all([
+    prisma.scriptBatch.count({
+      where: {
+        workspaceId,
+        status: {
+          in: [
+            ScriptBatchStatus.SUBMITTED_TO_HOD,
+            ScriptBatchStatus.HOD_REVIEW,
+            ScriptBatchStatus.APPROVED,
+            ScriptBatchStatus.PUBLISHED,
+          ],
+        },
+      },
+    }),
+    prisma.scriptBatch.count({
+      where: {
+        workspaceId,
+        status: { in: [ScriptBatchStatus.APPROVED, ScriptBatchStatus.PUBLISHED] },
+      },
+    }),
+  ]);
+  if (submitted === 0) return 100;
+  return round1((completed / submitted) * 100);
+}
+
 export async function getPrincipalDashboard(workspaceId: string) {
-  const assessments = await prisma.assessment.findMany({
-    where: { workspaceId },
-    include: assessmentListInclude,
-    orderBy: { updatedAt: "desc" },
-  });
+  const now = new Date();
+
+  const [assessments, atRiskTotal, assessmentsOutstanding, moderationCompliance, readiness, trends] =
+    await Promise.all([
+      prisma.assessment.findMany({
+        where: { workspaceId },
+        include: assessmentListInclude,
+        orderBy: { updatedAt: "desc" },
+      }),
+      countAtRiskLearners(workspaceId),
+      prisma.assessment.count({
+        where: {
+          workspaceId,
+          status: {
+            notIn: [AssessmentStatus.PUBLISHED, AssessmentStatus.MARKED, AssessmentStatus.DRAFT],
+          },
+        },
+      }),
+      computeModerationCompliance(workspaceId),
+      getLatestExamReadiness(workspaceId),
+      getSchoolAcademicTrends(workspaceId),
+    ]);
 
   const published = assessments.filter((a) => a.status === AssessmentStatus.PUBLISHED);
+  const academicSnapshot = deriveAcademicSnapshot(trends.subjectTrends);
 
-  const subjectMap = new Map<string, { passRates: number[]; count: number }>();
-  const gradeMap = new Map<string, { passRates: number[]; count: number }>();
-  const atRiskTotal = await countAtRiskLearners(workspaceId);
+  const subjectMap = new Map<
+    string,
+    { passRates: number[]; averages: number[]; distinctions: number; count: number }
+  >();
+  const gradeMap = new Map<
+    string,
+    { passRates: number[]; averages: number[]; distinctions: number; count: number }
+  >();
   const passRates: number[] = [];
+  const classAverages: number[] = [];
+  let totalDistinctions = 0;
+  let totalLearners = 0;
 
   for (const assessment of published) {
     const snapshot = parseAnalyticsSnapshot(assessment.analyticsSnapshot);
     if (!snapshot) continue;
     if (snapshot.passRate != null) passRates.push(snapshot.passRate);
+    if (snapshot.classAverage != null) classAverages.push(snapshot.classAverage);
+    if (snapshot.distinctionCount != null) totalDistinctions += snapshot.distinctionCount;
+    if (snapshot.learnerCount != null) totalLearners += snapshot.learnerCount;
 
     const subjectKey = assessment.subject.name;
     const gradeKey = assessment.grade.name;
-    if (snapshot.passRate != null) {
-      const subjectEntry = subjectMap.get(subjectKey) ?? { passRates: [], count: 0 };
-      subjectEntry.passRates.push(snapshot.passRate);
-      subjectEntry.count += 1;
-      subjectMap.set(subjectKey, subjectEntry);
+    const subjectEntry = subjectMap.get(subjectKey) ?? {
+      passRates: [],
+      averages: [],
+      distinctions: 0,
+      count: 0,
+    };
+    if (snapshot.passRate != null) subjectEntry.passRates.push(snapshot.passRate);
+    if (snapshot.classAverage != null) subjectEntry.averages.push(snapshot.classAverage);
+    subjectEntry.distinctions += snapshot.distinctionCount ?? 0;
+    subjectEntry.count += 1;
+    subjectMap.set(subjectKey, subjectEntry);
 
-      const gradeEntry = gradeMap.get(gradeKey) ?? { passRates: [], count: 0 };
-      gradeEntry.passRates.push(snapshot.passRate);
-      gradeEntry.count += 1;
-      gradeMap.set(gradeKey, gradeEntry);
-    }
+    const gradeEntry = gradeMap.get(gradeKey) ?? {
+      passRates: [],
+      averages: [],
+      distinctions: 0,
+      count: 0,
+    };
+    if (snapshot.passRate != null) gradeEntry.passRates.push(snapshot.passRate);
+    if (snapshot.classAverage != null) gradeEntry.averages.push(snapshot.classAverage);
+    gradeEntry.distinctions += snapshot.distinctionCount ?? 0;
+    gradeEntry.count += 1;
+    gradeMap.set(gradeKey, gradeEntry);
   }
+
+  const trendBySubject = new Map(trends.subjectTrends.map((t) => [t.subject, t.trend]));
+  const trendByGrade = new Map(trends.gradeTrends.map((t) => [t.grade, t.trend]));
+
+  const distinctionRate =
+    totalLearners > 0 ? round1((totalDistinctions / totalLearners) * 100) : null;
 
   return {
     scope: "admin" as const,
@@ -450,25 +689,42 @@ export async function getPrincipalDashboard(workspaceId: string) {
       totalAssessments: assessments.length,
       publishedCount: published.length,
       averagePassRate: averageOf(passRates),
+      schoolAverage: averageOf(classAverages),
+      passRate: averageOf(passRates),
+      distinctionRate,
       atRiskLearnerCount: atRiskTotal,
+      assessmentsOutstanding,
+      moderationCompliance,
+      examReadinessScore: readiness.readinessPercentage,
+      examReadinessStatus: readiness.status,
     },
+    academicSnapshot,
     subjectPerformance: Array.from(subjectMap.entries())
       .map(([subject, data]) => ({
         subject,
         averagePassRate: averageOf(data.passRates),
+        average: averageOf(data.averages),
+        passRate: averageOf(data.passRates),
+        distinctions: data.distinctions,
         assessmentCount: data.count,
+        trend: trendBySubject.get(subject) ?? "stable",
       }))
-      .sort((a, b) => (b.averagePassRate ?? 0) - (a.averagePassRate ?? 0)),
+      .sort((a, b) => (b.average ?? 0) - (a.average ?? 0)),
     gradePerformance: Array.from(gradeMap.entries())
       .map(([grade, data]) => ({
         grade,
         averagePassRate: averageOf(data.passRates),
+        gradeAverage: averageOf(data.averages),
+        passRate: averageOf(data.passRates),
+        distinctions: data.distinctions,
         assessmentCount: data.count,
+        trend: trendByGrade.get(grade) ?? "stable",
       }))
-      .sort((a, b) => (b.averagePassRate ?? 0) - (a.averagePassRate ?? 0)),
-    recentPublished: published
-      .slice(0, 8)
-      .map(serializeAssessmentBrief),
+      .sort((a, b) => (b.gradeAverage ?? 0) - (a.gradeAverage ?? 0)),
+    trends,
+    examReadiness: readiness,
+    recentPublished: published.slice(0, 8).map(serializeAssessmentBrief),
+    generatedAt: now.toISOString(),
   };
 }
 

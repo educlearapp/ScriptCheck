@@ -25,6 +25,7 @@ import markImportRoutes from "./routes/markImport";
 import concessionsRoutes from "./routes/concessions";
 import portalRoutes from "./routes/portal";
 import analysisRoutes from "./routes/analysis";
+import interventionsRoutes from "./routes/interventions";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -33,7 +34,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "scriptcheck-api", phase: "parent-learner-portal" });
+  res.json({ ok: true, service: "scriptcheck-api", version: "0.5.0", phase: "academic-intelligence-centre" });
 });
 
 app.use("/auth", authRoutes);
@@ -59,6 +60,7 @@ app.use("/mark-import", markImportRoutes);
 app.use("/concessions", concessionsRoutes);
 app.use("/portal", portalRoutes);
 app.use("/analysis", analysisRoutes);
+app.use("/interventions", interventionsRoutes);
 
 app.use(
   (

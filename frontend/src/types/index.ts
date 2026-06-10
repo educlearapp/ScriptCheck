@@ -832,6 +832,75 @@ export type MarkImportAuditItem = {
   createdAt: string;
 };
 
+export type TrendDirection = "improving" | "stable" | "declining";
+
+export type ExamReadinessData = {
+  id: string;
+  readinessPercentage: number;
+  status: "READY" | "ATTENTION_REQUIRED";
+  components: {
+    assessmentsCompleted: { completed: number; total: number; percentage: number };
+    marksCaptured: { captured: number; total: number; percentage: number };
+    moderationCompleted: { completed: number; total: number; percentage: number };
+    papersApproved: { approved: number; total: number; percentage: number };
+    papersReleased: { released: number; total: number; percentage: number };
+    concessionsPrepared: { prepared: number; total: number; percentage: number };
+    reportsGenerated: { generated: number; total: number; percentage: number };
+  };
+  calculatedAt: string;
+  scope: "SCHOOL" | "DEPARTMENT";
+  department: string | null;
+};
+
+export type AcademicTrendsData = {
+  subjectTrends: Array<{
+    subjectId: string;
+    subject: string;
+    currentAverage: number | null;
+    previousAverage: number | null;
+    improvementPct: number | null;
+    declinePct: number | null;
+    trend: TrendDirection;
+  }>;
+  gradeTrends: Array<{
+    gradeId: string;
+    grade: string;
+    terms: Record<string, number | null>;
+    overallAverage: number | null;
+    trend: TrendDirection;
+  }>;
+  historicalTrends: Array<{
+    year: number;
+    average: number | null;
+    previousYearAverage: number | null;
+    yearOverYearChange: number | null;
+    trend: TrendDirection;
+  }>;
+};
+
+export type LearnerIntervention = {
+  id: string;
+  learnerId: string;
+  learner: {
+    id: string;
+    learnerNumber: string;
+    learnerName: string;
+    className: string | null;
+    grade: { id: string; name: string };
+  };
+  riskReason: string;
+  dateFlagged: string;
+  teacherNotes: string | null;
+  parentMeetingDate: string | null;
+  interventionNotes: string | null;
+  reviewDate: string | null;
+  status: "OPEN" | "IN_PROGRESS" | "IMPROVED" | "ESCALATED" | "CLOSED";
+  createdBy: { id: string; fullName: string };
+  updatedBy: { id: string; fullName: string } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type TeacherDashboardData = {
   scope: "teacher";
   stats: {
@@ -848,6 +917,18 @@ export type TeacherDashboardData = {
     portalLogins30d: number;
     portalReportDownloads30d: number;
   };
+  workload: {
+    scriptsAwaitingMarking: number;
+    moderationRequests: number;
+    upcomingDeadlines: number;
+    publishedAssessments: number;
+  };
+  timeSaved: {
+    scriptsProcessed: number;
+    reportsGenerated: number;
+    moderationsCompleted: number;
+    estimatedHoursSaved: number;
+  };
   recentImports: MarkImportAuditItem[];
   portalActivity: PortalActivityItem[];
   awaitingMarking: DepartmentResultItem[];
@@ -860,6 +941,16 @@ export type TeacherDashboardData = {
     markingDeadline: string | null;
     moderationDeadline: string | null;
   })[];
+};
+
+export type HodTeacherOverview = {
+  teacherId: string;
+  teacherName: string;
+  assessmentsCreated: number;
+  assessmentsMarked: number;
+  moderationsCompleted: number;
+  outstandingTasks: number;
+  learnerAverage: number | null;
 };
 
 export type HodDashboardData = {
@@ -878,7 +969,13 @@ export type HodDashboardData = {
     importedAssessmentsCount: number;
     portalAdoptionCount: number;
     portalReportDownloads: number;
+    moderationCompliance: number | null;
+    outstandingAssessments: number;
+    examReadinessScore: number;
+    examReadinessStatus: "READY" | "ATTENTION_REQUIRED";
   };
+  teacherOverview: HodTeacherOverview[];
+  examReadiness: ExamReadinessData;
   recentImports: MarkImportAuditItem[];
   portalActivity: PortalActivityItem[];
   resultsAwaitingPublish: DepartmentResultItem[];
@@ -1121,19 +1218,43 @@ export type PrincipalDashboardData = {
     totalAssessments: number;
     publishedCount: number;
     averagePassRate: number | null;
+    schoolAverage: number | null;
+    passRate: number | null;
+    distinctionRate: number | null;
     atRiskLearnerCount: number;
+    assessmentsOutstanding: number;
+    moderationCompliance: number | null;
+    examReadinessScore: number;
+    examReadinessStatus: "READY" | "ATTENTION_REQUIRED";
+  };
+  academicSnapshot: {
+    topSubject: { subject: string; average: number | null } | null;
+    lowestSubject: { subject: string; average: number | null } | null;
+    mostImprovedSubject: { subject: string; improvementPct: number | null } | null;
+    mostDeclinedSubject: { subject: string; declinePct: number | null } | null;
   };
   subjectPerformance: {
     subject: string;
     averagePassRate: number | null;
+    average: number | null;
+    passRate: number | null;
+    distinctions: number;
     assessmentCount: number;
+    trend: TrendDirection;
   }[];
   gradePerformance: {
     grade: string;
     averagePassRate: number | null;
+    gradeAverage: number | null;
+    passRate: number | null;
+    distinctions: number;
     assessmentCount: number;
+    trend: TrendDirection;
   }[];
+  trends: AcademicTrendsData;
+  examReadiness: ExamReadinessData;
   recentPublished: DepartmentResultItem[];
+  generatedAt: string;
 };
 
 export type AcademicDashboardData =

@@ -10,6 +10,7 @@ import {
 } from "../services/academicAnalysis";
 import { ResultsError } from "../services/assessmentResults";
 import { listAtRiskLearners } from "../services/atRisk";
+import { getSchoolAcademicTrends } from "../services/academicTrends";
 
 const router = Router();
 
@@ -111,6 +112,20 @@ router.get(
     try {
       const learners = await listAtRiskLearners(req.auth!.workspaceId);
       return res.json(learners);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/trends",
+  requireAuth,
+  requirePermission(PERMISSIONS.RESULTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await getSchoolAcademicTrends(req.auth!.workspaceId);
+      return res.json(data);
     } catch (err) {
       return handleError(res, err);
     }

@@ -611,6 +611,8 @@ export type AnalyticsSnapshot = {
   lowestMark: number | null;
   learnerCount: number;
   markedLearners: number;
+  distinctionCount?: number;
+  failureCount?: number;
   questionAnalysisSummary: Array<{
     questionNumber: string;
     maxMarks: number;
@@ -657,6 +659,8 @@ type ResultsPayloadForSnapshot = {
     lowestMark: number | null;
     totalLearners: number;
     markedLearners: number;
+    distinctionCount: number;
+    failureCount: number;
   };
   questionAnalysis: Array<{
     questionNumber: string;
@@ -702,6 +706,8 @@ export function buildAnalyticsSnapshot(
     cognitiveLevelSummary: results.cognitiveLevelAnalysis,
     difficultySummary: results.difficultyAnalysis,
     learnersAtRiskCount: results.learnersAtRisk.length,
+    distinctionCount: results.summary.distinctionCount,
+    failureCount: results.summary.failureCount,
   };
 }
 

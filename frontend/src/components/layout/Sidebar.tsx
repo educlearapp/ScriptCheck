@@ -73,6 +73,12 @@ const NAV_ITEMS: NavItem[] = [
     permission: "rubrics.view",
   },
   {
+    to: "/interventions",
+    label: "Interventions",
+    icon: "⚑",
+    permission: "results.view",
+  },
+  {
     to: "/curriculum",
     label: "Curriculum Management",
     icon: "◎",

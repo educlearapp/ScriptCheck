@@ -5,6 +5,9 @@ import RequirePermission from "./auth/RequirePermission";
 import AppLayout from "./components/layout/AppLayout";
 import Login from "./pages/Login";
 import DashboardRouter from "./pages/dashboard/DashboardRouter";
+import PrincipalDashboard from "./pages/dashboard/PrincipalDashboard";
+import HodDashboard from "./pages/dashboard/HodDashboard";
+import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
 import AssessmentsList from "./pages/assessments/AssessmentsList";
 import CreateAssessment from "./pages/assessments/CreateAssessment";
 import GenerateAssessment from "./pages/assessments/GenerateAssessment";
@@ -30,6 +33,7 @@ import LearnerHistory from "./pages/learners/LearnerHistory";
 import MarkImportWizard from "./pages/marks/MarkImportWizard";
 import BulkMarkCapture from "./pages/marks/BulkMarkCapture";
 import ConcessionsRegister from "./pages/concessions/ConcessionsRegister";
+import InterventionsPage from "./pages/interventions/InterventionsPage";
 import { PortalAuthProvider } from "./portal/PortalAuthContext";
 import PortalGuard, { PortalGuestGuard } from "./portal/PortalGuard";
 import PortalLayout from "./portal/PortalLayout";
@@ -54,6 +58,9 @@ function AppRoutes() {
         <Route element={<AuthGuard />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardRouter />} />
+            <Route path="/dashboard/principal" element={<PrincipalDashboard />} />
+            <Route path="/dashboard/hod" element={<HodDashboard />} />
+            <Route path="/dashboard/teacher" element={<TeacherDashboard />} />
 
             <Route element={<RequirePermission permission="assessments.view" />}>
               <Route path="/assessments" element={<AssessmentsList />} />
@@ -68,6 +75,7 @@ function AppRoutes() {
               <Route path="/results" element={<DepartmentResults />} />
               <Route path="/published-results/:assessmentId" element={<PublishedResults />} />
               <Route path="/learners/:learnerId/history" element={<LearnerHistory />} />
+              <Route path="/interventions" element={<InterventionsPage />} />
             </Route>
 
             <Route element={<RequirePermission permission="scripts.view" />}>
