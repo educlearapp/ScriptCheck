@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
-import type { HodDashboardData } from "../../types";
+import type { AtRiskLearner, HodDashboardData } from "../../types";
 
 function formatPct(value: number | null | undefined): string {
   if (value == null) return "—";
@@ -12,11 +12,21 @@ function formatPct(value: number | null | undefined): string {
 export default function HodDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState<HodDashboardData | null>(null);
+  const [atRisk, setAtRisk] = useState<AtRiskLearner[]>([]);
 
   useEffect(() => {
-    apiFetch<HodDashboardData>("/dashboard/academic")
-      .then(setData)
-      .catch(() => setData(null));
+    Promise.all([
+      apiFetch<HodDashboardData>("/dashboard/academic"),
+      apiFetch<AtRiskLearner[]>("/analysis/at-risk"),
+    ])
+      .then(([dash, risk]) => {
+        setData(dash);
+        setAtRisk(risk);
+      })
+      .catch(() => {
+        setData(null);
+        setAtRisk([]);
+      });
   }, []);
 
   const stats = data?.stats;
@@ -110,6 +120,38 @@ export default function HodDashboard() {
                     <td>
                       <Link to={`/assessments/${item.id}/results`} className="sc-btn sc-btn-primary">
                         Review & publish
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {atRisk.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>At-risk learners</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <thead>
+                <tr>
+                  <th>Learner</th>
+                  <th>Class</th>
+                  <th>Reasons</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {atRisk.slice(0, 8).map((l) => (
+                  <tr key={l.learnerId}>
+                    <td>{l.learnerName}</td>
+                    <td>{l.className ?? "—"}</td>
+                    <td>{l.reasons.join(", ").replaceAll("_", " ")}</td>
+                    <td>
+                      <Link to={`/learners/${l.learnerId}/history`} className="sc-btn sc-btn-ghost">
+                        History
                       </Link>
                     </td>
                   </tr>

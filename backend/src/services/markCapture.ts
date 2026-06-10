@@ -1,5 +1,6 @@
 import { MarkCaptureSource } from "@prisma/client";
 import { prisma } from "../prisma";
+import { evaluateLearnerAtRisk } from "./atRisk";
 
 /**
  * Canonical mark capture — "Capture once. Report everywhere."
@@ -68,6 +69,67 @@ export async function syncMarkFromScript(
       hodMark: script.hodTotal,
       finalMark: script.finalTotal,
       finalPercentage: script.finalPercentage,
+      capturedById,
+    },
+  });
+
+  const result = serializeMarkCapture(record);
+
+  await evaluateLearnerAtRisk(script.assessment.workspaceId, script.learnerId).catch(
+    (err) => console.error("[atRisk] evaluation failed", err)
+  );
+
+  return result;
+}
+
+export async function syncMarkFromRubric(
+  learnerScriptId: string,
+  capturedById: string,
+  source: MarkCaptureSource = MarkCaptureSource.RUBRIC_MARKING
+): Promise<MarkCaptureRecord | null> {
+  const script = await prisma.learnerScript.findUnique({
+    where: { id: learnerScriptId },
+    include: {
+      assessment: { select: { id: true, workspaceId: true, totalMarks: true } },
+      learner: { select: { id: true } },
+    },
+  });
+
+  if (!script?.assessment) return null;
+
+  const hasMarks =
+    script.teacherTotal != null ||
+    script.hodTotal != null ||
+    script.finalTotal != null;
+
+  if (!hasMarks) return null;
+
+  const record = await prisma.learnerAssessmentMark.upsert({
+    where: {
+      assessmentId_learnerId: {
+        assessmentId: script.assessmentId,
+        learnerId: script.learnerId,
+      },
+    },
+    create: {
+      workspaceId: script.assessment.workspaceId,
+      assessmentId: script.assessmentId,
+      learnerId: script.learnerId,
+      learnerScriptId: script.id,
+      teacherMark: script.teacherTotal,
+      hodMark: script.hodTotal,
+      finalMark: script.finalTotal,
+      finalPercentage: script.finalPercentage,
+      source,
+      capturedById,
+    },
+    update: {
+      learnerScriptId: script.id,
+      teacherMark: script.teacherTotal,
+      hodMark: script.hodTotal,
+      finalMark: script.finalTotal,
+      finalPercentage: script.finalPercentage,
+      source,
       capturedById,
     },
   });

@@ -18,6 +18,7 @@ import {
 import { computeMarkTotals } from "./markTotals";
 import { ModerationVarianceLevel } from "@prisma/client";
 import { syncMarkFromScript } from "./markCapture";
+import { ensureRubricMarksForScript } from "./rubricMarking";
 
 export class ScriptError extends Error {
   constructor(
@@ -207,8 +208,11 @@ export async function createScriptBatch(
   });
 
   if (!assessment) throw new ScriptError("Assessment not found", 404);
-  if (assessment.questions.length === 0) {
-    throw new ScriptError("Assessment must have questions before creating a script batch", 400);
+  if (assessment.questions.length === 0 && !assessment.rubricTemplateId) {
+    throw new ScriptError(
+      "Assessment must have questions or an attached rubric before creating a script batch",
+      400
+    );
   }
 
   return prisma.scriptBatch.create({
@@ -342,7 +346,16 @@ export async function addLearnerScriptToBatch(
     include: { learner: true },
   });
 
-  await initQuestionMarks(script.id, batch.assessmentId);
+  const assessment = await prisma.assessment.findUnique({
+    where: { id: batch.assessmentId },
+    select: { rubricTemplateId: true },
+  });
+
+  if (assessment?.rubricTemplateId) {
+    await ensureRubricMarksForScript(script.id, assessment.rubricTemplateId);
+  } else {
+    await initQuestionMarks(script.id, batch.assessmentId);
+  }
   await createDefaultLayers(script.id, userId);
 
   const uniqueLearners = new Set([
@@ -402,6 +415,8 @@ function serializeScriptDetail(
       id: script.assessment.id,
       title: script.assessment.title,
       totalMarks: script.assessment.totalMarks,
+      rubricTemplateId: script.assessment.rubricTemplateId,
+      rubricTemplate: script.assessment.rubricTemplate,
     },
     batch: {
       id: script.batch.id,
@@ -476,7 +491,21 @@ async function loadLearnerScript(scriptId: string, workspaceId: string) {
       batch: true,
       finalisedBy: { select: { id: true, fullName: true } },
       assessment: {
-        select: { id: true, title: true, totalMarks: true, status: true },
+        select: {
+          id: true,
+          title: true,
+          totalMarks: true,
+          status: true,
+          rubricTemplateId: true,
+          rubricTemplate: {
+            select: {
+              id: true,
+              name: true,
+              totalMarks: true,
+              status: true,
+            },
+          },
+        },
       },
       questionMarks: {
         orderBy: { questionNumber: "asc" },

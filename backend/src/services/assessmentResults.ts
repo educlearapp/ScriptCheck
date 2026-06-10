@@ -264,6 +264,19 @@ export async function getAssessmentResults(
   }
 
   const totalMarks = assessment.totalMarks;
+
+  const capturedMarks = await prisma.learnerAssessmentMark.findMany({
+    where: { workspaceId, assessmentId },
+    select: {
+      learnerId: true,
+      finalMark: true,
+      finalPercentage: true,
+    },
+  });
+  const capturedByLearner = new Map(
+    capturedMarks.map((m) => [m.learnerId, m])
+  );
+
   const scripts: ScriptRow[] = assessment.learnerScripts.map((script) => ({
     id: script.id,
     status: script.status,
@@ -288,7 +301,12 @@ export async function getAssessmentResults(
   }));
 
   const learners = scripts.map((script) => {
-    const percentage = learnerPercentage(script.finalTotal, totalMarks);
+    const captured = capturedByLearner.get(script.learner.id);
+    const effectiveFinal =
+      captured?.finalMark ?? script.finalTotal;
+    const percentage =
+      captured?.finalPercentage ??
+      learnerPercentage(effectiveFinal, totalMarks);
     const perQuestionMarks = questions.map((question) => {
       const mark = script.questionMarks.find(
         (m) => m.assessmentQuestionId === question.id
@@ -308,7 +326,7 @@ export async function getAssessmentResults(
       learnerNumber: script.learner.learnerNumber,
       learnerName: `${script.learner.firstName} ${script.learner.lastName}`.trim(),
       className: script.learner.className,
-      finalTotal: script.finalTotal,
+      finalTotal: effectiveFinal,
       percentage,
       status: script.status,
       passed:
@@ -340,7 +358,10 @@ export async function getAssessmentResults(
               100
           )
         : null,
+    distinctionCount: percentages.filter((p) => p >= 80).length,
+    failureCount: percentages.filter((p) => p < PASS_THRESHOLD_PERCENT).length,
     passThresholdPercent: PASS_THRESHOLD_PERCENT,
+    source: "LearnerAssessmentMark" as const,
   };
 
   const questionAnalysis = buildQuestionAnalysis(questions, scripts);

@@ -81,6 +81,19 @@ enum AuditAction {
   RUBRIC_CREATED
   RUBRIC_UPDATED
   RUBRIC_APPROVED
+  ANALYSIS_GENERATED
+  LEARNER_FLAGGED_AT_RISK
+  RUBRIC_MARK_CAPTURED
+  PAPER_UPLOADED
+  PAPER_UPDATED
+  PAPER_SUBMITTED_FOR_REVIEW
+  PAPER_RETURNED_FOR_CHANGES
+  PAPER_APPROVED
+  PAPER_LOCKED
+  PAPER_RELEASED
+  PAPER_ARCHIVED
+  PAPER_DOWNLOADED
+  PAPER_DOWNLOAD_BLOCKED
 }
 
 enum ModerationVarianceLevel {
@@ -208,8 +221,32 @@ enum RubricTemplateScope {
 
 enum MarkCaptureSource {
   SCRIPT_MARKING
+  RUBRIC_MARKING
   MANUAL
   IMPORT
+}
+
+enum AtRiskReason {
+  BELOW_THRESHOLD
+  CONSECUTIVE_DECLINE
+  MULTIPLE_FAILURES
+}
+
+enum PaperDocumentType {
+  QUESTION_PAPER
+  MEMORANDUM
+  MARKING_GUIDELINE
+  RUBRIC_ATTACHMENT
+  SUPPORTING_MATERIAL
+}
+
+enum PaperVaultStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  LOCKED
+  RELEASED
+  ARCHIVED
 }
 
 // ─── Workspace (organisation) ─────────────────────────────────────────────────
@@ -238,6 +275,8 @@ model Workspace {
   workspaceSubjects            WorkspaceSubject[]
   rubricTemplates              RubricTemplate[]
   learnerAssessmentMarks       LearnerAssessmentMark[]
+  learnerAtRiskFlags           LearnerAtRiskFlag[]
+  paperVaultDocuments          PaperVaultDocument[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -274,6 +313,9 @@ model User {
   rubricTemplatesCreated          RubricTemplate[]                @relation("RubricTemplateCreator")
   rubricTemplatesApproved         RubricTemplate[]                @relation("RubricTemplateApprover")
   learnerAssessmentMarksCaptured  LearnerAssessmentMark[]         @relation("MarkCaptureAuthor")
+  rubricTeacherMarks              ScriptRubricMark[]              @relation("RubricTeacherMarker")
+  rubricHodMarks                  ScriptRubricMark[]              @relation("RubricHodModerator")
+  paperVaultDocumentsUploaded     PaperVaultDocument[]            @relation("PaperVaultUploader")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -459,6 +501,7 @@ model Assessment {
   examSessions           ExamSession[]
   rubricTemplate         RubricTemplate?         @relation(fields: [rubricTemplateId], references: [id], onDelete: SetNull)
   learnerAssessmentMarks LearnerAssessmentMark[]
+  paperVaultDocuments    PaperVaultDocument[]
 
   analyticsSnapshot Json?
 
@@ -692,6 +735,7 @@ model Learner {
   learnerScripts          LearnerScript[]
   examDeviceSessions      ExamDeviceSession[]
   learnerAssessmentMarks  LearnerAssessmentMark[]
+  atRiskFlags             LearnerAtRiskFlag[]
 
   @@unique([workspaceId, learnerNumber])
   @@index([workspaceId, active])
@@ -759,6 +803,7 @@ model LearnerScript {
   feedback       LearnerFeedback[]
   pages                 ScriptPage[]
   learnerAssessmentMark LearnerAssessmentMark?
+  rubricMarks           ScriptRubricMark[]
 
   @@unique([batchId, learnerId])
   @@index([batchId, status])
@@ -964,10 +1009,34 @@ model RubricCriterion {
   maxMarks         Int
   orderIndex       Int
 
-  template RubricTemplate @relation(fields: [rubricTemplateId], references: [id], onDelete: Cascade)
+  template    RubricTemplate    @relation(fields: [rubricTemplateId], references: [id], onDelete: Cascade)
+  scriptMarks ScriptRubricMark[]
 
   @@unique([rubricTemplateId, orderIndex])
   @@index([rubricTemplateId])
+}
+
+model ScriptRubricMark {
+  id                String   @id @default(cuid())
+  learnerScriptId   String
+  rubricCriterionId String
+  teacherMark       Float?
+  hodMark           Float?
+  finalMark         Float?
+  teacherComment    String?
+  hodComment        String?
+  teacherMarkedById String?
+  hodModeratedById  String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  learnerScript   LearnerScript   @relation(fields: [learnerScriptId], references: [id], onDelete: Cascade)
+  rubricCriterion RubricCriterion @relation(fields: [rubricCriterionId], references: [id], onDelete: Cascade)
+  teacherMarkedBy User?           @relation("RubricTeacherMarker", fields: [teacherMarkedById], references: [id])
+  hodModeratedBy  User?           @relation("RubricHodModerator", fields: [hodModeratedById], references: [id])
+
+  @@unique([learnerScriptId, rubricCriterionId])
+  @@index([learnerScriptId])
 }
 
 // ─── One-time mark capture (canonical learner marks) ──────────────────────────
@@ -997,4 +1066,56 @@ model LearnerAssessmentMark {
   @@index([workspaceId, assessmentId])
   @@index([learnerId, assessmentId])
   @@index([assessmentId, finalMark])
+}
+
+model LearnerAtRiskFlag {
+  id          String       @id @default(cuid())
+  workspaceId String
+  learnerId   String
+  reason      AtRiskReason
+  active      Boolean      @default(true)
+  metadata    Json?
+  flaggedAt   DateTime     @default(now())
+  clearedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  learner   Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, active])
+  @@index([learnerId, active])
+  @@index([workspaceId, learnerId, reason, active])
+}
+
+// ─── Secure examination paper vault ───────────────────────────────────────────
+
+model PaperVaultDocument {
+  id               String            @id @default(cuid())
+  workspaceId      String
+  assessmentId     String
+  documentGroupId  String
+  documentType     PaperDocumentType
+  versionNumber    Int
+  fileName         String
+  storedPath       String
+  mimeType         String
+  fileSize         Int
+  status           PaperVaultStatus  @default(DRAFT)
+  isCurrentVersion Boolean           @default(true)
+  uploadedById     String
+  releaseAt        DateTime?
+  expiresAt        DateTime?
+  workflowComment  String?
+  archivedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment  Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  uploadedBy  User       @relation("PaperVaultUploader", fields: [uploadedById], references: [id])
+
+  @@unique([documentGroupId, versionNumber])
+  @@index([workspaceId, assessmentId])
+  @@index([assessmentId, status])
+  @@index([documentGroupId, isCurrentVersion])
+  @@index([uploadedById])
 }

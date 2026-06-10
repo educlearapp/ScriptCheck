@@ -13,6 +13,10 @@ import {
   ScriptError,
 } from "../services/scriptMarking";
 import {
+  getRubricMarksForScript,
+  saveRubricMarks,
+} from "../services/rubricMarking";
+import {
   createLearnerFeedback,
   FeedbackError,
   listLearnerFeedback,
@@ -436,6 +440,57 @@ router.put(
       }
 
       return res.json(result.script);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/:id/rubric-marks",
+  requireAuth,
+  requirePermission(PERMISSIONS.SCRIPTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await getRubricMarksForScript(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(data);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.put(
+  "/:id/rubric-marks",
+  requireAuth,
+  async (req: AuthenticatedRequest, res) => {
+    const marks = Array.isArray(req.body?.marks) ? req.body.marks : [];
+
+    try {
+      const result = await saveRubricMarks(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.auth!.userId,
+        req.access!,
+        marks
+      );
+
+      await logAudit({
+        action: "RUBRIC_MARK_CAPTURED",
+        actorId: req.auth!.userId,
+        workspaceId: req.auth!.workspaceId,
+        metadata: {
+          scriptId: String(req.params.id),
+          rubricTemplateId: result.rubricTemplate?.id,
+          finalTotal: result.totals?.finalTotal,
+        },
+        ...auditRequestMeta(req),
+      });
+
+      return res.json(result);
     } catch (err) {
       return handleError(res, err);
     }

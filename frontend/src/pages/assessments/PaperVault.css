@@ -1,0 +1,116 @@
+.sc-paper-vault .sc-paper-section {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--sc-border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--sc-surface, #fff);
+}
+
+.sc-paper-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sc-paper-upload-form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 480px;
+}
+
+.sc-paper-upload-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.sc-paper-table-wrap {
+  overflow-x: auto;
+}
+
+.sc-paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.sc-paper-table th,
+.sc-paper-table td {
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--sc-border, #e2e8f0);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sc-paper-meta {
+  color: var(--sc-muted, #64748b);
+  font-size: 0.8rem;
+}
+
+.sc-paper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sc-paper-status {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sc-paper-status-draft { background: #f1f5f9; color: #475569; }
+.sc-paper-status-pending-review { background: #fef3c7; color: #92400e; }
+.sc-paper-status-approved { background: #dbeafe; color: #1d4ed8; }
+.sc-paper-status-locked { background: #ede9fe; color: #5b21b6; }
+.sc-paper-status-released { background: #dcfce7; color: #166534; }
+.sc-paper-status-archived { background: #f3f4f6; color: #6b7280; }
+
+.sc-paper-version-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sc-paper-version-list li {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--sc-border, #e2e8f0);
+  font-size: 0.85rem;
+}
+
+.sc-paper-release-panel {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 420px;
+}
+
+.sc-paper-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.sc-paper-hint {
+  color: var(--sc-muted, #64748b);
+  font-size: 0.85rem;
+}
+
+.sc-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--sc-primary, #2563eb);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+}

@@ -21,6 +21,7 @@ import subjectsRoutes from "./routes/subjects";
 import rubricsRoutes from "./routes/rubrics";
 import scheduleRoutes from "./routes/schedule";
 import markCaptureRoutes from "./routes/markCapture";
+import analysisRoutes from "./routes/analysis";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -29,7 +30,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "scriptcheck-api", phase: "assessment-setup-scheduling-rubric" });
+  res.json({ ok: true, service: "scriptcheck-api", phase: "paper-vault" });
 });
 
 app.use("/auth", authRoutes);
@@ -51,6 +52,7 @@ app.use("/subjects", subjectsRoutes);
 app.use("/rubrics", rubricsRoutes);
 app.use("/schedule", scheduleRoutes);
 app.use("/mark-capture", markCaptureRoutes);
+app.use("/analysis", analysisRoutes);
 
 app.use(
   (

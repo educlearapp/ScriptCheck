@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { apiDownload, apiFetch, apiOpenPdf, apiUpload } from "../../api";
 import ScriptAuditTimeline from "../../components/scripts/ScriptAuditTimeline";
 import ScriptMarkingPanel from "../../components/scripts/ScriptMarkingPanel";
+import RubricMarkingPanel from "../../components/scripts/RubricMarkingPanel";
 import ScriptPageList from "../../components/scripts/ScriptPageList";
 import ScriptViewer from "../../components/scripts/ScriptViewer";
 import ScriptWorkflowBar from "../../components/scripts/ScriptWorkflowBar";
@@ -15,6 +16,8 @@ import type {
   ScriptAuditEntry,
   ScriptLayerDetail,
   ScriptPageInfo,
+  RubricMarkRow,
+  RubricMarksResponse,
   ScriptQuestionMarkRow,
   ScriptWorkflowInfo,
   ViewMode,
@@ -29,6 +32,8 @@ export default function LearnerScriptDetailPage() {
   const [pages, setPages] = useState<ScriptPageInfo[]>([]);
   const [layers, setLayers] = useState<ScriptLayerDetail[]>([]);
   const [marks, setMarks] = useState<Record<string, Partial<ScriptQuestionMarkRow>>>({});
+  const [rubricData, setRubricData] = useState<RubricMarksResponse | null>(null);
+  const [rubricMarks, setRubricMarks] = useState<Record<string, Partial<RubricMarkRow>>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -106,6 +111,21 @@ export default function LearnerScriptDetailPage() {
         }
         setMarks(initial);
         if (feedbackData) setFeedback(feedbackData);
+
+        if (data.assessment.rubricTemplateId) {
+          apiFetch<RubricMarksResponse>(`/scripts/${scriptId}/rubric-marks`)
+            .then((rubric) => {
+              setRubricData(rubric);
+              const rubricInitial: Record<string, Partial<RubricMarkRow>> = {};
+              for (const m of rubric.marks) {
+                rubricInitial[m.rubricCriterionId] = { ...m };
+              }
+              setRubricMarks(rubricInitial);
+            })
+            .catch(() => setRubricData(null));
+        } else {
+          setRubricData(null);
+        }
       })
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Failed to load script")
@@ -134,6 +154,59 @@ export default function LearnerScriptDetailPage() {
         [field]: field.includes("Mark") ? (value === "" ? null : Number(value)) : value,
       },
     }));
+  };
+
+  const updateRubricMark = (
+    criterionId: string,
+    field: "teacherMark" | "hodMark" | "teacherComment" | "hodComment",
+    value: string
+  ) => {
+    setRubricMarks((prev) => ({
+      ...prev,
+      [criterionId]: {
+        ...prev[criterionId],
+        [field]: field.includes("Mark") ? (value === "" ? null : Number(value)) : value,
+      },
+    }));
+  };
+
+  const handleSaveRubric = async () => {
+    if (!scriptId) return;
+    setSaving(true);
+    setError("");
+    try {
+      const payload = Object.entries(rubricMarks).map(([rubricCriterionId, m]) => ({
+        rubricCriterionId,
+        ...(teacherMode
+          ? { teacherMark: m.teacherMark ?? null, teacherComment: m.teacherComment ?? null }
+          : {}),
+        ...(hodMode
+          ? { hodMark: m.hodMark ?? null, hodComment: m.hodComment ?? null }
+          : {}),
+      }));
+
+      const result = await apiFetch<RubricMarksResponse>(`/scripts/${scriptId}/rubric-marks`, {
+        method: "PUT",
+        body: JSON.stringify({ marks: payload }),
+      });
+      setRubricData(result);
+      const rubricInitial: Record<string, Partial<RubricMarkRow>> = {};
+      for (const m of result.marks) {
+        rubricInitial[m.rubricCriterionId] = { ...m };
+      }
+      setRubricMarks(rubricInitial);
+
+      const updated = await apiFetch<LearnerScriptDetail>(`/scripts/${scriptId}`);
+      setScript(updated);
+      const auditData = await apiFetch<ScriptAuditEntry[]>(
+        `/scripts/${scriptId}/audit-timeline`
+      );
+      setAuditTimeline(auditData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -416,31 +489,49 @@ export default function LearnerScriptDetailPage() {
           onSelectPage={setActivePageIndex}
         />
 
-        <ScriptMarkingPanel
-          script={script}
-          marks={marks}
-          teacherMode={Boolean(teacherMode)}
-          hodMode={Boolean(hodMode)}
-          saving={saving}
-          completing={completing}
-          onUpdateMark={updateMark}
-          onSave={handleSave}
-          onComplete={handleComplete}
-          canGenerateReports={canGenerateReports}
-          onDownloadPdf={handleDownloadLearnerPdf}
-          onPrintPdf={handlePrintLearnerPdf}
-          canViewFeedback={canViewFeedback}
-          canCreateFeedback={canCreateFeedback}
-          hodFeedbackMode={hodFeedbackMode}
-          feedback={feedback}
-          feedbackForm={feedbackForm}
-          feedbackSaving={feedbackSaving}
-          feedbackError={feedbackError}
-          onFeedbackFormChange={(field, value) =>
-            setFeedbackForm((f) => ({ ...f, [field]: value }))
-          }
-          onSaveFeedback={handleSaveFeedback}
-        />
+        {rubricData?.rubricTemplate ? (
+          <RubricMarkingPanel
+            data={rubricData}
+            marks={rubricMarks}
+            teacherMode={Boolean(teacherMode)}
+            hodMode={Boolean(hodMode)}
+            saving={saving}
+            onUpdateMark={updateRubricMark}
+            onSave={handleSaveRubric}
+            finalFeedback={feedbackForm.teacherFeedback}
+            onFinalFeedbackChange={(v) =>
+              setFeedbackForm((f) => ({ ...f, teacherFeedback: v }))
+            }
+            onSaveFeedback={handleSaveFeedback}
+            feedbackSaving={feedbackSaving}
+          />
+        ) : (
+          <ScriptMarkingPanel
+            script={script}
+            marks={marks}
+            teacherMode={Boolean(teacherMode)}
+            hodMode={Boolean(hodMode)}
+            saving={saving}
+            completing={completing}
+            onUpdateMark={updateMark}
+            onSave={handleSave}
+            onComplete={handleComplete}
+            canGenerateReports={canGenerateReports}
+            onDownloadPdf={handleDownloadLearnerPdf}
+            onPrintPdf={handlePrintLearnerPdf}
+            canViewFeedback={canViewFeedback}
+            canCreateFeedback={canCreateFeedback}
+            hodFeedbackMode={hodFeedbackMode}
+            feedback={feedback}
+            feedbackForm={feedbackForm}
+            feedbackSaving={feedbackSaving}
+            feedbackError={feedbackError}
+            onFeedbackFormChange={(field, value) =>
+              setFeedbackForm((f) => ({ ...f, [field]: value }))
+            }
+            onSaveFeedback={handleSaveFeedback}
+          />
+        )}
       </div>
 
       <div className="sc-card sc-audit-panel">

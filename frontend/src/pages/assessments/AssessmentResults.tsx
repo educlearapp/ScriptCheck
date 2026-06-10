@@ -228,6 +228,9 @@ export default function AssessmentResultsPage() {
           ) : null}
         </div>
         <div className="sc-results-actions">
+          <Link to={`/assessments/${id}/analysis`} className="sc-btn sc-btn-ghost">
+            Full analysis
+          </Link>
           {results.publishing.canRequestPublish ? (
             <button
               type="button"
@@ -373,6 +376,23 @@ export default function AssessmentResultsPage() {
         </div>
       </div>
 
+      <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-detail-label">Distinctions (≥80%)</div>
+          <div className="sc-stat-value">{summary.distinctionCount ?? "—"}</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-detail-label">Failures</div>
+          <div className="sc-stat-value">{summary.failureCount ?? "—"}</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-detail-label">Data source</div>
+          <div className="sc-stat-value" style={{ fontSize: "1rem" }}>
+            {summary.source ?? "Live"}
+          </div>
+        </div>
+      </div>
+
       <section className="sc-results-section">
         <h2>Learner Results</h2>
         {learners.length === 0 ? (
@@ -396,6 +416,8 @@ export default function AssessmentResultsPage() {
                     <td>{learner.learnerNumber}</td>
                     <td>
                       <Link to={`/scripts/${learner.scriptId}`}>{learner.learnerName}</Link>
+                      {" · "}
+                      <Link to={`/learners/${learner.learnerId}/history`}>History</Link>
                     </td>
                     <td>{learner.className || "—"}</td>
                     <td>

@@ -10,6 +10,7 @@ import CreateAssessment from "./pages/assessments/CreateAssessment";
 import GenerateAssessment from "./pages/assessments/GenerateAssessment";
 import GenerationPreview from "./pages/assessments/GenerationPreview";
 import AssessmentDetail from "./pages/assessments/AssessmentDetail";
+import AssessmentPaperVault from "./pages/assessments/AssessmentPaperVault";
 import AssessmentResults from "./pages/assessments/AssessmentResults";
 import AssessmentScripts from "./pages/scripts/AssessmentScripts";
 import LearnerScriptDetail from "./pages/scripts/LearnerScriptDetail";
@@ -24,6 +25,8 @@ import PublishedResults from "./pages/results/PublishedResults";
 import SubjectsManagement from "./pages/subjects/SubjectsManagement";
 import RubricsManagement from "./pages/rubrics/RubricsManagement";
 import AssessmentSchedule from "./pages/schedule/AssessmentSchedule";
+import AssessmentAnalysis from "./pages/analysis/AssessmentAnalysis";
+import LearnerHistory from "./pages/learners/LearnerHistory";
 
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
@@ -44,13 +47,16 @@ function AppRoutes() {
             <Route element={<RequirePermission permission="assessments.view" />}>
               <Route path="/assessments" element={<AssessmentsList />} />
               <Route path="/assessments/:id/scripts" element={<AssessmentScripts />} />
+              <Route path="/assessments/:id/paper-vault" element={<AssessmentPaperVault />} />
               <Route path="/assessments/:id" element={<AssessmentDetail />} />
             </Route>
 
             <Route element={<RequirePermission permission="results.view" />}>
               <Route path="/assessments/:id/results" element={<AssessmentResults />} />
+              <Route path="/assessments/:id/analysis" element={<AssessmentAnalysis />} />
               <Route path="/results" element={<DepartmentResults />} />
               <Route path="/published-results/:assessmentId" element={<PublishedResults />} />
+              <Route path="/learners/:learnerId/history" element={<LearnerHistory />} />
             </Route>
 
             <Route element={<RequirePermission permission="scripts.view" />}>

@@ -313,6 +313,11 @@ export default function AssessmentDetailPage() {
               Learner Scripts
             </Link>
           ) : null}
+          {hasPermission(user, "paperVault.view") ? (
+            <Link to={`/assessments/${id}/paper-vault`} className="sc-btn sc-btn-ghost">
+              Paper Vault
+            </Link>
+          ) : null}
           {assessment && canViewResults(user, assessment.creatorTeacher.id) ? (
             <Link to={`/assessments/${id}/results`} className="sc-btn sc-btn-ghost">
               View Results

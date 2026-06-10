@@ -43,6 +43,7 @@ import {
   generateAssessmentSummaryPdf,
 } from "../services/pdfReports";
 import assessmentQuestionsRoutes from "./assessmentQuestions";
+import paperVaultRoutes from "./paperVault";
 
 const router = Router();
 
@@ -210,6 +211,7 @@ router.post(
 );
 
 router.use("/:id/questions", assessmentQuestionsRoutes);
+router.use("/:id/paper-vault", paperVaultRoutes);
 
 function handleResultsError(res: Response, err: unknown) {
   if (err instanceof ResultsError) {

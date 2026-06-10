@@ -63,7 +63,14 @@ export type Permission =
   | "rubrics.view"
   | "rubrics.create"
   | "rubrics.approve"
-  | "schedule.view";
+  | "schedule.view"
+  | "paperVault.view"
+  | "paperVault.upload"
+  | "paperVault.review"
+  | "paperVault.approve"
+  | "paperVault.lock"
+  | "paperVault.release"
+  | "paperVault.archive";
 
 export type AuthUser = {
   id: string;
@@ -586,7 +593,18 @@ export type LearnerScriptDetail = {
     lastName: string;
     className: string | null;
   };
-  assessment: { id: string; title: string; totalMarks: number };
+  assessment: {
+    id: string;
+    title: string;
+    totalMarks: number;
+    rubricTemplateId?: string | null;
+    rubricTemplate?: {
+      id: string;
+      name: string;
+      totalMarks: number;
+      status: string;
+    } | null;
+  };
   batch: { id: string; title: string; status: ScriptBatchStatus; examSessionMode?: boolean };
   questionMarks: ScriptQuestionMarkRow[];
   layers: { id: string; layerType: string; color: string; label: string }[];
@@ -756,7 +774,10 @@ export type AssessmentResultsSummary = {
   highestMark: number | null;
   lowestMark: number | null;
   passRate: number | null;
+  distinctionCount?: number;
+  failureCount?: number;
   passThresholdPercent: number;
+  source?: string;
 };
 
 export type ResultsPublishingState = {
@@ -903,6 +924,162 @@ export type ScheduleEvent = {
   moderationDeadline: string | null;
 };
 
+export type RubricMarkRow = {
+  id: string | null;
+  rubricCriterionId: string;
+  name: string;
+  description: string | null;
+  maxMarks: number;
+  orderIndex: number;
+  teacherMark: number | null;
+  hodMark: number | null;
+  finalMark: number | null;
+  teacherComment: string | null;
+  hodComment: string | null;
+};
+
+export type RubricMarksResponse = {
+  rubricTemplate: {
+    id: string;
+    name: string;
+    totalMarks: number;
+    status: string;
+  } | null;
+  marks: RubricMarkRow[];
+  totals: {
+    teacherTotal: number;
+    hodTotal: number | null;
+    finalTotal: number;
+    outOf: number;
+    percentage: number | null;
+  } | null;
+};
+
+export type PerformanceBand = {
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+  percentage: number;
+  barWidth: number;
+};
+
+export type ClassAnalysis = {
+  assessment: {
+    id: string;
+    title: string;
+    subject: { id: string; name: string };
+    grade: { id: string; name: string };
+    term: string | null;
+  };
+  summary: {
+    totalLearners: number;
+    markedLearners: number;
+    classAverage: number | null;
+    highestMark: number | null;
+    lowestMark: number | null;
+    passRate: number | null;
+    distinctionCount: number;
+    failureCount: number;
+    passThresholdPercent: number;
+  };
+  distribution: PerformanceBand[];
+  performanceBands: PerformanceBand[];
+  classes: Array<{
+    className: string;
+    classAverage: number | null;
+    passRate: number | null;
+    distinctionCount: number;
+    failureCount: number;
+    distribution: PerformanceBand[];
+  }>;
+  topPerformer: {
+    learnerId: string;
+    learnerName: string;
+    finalPercentage: number | null;
+  } | null;
+  lowestPerformer: {
+    learnerId: string;
+    learnerName: string;
+    finalPercentage: number | null;
+  } | null;
+  source: string;
+};
+
+export type SubjectAnalysis = {
+  subjectAverage: number | null;
+  assessments: Array<{
+    assessmentId: string;
+    title: string;
+    term: string | null;
+    classAverage: number | null;
+    passRate: number | null;
+    distinctionCount: number;
+    failureCount: number;
+  }>;
+  trend: {
+    direction: "improving" | "declining" | "stable";
+    dataPoints: Array<{ assessmentId: string; title: string; average: number | null; date: string | null }>;
+  } | null;
+  source: string;
+};
+
+export type GradeAnalysis = {
+  grade: { id: string; name: string };
+  gradeAverage: number | null;
+  classes: Array<{
+    className: string;
+    learnerCount: number;
+    averagePercentage: number | null;
+    passRate: number | null;
+    atRisk: boolean;
+  }>;
+  topPerformingClass: { className: string; averagePercentage: number | null } | null;
+  atRiskClasses: Array<{ className: string; averagePercentage: number | null }>;
+  source: string;
+};
+
+export type LearnerHistory = {
+  learner: {
+    id: string;
+    learnerNumber: string;
+    firstName: string;
+    lastName: string;
+    className: string | null;
+    grade: { id: string; name: string };
+  };
+  overallAverage: number | null;
+  assessmentCount: number;
+  timeline: Array<{
+    id: string;
+    assessmentId: string;
+    title: string;
+    term: string | null;
+    subject: { id: string; name: string };
+    finalMark: number | null;
+    finalPercentage: number | null;
+    totalMarks: number;
+    passed: boolean | null;
+    capturedAt: string;
+    assessmentDate: string | null;
+  }>;
+  averageByTerm: Array<{ term: string; average: number; assessmentCount: number }>;
+  averageBySubject: Array<{ subject: string; average: number; assessmentCount: number }>;
+  trend: { direction: string; change: number } | null;
+  source: string;
+};
+
+export type AtRiskLearner = {
+  learnerId: string;
+  learnerNumber: string;
+  learnerName: string;
+  className: string | null;
+  grade: { id: string; name: string };
+  reasons: string[];
+  flaggedAt: string;
+  metadata: Record<string, unknown> | null;
+};
+
 export type AssessmentScheduleData = {
   scope: "teacher" | "hod" | "school";
   rangeStart: string;
@@ -1021,6 +1198,61 @@ export type PublishedResultsView = {
     status: LearnerScriptStatus;
     passed: boolean | null;
   }>;
+};
+
+export type PaperDocumentType =
+  | "QUESTION_PAPER"
+  | "MEMORANDUM"
+  | "MARKING_GUIDELINE"
+  | "RUBRIC_ATTACHMENT"
+  | "SUPPORTING_MATERIAL";
+
+export type PaperVaultStatus =
+  | "DRAFT"
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "LOCKED"
+  | "RELEASED"
+  | "ARCHIVED";
+
+export type PaperVaultWorkflowActions = {
+  canSubmit: boolean;
+  canReturn: boolean;
+  canApprove: boolean;
+  canLock: boolean;
+  canRelease: boolean;
+  canArchive: boolean;
+  canUploadNewVersion: boolean;
+  canDownload: boolean;
+};
+
+export type PaperVaultDocument = {
+  id: string;
+  assessmentId: string;
+  documentGroupId: string;
+  documentType: PaperDocumentType;
+  versionNumber: number;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  status: PaperVaultStatus;
+  isCurrentVersion: boolean;
+  uploadedBy: { id: string; fullName: string };
+  releaseAt: string | null;
+  expiresAt: string | null;
+  workflowComment: string | null;
+  createdAt: string;
+  updatedAt: string;
+  workflow?: PaperVaultWorkflowActions;
+  canDownload?: boolean;
+};
+
+export type PaperVaultAuditEntry = {
+  id: string;
+  action: string;
+  createdAt: string;
+  actor: { id: string; fullName: string } | null;
+  metadata: Record<string, unknown> | null;
 };
 
 export type NavItem = {

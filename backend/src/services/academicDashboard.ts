@@ -12,6 +12,7 @@ import {
 } from "./permissions";
 import { WorkspaceRole } from "@prisma/client";
 import { countUncapturedLearners } from "./markCapture";
+import { countAtRiskLearners } from "./atRisk";
 
 const assessmentListInclude = {
   grade: { select: { id: true, name: true } },
@@ -301,14 +302,13 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
   ]);
 
   const topicMap = new Map<string, { total: number; count: number }>();
-  let atRiskTotal = 0;
+  const atRiskTotal = await countAtRiskLearners(workspaceId);
   const classAverages: number[] = [];
 
   for (const assessment of publishedAssessments) {
     const snapshot = parseAnalyticsSnapshot(assessment.analyticsSnapshot);
     if (!snapshot) continue;
     if (snapshot.classAverage != null) classAverages.push(snapshot.classAverage);
-    atRiskTotal += snapshot.learnersAtRiskCount;
     for (const topic of snapshot.weakTopics) {
       if (topic.averagePercentage == null) continue;
       const existing = topicMap.get(topic.topic) ?? { total: 0, count: 0 };
@@ -371,14 +371,13 @@ export async function getPrincipalDashboard(workspaceId: string) {
 
   const subjectMap = new Map<string, { passRates: number[]; count: number }>();
   const gradeMap = new Map<string, { passRates: number[]; count: number }>();
-  let atRiskTotal = 0;
+  const atRiskTotal = await countAtRiskLearners(workspaceId);
   const passRates: number[] = [];
 
   for (const assessment of published) {
     const snapshot = parseAnalyticsSnapshot(assessment.analyticsSnapshot);
     if (!snapshot) continue;
     if (snapshot.passRate != null) passRates.push(snapshot.passRate);
-    atRiskTotal += snapshot.learnersAtRiskCount;
 
     const subjectKey = assessment.subject.name;
     const gradeKey = assessment.grade.name;
