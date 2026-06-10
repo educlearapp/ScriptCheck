@@ -68,8 +68,12 @@ export default function TeacherDashboard() {
           <div>Published results</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.moderationPendingCount ?? "—"}</div>
-          <div>Moderation pending</div>
+          <div className="sc-stat-value">{stats?.portalLogins30d ?? "—"}</div>
+          <div>Portal logins (30d)</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.portalReportDownloads30d ?? "—"}</div>
+          <div>Report downloads (30d)</div>
         </div>
       </div>
 
@@ -195,6 +199,26 @@ export default function TeacherDashboard() {
                         </Link>
                       ) : null}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {data?.portalActivity?.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>
+            Recent portal activity
+          </h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <tbody>
+                {data.portalActivity.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.action.replaceAll("_", " ")}</td>
+                    <td>{new Date(item.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

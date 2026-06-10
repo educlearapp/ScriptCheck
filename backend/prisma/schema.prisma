@@ -98,6 +98,10 @@ enum AuditAction {
   BULK_MARK_IMPORT_COMPLETED
   BULK_MARK_IMPORT_FAILED
   BULK_MARK_CAPTURED
+  PORTAL_LOGIN
+  PORTAL_LOGOUT
+  PORTAL_REPORT_DOWNLOADED
+  PORTAL_ACCESS_DENIED
 }
 
 enum ModerationVarianceLevel {
@@ -240,6 +244,11 @@ enum ConcessionType {
   OTHER
 }
 
+enum PortalUserType {
+  PARENT
+  LEARNER
+}
+
 enum AtRiskReason {
   BELOW_THRESHOLD
   CONSECUTIVE_DECLINE
@@ -292,6 +301,9 @@ model Workspace {
   learnerAtRiskFlags           LearnerAtRiskFlag[]
   paperVaultDocuments          PaperVaultDocument[]
   learnerConcessions           LearnerConcession[]
+  portalAccounts               PortalAccount[]
+  portalOtps                   PortalOtp[]
+  parentLearnerLinks           ParentLearnerLink[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -752,6 +764,8 @@ model Learner {
   learnerAssessmentMarks  LearnerAssessmentMark[]
   atRiskFlags             LearnerAtRiskFlag[]
   concessions             LearnerConcession[]
+  portalAccount           PortalAccount?
+  parentLinks             ParentLearnerLink[]
 
   @@unique([workspaceId, learnerNumber])
   @@index([workspaceId, active])
@@ -1157,4 +1171,57 @@ model LearnerConcession {
   @@index([workspaceId, active])
   @@index([learnerId, active])
   @@index([workspaceId, learnerId, active])
+}
+
+// ─── Parent & learner academic progress portal ────────────────────────────────
+
+model PortalAccount {
+  id          String         @id @default(cuid())
+  workspaceId String
+  type        PortalUserType
+  email       String?
+  fullName    String?
+  learnerId   String?        @unique
+  isActive    Boolean        @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  learner     Learner?             @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  parentLinks ParentLearnerLink[]  @relation("ParentAccount")
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId, type, isActive])
+}
+
+model ParentLearnerLink {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  parentAccountId String
+  learnerId       String
+  createdAt       DateTime @default(now())
+
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentAccount PortalAccount @relation("ParentAccount", fields: [parentAccountId], references: [id], onDelete: Cascade)
+  learner       Learner       @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([parentAccountId, learnerId])
+  @@index([workspaceId, learnerId])
+  @@index([parentAccountId])
+}
+
+model PortalOtp {
+  id          String         @id @default(cuid())
+  workspaceId String
+  identifier  String
+  portalType  PortalUserType
+  code        String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime       @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, identifier, portalType, expiresAt])
 }

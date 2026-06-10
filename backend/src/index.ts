@@ -23,6 +23,7 @@ import scheduleRoutes from "./routes/schedule";
 import markCaptureRoutes from "./routes/markCapture";
 import markImportRoutes from "./routes/markImport";
 import concessionsRoutes from "./routes/concessions";
+import portalRoutes from "./routes/portal";
 import analysisRoutes from "./routes/analysis";
 
 const app = express();
@@ -32,7 +33,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "scriptcheck-api", phase: "bulk-mark-import" });
+  res.json({ ok: true, service: "scriptcheck-api", phase: "parent-learner-portal" });
 });
 
 app.use("/auth", authRoutes);
@@ -56,6 +57,7 @@ app.use("/schedule", scheduleRoutes);
 app.use("/mark-capture", markCaptureRoutes);
 app.use("/mark-import", markImportRoutes);
 app.use("/concessions", concessionsRoutes);
+app.use("/portal", portalRoutes);
 app.use("/analysis", analysisRoutes);
 
 app.use(

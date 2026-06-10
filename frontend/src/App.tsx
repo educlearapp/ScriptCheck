@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AuthGuard from "./auth/AuthGuard";
 import RequirePermission from "./auth/RequirePermission";
@@ -30,6 +30,14 @@ import LearnerHistory from "./pages/learners/LearnerHistory";
 import MarkImportWizard from "./pages/marks/MarkImportWizard";
 import BulkMarkCapture from "./pages/marks/BulkMarkCapture";
 import ConcessionsRegister from "./pages/concessions/ConcessionsRegister";
+import { PortalAuthProvider } from "./portal/PortalAuthContext";
+import PortalGuard, { PortalGuestGuard } from "./portal/PortalGuard";
+import PortalLayout from "./portal/PortalLayout";
+import PortalLogin from "./pages/portal/PortalLogin";
+import PortalDashboardRouter from "./pages/portal/PortalDashboard";
+import PortalAssessmentDetailPage from "./pages/portal/PortalAssessmentDetail";
+import PortalHistoryPage from "./pages/portal/PortalHistory";
+import PortalAnalyticsPage from "./pages/portal/PortalAnalytics";
 
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
@@ -118,6 +126,30 @@ function AppRoutes() {
 
             <Route element={<RequirePermission permission="concessions.view" />}>
               <Route path="/concessions" element={<ConcessionsRegister />} />
+            </Route>
+          </Route>
+        </Route>
+
+        <Route
+          path="/portal"
+          element={
+            <PortalAuthProvider>
+              <Outlet />
+            </PortalAuthProvider>
+          }
+        >
+          <Route element={<PortalGuestGuard />}>
+            <Route path="login" element={<PortalLogin />} />
+          </Route>
+          <Route element={<PortalGuard />}>
+            <Route element={<PortalLayout />}>
+              <Route index element={<PortalDashboardRouter />} />
+              <Route
+                path="learners/:learnerId/assessments/:assessmentId"
+                element={<PortalAssessmentDetailPage />}
+              />
+              <Route path="learners/:learnerId/history" element={<PortalHistoryPage />} />
+              <Route path="learners/:learnerId/analytics" element={<PortalAnalyticsPage />} />
             </Route>
           </Route>
         </Route>

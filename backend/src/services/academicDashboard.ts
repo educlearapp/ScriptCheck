@@ -18,6 +18,11 @@ import {
   listRecentImports,
 } from "./markImport";
 import { countActiveConcessionLearners } from "./concessions";
+import {
+  countPortalLoginsSince,
+  countPortalReportDownloads,
+  getRecentPortalActivity,
+} from "./portalReports";
 
 const assessmentListInclude = {
   grade: { select: { id: true, name: true } },
@@ -195,10 +200,17 @@ export async function getTeacherDashboard(
   );
   const marksNotCapturedCount = uncapturedCounts.reduce((sum, c) => sum + c.count, 0);
 
-  const [recentImports, importFailures] = await Promise.all([
-    listRecentImports(workspaceId, userId, access, 5),
-    countImportValidationFailures(workspaceId),
-  ]);
+  const [recentImports, importFailures, portalLogins30d, portalDownloads30d, portalActivity] =
+    await Promise.all([
+      listRecentImports(workspaceId, userId, access, 5),
+      countImportValidationFailures(workspaceId),
+      countPortalLoginsSince(workspaceId, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+      countPortalReportDownloads(
+        workspaceId,
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      ),
+      getRecentPortalActivity(workspaceId, 5),
+    ]);
 
   const publishedSnapshots = recentlyPublished
     .map((a) => parseAnalyticsSnapshot(a.analyticsSnapshot)?.classAverage)
@@ -217,8 +229,11 @@ export async function getTeacherDashboard(
       upcomingDeadlinesCount: upcomingDeadlines.length,
       recentImportsCount: recentImports.length,
       importFailuresCount: importFailures,
+      portalLogins30d,
+      portalReportDownloads30d: portalDownloads30d,
     },
     recentImports,
+    portalActivity,
     awaitingMarking: awaitingMarking.map(serializeAssessmentBrief),
     submittedToHod: submittedToHod.map(serializeAssessmentBrief),
     recentlyPublished: recentlyPublished.map(serializeAssessmentBrief),
@@ -315,12 +330,15 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
   ]);
 
   const topicMap = new Map<string, { total: number; count: number }>();
-  const [atRiskTotal, importFailures, concessionLearners, recentImports] =
+  const [atRiskTotal, importFailures, concessionLearners, recentImports, portalLogins30d, portalDownloads, portalActivity] =
     await Promise.all([
       countAtRiskLearners(workspaceId),
       countImportValidationFailures(workspaceId),
       countActiveConcessionLearners(workspaceId),
       listRecentImports(workspaceId, access.userId, access, 8),
+      countPortalLoginsSince(workspaceId, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)),
+      countPortalReportDownloads(workspaceId),
+      getRecentPortalActivity(workspaceId, 8),
     ]);
   const classAverages: number[] = [];
 
@@ -366,8 +384,11 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
       importFailuresCount: importFailures,
       concessionLearnerCount: concessionLearners,
       importedAssessmentsCount: importedAssessmentIds.size,
+      portalAdoptionCount: portalLogins30d,
+      portalReportDownloads: portalDownloads,
     },
     recentImports,
+    portalActivity,
     resultsAwaitingPublish: resultsAwaitingPublish.map(serializeAssessmentBrief),
     weakTopics,
     moderationQueue: moderationQueue.map((batch) => ({

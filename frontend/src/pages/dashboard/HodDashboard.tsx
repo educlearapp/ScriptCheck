@@ -78,12 +78,20 @@ export default function HodDashboard() {
           <div>Validation failures (30d)</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-stat-value">{stats?.concessionLearnerCount ?? "—"}</div>
-          <div>Concession learners</div>
+          <div className="sc-stat-value">{stats?.portalAdoptionCount ?? "—"}</div>
+          <div>Portal adoption (30d)</div>
         </div>
       </div>
 
       <div className="sc-grid-3" style={{ marginTop: "1rem" }}>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.portalReportDownloads ?? "—"}</div>
+          <div>Report downloads</div>
+        </div>
+        <div className="sc-card" style={{ padding: "1.25rem" }}>
+          <div className="sc-stat-value">{stats?.concessionLearnerCount ?? "—"}</div>
+          <div>Concession learners</div>
+        </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
           <div className="sc-detail-label">Department average</div>
           <div className="sc-stat-value">{formatPct(stats?.departmentAverage)}</div>
@@ -157,6 +165,24 @@ export default function HodDashboard() {
                     <td>{item.fileName ?? "Import"}</td>
                     <td>{item.rowsImported ?? "—"}</td>
                     <td>{item.action === "BULK_MARK_IMPORT_FAILED" ? "Failed" : "OK"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {data?.portalActivity?.length ? (
+        <section style={{ marginTop: "1.5rem" }}>
+          <h2 style={{ color: "var(--sc-gold-light)", fontSize: "1.1rem" }}>Portal activity</h2>
+          <div className="sc-card" style={{ padding: 0 }}>
+            <table className="sc-table">
+              <tbody>
+                {data.portalActivity.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.action.replaceAll("_", " ")}</td>
+                    <td>{new Date(item.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>

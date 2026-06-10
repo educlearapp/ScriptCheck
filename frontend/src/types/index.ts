@@ -845,8 +845,11 @@ export type TeacherDashboardData = {
     upcomingDeadlinesCount: number;
     recentImportsCount: number;
     importFailuresCount: number;
+    portalLogins30d: number;
+    portalReportDownloads30d: number;
   };
   recentImports: MarkImportAuditItem[];
+  portalActivity: PortalActivityItem[];
   awaitingMarking: DepartmentResultItem[];
   submittedToHod: DepartmentResultItem[];
   recentlyPublished: DepartmentResultItem[];
@@ -873,8 +876,11 @@ export type HodDashboardData = {
     importFailuresCount: number;
     concessionLearnerCount: number;
     importedAssessmentsCount: number;
+    portalAdoptionCount: number;
+    portalReportDownloads: number;
   };
   recentImports: MarkImportAuditItem[];
+  portalActivity: PortalActivityItem[];
   resultsAwaitingPublish: DepartmentResultItem[];
   weakTopics: { topic: string; averagePercentage: number; assessmentCount: number }[];
   moderationQueue: DashboardBatchItem[];
@@ -1394,4 +1400,175 @@ export type MarkImportValidation = {
     warningCount: number;
     skippedCount: number;
   };
+};
+
+export type PortalUserType = "PARENT" | "LEARNER";
+
+export type PortalLearnerRef = {
+  id: string;
+  learnerNumber: string;
+  fullName: string;
+  className: string | null;
+  grade: { id: string; name: string };
+};
+
+export type PortalAuthResponse = {
+  token: string;
+  portalType: PortalUserType;
+  workspace: { id: string; name: string; slug: string };
+  learners: PortalLearnerRef[];
+  activeLearnerId: string | null;
+};
+
+export type PortalSession = {
+  token: string;
+  portalType: PortalUserType;
+  workspaceName: string;
+  workspaceSlug: string;
+  learners: PortalLearnerRef[];
+  activeLearnerId: string | null;
+};
+
+export type PortalAtRisk = {
+  active: boolean;
+  alerts: Array<{ reason: string; label: string }>;
+  guidance: string | null;
+};
+
+export type PortalLearnerDashboard = {
+  learner: PortalLearnerRef & {
+    firstName: string;
+    lastName: string;
+  };
+  cards: {
+    academicAverage: number | null;
+    assessmentsCompleted: number;
+    distinctions: number;
+    subjectsAtRisk: number;
+  };
+  subjectAverages: Array<{
+    subject: string;
+    average: number;
+    assessmentCount: number;
+    atRisk: boolean;
+  }>;
+  recentAssessments: Array<{
+    assessmentId: string;
+    title: string;
+    subject: string;
+    date: string | null;
+    mark: number | null;
+    percentage: number | null;
+    totalMarks: number;
+    passed: boolean | null;
+  }>;
+  upcomingAssessments: Array<{
+    id: string;
+    title: string;
+    subject: string;
+    date: string | null;
+    teacher: string;
+  }>;
+  performanceTrend: {
+    direction: "improving" | "declining" | "stable";
+    change: number;
+  } | null;
+  atRisk: PortalAtRisk;
+  readOnly: boolean;
+};
+
+export type PortalAssessmentDetail = {
+  assessment: {
+    id: string;
+    title: string;
+    subject: string;
+    date: string | null;
+    teacher: string;
+    totalMarks: number;
+  };
+  result: {
+    mark: number | null;
+    percentage: number | null;
+    comment: string | null;
+    passed: boolean | null;
+  };
+  classStats: {
+    classAverage: number | null;
+    highestMark: number | null;
+    learnerCount: number;
+  };
+  rubricBreakdown: {
+    templateName: string | null;
+    criteria: Array<{
+      name: string;
+      maxMarks: number;
+      mark: number | null;
+      teacherComment: string | null;
+      moderatorComment: string | null;
+    }>;
+    total: number | null;
+    maxTotal: number | null;
+    percentage: number | null;
+  } | null;
+  teacherComments: string | null;
+  moderatorComments: string | null;
+  readOnly: boolean;
+};
+
+export type PortalLearnerHistory = {
+  learner: {
+    id: string;
+    learnerNumber: string;
+    firstName: string;
+    lastName: string;
+    grade: { id: string; name: string };
+  };
+  overallAverage: number | null;
+  terms: Array<{
+    term: string;
+    subjectAverages: Array<{ subject: string; average: number }>;
+    assessmentAverage: number | null;
+    assessmentCount: number;
+    trend: "up" | "down" | "stable" | null;
+  }>;
+  timeline: Array<{
+    assessmentId: string;
+    title: string;
+    term: string;
+    subject: string;
+    date: string | null;
+    mark: number | null;
+    percentage: number | null;
+    totalMarks: number;
+    passed: boolean | null;
+  }>;
+  readOnly: boolean;
+};
+
+export type PortalAnalytics = {
+  subjectTrends: Array<{
+    subject: string;
+    points: Array<{ date: string | null; percentage: number }>;
+  }>;
+  assessmentTrends: Array<{
+    title: string;
+    subject: string;
+    date: string | null;
+    percentage: number;
+  }>;
+  performanceGrowth: number | null;
+  gradeComparison: {
+    grade: string;
+    gradeAverage: number | null;
+    learnerAverage: number | null;
+    difference: number | null;
+  };
+  readOnly: boolean;
+};
+
+export type PortalActivityItem = {
+  id: string;
+  action: string;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
 };

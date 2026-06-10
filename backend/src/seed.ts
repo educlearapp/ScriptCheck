@@ -2,6 +2,7 @@ import { WorkspaceRole, WorkspaceType } from "@prisma/client";
 import { prisma } from "./prisma";
 import { hashAuthPassword } from "./services/authCredentials";
 import { seedCurriculumCatalog } from "./seed/seedCurriculum";
+import { seedPortalDemo } from "./seed/seedPortal";
 
 async function createMembershipWithRoles(
   userId: string,
@@ -120,6 +121,8 @@ async function main() {
       );
     }
   }
+
+  await seedPortalDemo("demo-high-school");
 
   console.log("Seed complete.");
   console.log("Demo logins (password: ScriptCheck2026!):");
