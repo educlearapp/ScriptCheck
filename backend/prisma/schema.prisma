@@ -118,6 +118,20 @@ enum AuditAction {
   EXAM_PACK_GENERATED
   EXAM_INCIDENT_CREATED
   EXAM_REPORT_GENERATED
+  AI_MATERIAL_UPLOADED
+  AI_CONTENT_EXTRACTED
+  AI_ASSESSMENT_GENERATED
+  AI_ASSESSMENT_EDITED
+  AI_ASSESSMENT_APPROVED
+  AI_ASSESSMENT_EXPORTED
+  AI_GENERATION_FAILED
+  OCR_EXTRACTION_STARTED
+  OCR_EXTRACTION_COMPLETED
+  OCR_EXTRACTION_FAILED
+  PAST_PAPER_IMPORTED
+  QUESTION_BANK_QUESTION_EXTRACTED
+  QUESTION_BANK_DUPLICATE_DETECTED
+  QUESTION_BANK_QUESTION_SAVED
 }
 
 enum ModerationVarianceLevel {
@@ -196,6 +210,70 @@ enum GenerationDifficulty {
   EASY
   STANDARD
   CHALLENGING
+}
+
+enum AiBuilderStatus {
+  UPLOADING
+  EXTRACTING
+  SETTINGS
+  GENERATING
+  REVIEW
+  APPROVED
+  FAILED
+}
+
+enum AiMaterialType {
+  PDF
+  JPEG
+  PNG
+  DOCX
+  TXT
+}
+
+enum AiQuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  MATCH_COLUMNS
+  SHORT
+  PARAGRAPH
+  CASE_STUDY
+}
+
+enum AiBloomLevel {
+  KNOWLEDGE
+  UNDERSTANDING
+  APPLICATION
+  ANALYSIS
+  EVALUATION
+  CREATION
+}
+
+enum AiBuilderDifficulty {
+  EASY
+  MODERATE
+  DIFFICULT
+  MIXED
+}
+
+enum AiExtractionStatus {
+  PENDING
+  EXTRACTED
+  MANUAL_REQUIRED
+  FAILED
+}
+
+enum AiUploadPurpose {
+  STUDY_MATERIAL
+  PAST_PAPER
+  ASSESSMENT_FRAMEWORK
+}
+
+enum AiBuilderSourceMode {
+  STUDY_MATERIAL
+  PAST_PAPER
+  QUESTION_BANK
+  FRAMEWORK
+  MIXED
 }
 
 // ─── Assessment enums ─────────────────────────────────────────────────────────
@@ -371,6 +449,7 @@ model Workspace {
   invigilatorAssignments       InvigilatorAssignment[]
   seatingPlans                 SeatingPlan[]
   examinationIncidents         ExaminationIncident[]
+  aiAssessmentBuilderRequests  AiAssessmentBuilderRequest[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -418,6 +497,8 @@ model User {
   invigilatorAssignmentsCreated   InvigilatorAssignment[]         @relation("InvigilatorAssigner")
   seatingPlansCreated             SeatingPlan[]                   @relation("SeatingPlanCreator")
   examinationIncidentsReported    ExaminationIncident[]           @relation("IncidentReporter")
+  aiAssessmentBuilderRequests     AiAssessmentBuilderRequest[]    @relation("AiBuilderCreator")
+  aiStudyMaterialsUploaded        AiStudyMaterial[]               @relation("AiMaterialUploader")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -614,6 +695,8 @@ model Assessment {
   paperVaultDocuments    PaperVaultDocument[]
   examinationSlots       ExaminationSlot[]
   examinationOpsSessions ExaminationOpsSession[]
+
+  aiBuilderRequest       AiAssessmentBuilderRequest?
 
   analyticsSnapshot Json?
 
@@ -1555,4 +1638,78 @@ model PortalOtp {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, identifier, portalType, expiresAt])
+}
+
+// ─── AI Assessment Builder (material upload → generate → approve) ─────────────
+
+model AiAssessmentBuilderRequest {
+  id              String            @id @default(cuid())
+  workspaceId     String
+  createdById     String
+  status          AiBuilderStatus   @default(UPLOADING)
+
+  curriculumId    String?
+  phaseId         String?
+  gradeId         String?
+  subjectId       String?
+  assessmentType  AssessmentType?
+  title           String?
+  term            String?
+  totalMarks      Int?
+  durationMinutes Int?
+  difficulty      AiBuilderDifficulty?
+  questionTypes   AiQuestionType[]     @default([])
+  bloomLevels     AiBloomLevel[]       @default([])
+  instructions    String?
+
+  draftMetadata   Json?
+  qualityChecks   Json?
+
+  sourceMode              AiBuilderSourceMode @default(STUDY_MATERIAL)
+  selectedQuestionBankIds Json?
+  frameworkText           String?
+
+  assessmentId    String?           @unique
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User              @relation("AiBuilderCreator", fields: [createdById], references: [id])
+  assessment  Assessment?       @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  materials   AiStudyMaterial[]
+
+  @@index([workspaceId, status])
+  @@index([createdById, createdAt])
+}
+
+model AiStudyMaterial {
+  id               String             @id @default(cuid())
+  requestId        String
+  workspaceId      String
+
+  fileType         AiMaterialType
+  fileName         String
+  storedKey        String
+  mimeType         String
+  fileSize         Int
+
+  uploadPurpose      AiUploadPurpose    @default(STUDY_MATERIAL)
+  extractionStatus   AiExtractionStatus @default(PENDING)
+  extractedText      String?
+  manualText         String?
+  ocrAttempted       Boolean            @default(false)
+  ocrConfidence      Float?
+  extractedQuestions Json?
+  duplicateWarnings  Json?
+
+  uploadedById     String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  request    AiAssessmentBuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  uploadedBy User                       @relation("AiMaterialUploader", fields: [uploadedById], references: [id])
+
+  @@index([requestId])
+  @@index([workspaceId])
 }

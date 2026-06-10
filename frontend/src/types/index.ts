@@ -317,6 +317,203 @@ export type GenerationRequest = {
   createdAt: string;
 };
 
+// ─── AI Assessment Builder (v0.7.0) ───────────────────────────────────────────
+
+export type AiBuilderStatus =
+  | "UPLOADING"
+  | "EXTRACTING"
+  | "SETTINGS"
+  | "GENERATING"
+  | "REVIEW"
+  | "APPROVED"
+  | "FAILED";
+
+export type AiMaterialType = "PDF" | "JPEG" | "PNG" | "DOCX" | "TXT";
+
+export type AiExtractionStatus = "PENDING" | "EXTRACTED" | "MANUAL_REQUIRED" | "FAILED";
+
+export type AiQuestionType =
+  | "MULTIPLE_CHOICE"
+  | "TRUE_FALSE"
+  | "MATCH_COLUMNS"
+  | "SHORT"
+  | "PARAGRAPH"
+  | "CASE_STUDY";
+
+export type AiBloomLevel =
+  | "KNOWLEDGE"
+  | "UNDERSTANDING"
+  | "APPLICATION"
+  | "ANALYSIS"
+  | "EVALUATION"
+  | "CREATION";
+
+export type AiBuilderDifficulty = "EASY" | "MODERATE" | "DIFFICULT" | "MIXED";
+
+export type AiUploadPurpose = "STUDY_MATERIAL" | "PAST_PAPER" | "ASSESSMENT_FRAMEWORK";
+
+export type AiBuilderSourceMode =
+  | "STUDY_MATERIAL"
+  | "PAST_PAPER"
+  | "QUESTION_BANK"
+  | "FRAMEWORK"
+  | "MIXED";
+
+export type ExtractedPaperQuestion = {
+  id: string;
+  questionNumber: string;
+  section?: string;
+  questionText: string;
+  marks: number;
+  questionType: string;
+  topic?: string;
+  cognitiveLevel?: string;
+  difficulty?: string;
+  memoAnswer?: string;
+  rubricNotes?: string;
+  tags: string[];
+  confidence: number;
+  options?: string[];
+};
+
+export type DuplicateCheckResult = {
+  extractedId: string;
+  questionText: string;
+  matches: {
+    extractedId: string;
+    existingItemId: string;
+    existingQuestionText: string;
+    similarity: number;
+    status: string;
+  }[];
+  isDuplicate: boolean;
+};
+
+export type AiStudyMaterial = {
+  id: string;
+  fileType: AiMaterialType;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  uploadPurpose: AiUploadPurpose;
+  extractionStatus: AiExtractionStatus;
+  extractedText: string | null;
+  manualText: string | null;
+  effectiveText: string;
+  ocrAttempted: boolean;
+  ocrConfidence: number | null;
+  extractedQuestions: ExtractedPaperQuestion[];
+  duplicateWarnings: DuplicateCheckResult[];
+  createdAt: string;
+};
+
+export type AiRubricCriterion = {
+  name: string;
+  description: string;
+  maxMarks: number;
+};
+
+export type AiGeneratedQuestion = {
+  questionNumber: string;
+  section?: string;
+  questionType: AiQuestionType;
+  questionText: string;
+  marks: number;
+  bloomLevel: AiBloomLevel;
+  difficulty: string;
+  options?: string[];
+  memoAnswer: string;
+  memoNotes?: string;
+  rubric?: { criteria: AiRubricCriterion[] };
+};
+
+export type AiGeneratedDraft = {
+  instructions: string;
+  sections: { name: string; questionNumbers: string[] }[];
+  questions: AiGeneratedQuestion[];
+  totalMarks: number;
+  generatedAt: string;
+  sourceExcerpt: string;
+  mock: boolean;
+};
+
+export type AiQualityIssue = {
+  code: string;
+  severity: "error" | "warning";
+  message: string;
+  questionNumber?: string;
+};
+
+export type FrameworkSlot = {
+  questionNumber: string;
+  parentQuestion: string;
+  section: string;
+  questionType: AiQuestionType;
+  style: string;
+  marks: number;
+  bloom: AiBloomLevel;
+  label: string;
+};
+
+export type PaperBlueprint = {
+  id: string;
+  name: string;
+  sections: { name: string; totalMarks: number; questionNumbers: string[] }[];
+  slots: FrameworkSlot[];
+  totalMarks: number;
+};
+
+export type AiQualityChecks = {
+  passed: boolean;
+  issues: AiQualityIssue[];
+  summary: {
+    totalMarks: number;
+    targetMarks: number;
+    questionCount: number;
+    memoCount: number;
+    rubricCount: number;
+    bloomAssigned: number;
+    duplicateCount: number;
+    sectionCount: number;
+  };
+  blueprint?: PaperBlueprint;
+  frameworkValidation?: { passed: boolean; issues: AiQualityIssue[] };
+};
+
+export type AiBuilderRequest = {
+  id: string;
+  workspaceId: string;
+  status: AiBuilderStatus;
+  curriculumId: string | null;
+  phaseId: string | null;
+  gradeId: string | null;
+  subjectId: string | null;
+  assessmentType: AssessmentType | null;
+  title: string | null;
+  term: string | null;
+  totalMarks: number | null;
+  durationMinutes: number | null;
+  difficulty: AiBuilderDifficulty | null;
+  questionTypes: AiQuestionType[] | null;
+  bloomLevels: AiBloomLevel[] | null;
+  instructions: string | null;
+  draft: AiGeneratedDraft | null;
+  qualityChecks: AiQualityChecks | null;
+  sourceMode: AiBuilderSourceMode;
+  selectedQuestionBankIds: string[];
+  frameworkText: string | null;
+  assessmentId: string | null;
+  assessment: { id: string; title: string; status: string } | null;
+  curriculum: CurriculumRef | null;
+  phase: PhaseRef | null;
+  grade: GradeRef | null;
+  subject: SubjectRef | null;
+  materials: AiStudyMaterial[];
+  createdBy: { id: string; fullName: string; email?: string };
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type QuestionBankSource =
   | "AI_GENERATED"
   | "TEACHER_CREATED"

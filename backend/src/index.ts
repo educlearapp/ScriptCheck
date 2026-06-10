@@ -8,6 +8,7 @@ import usersRoutes from "./routes/users";
 import curriculumRoutes from "./routes/curriculum";
 import assessmentsRoutes from "./routes/assessments";
 import assessmentGenerationRoutes from "./routes/assessmentGeneration";
+import aiAssessmentBuilderRoutes from "./routes/aiAssessmentBuilder";
 import questionBankRoutes from "./routes/questionBank";
 import assessmentTemplatesRoutes from "./routes/assessmentTemplates";
 import learnersRoutes from "./routes/learners";
@@ -36,7 +37,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "scriptcheck-api", version: "0.6.0", phase: "examination-operations-moderation-centre" });
+  res.json({ ok: true, service: "scriptcheck-api", version: "0.7.1", phase: "ai-assessment-builder-ocr" });
 });
 
 app.use("/auth", authRoutes);
@@ -45,6 +46,7 @@ app.use("/users", usersRoutes);
 app.use("/curriculum", curriculumRoutes);
 app.use("/assessments", assessmentsRoutes);
 app.use("/assessment-generation", assessmentGenerationRoutes);
+app.use("/ai-assessment-builder", aiAssessmentBuilderRoutes);
 app.use("/question-bank", questionBankRoutes);
 app.use("/assessment-templates", assessmentTemplatesRoutes);
 app.use("/learners", learnersRoutes);

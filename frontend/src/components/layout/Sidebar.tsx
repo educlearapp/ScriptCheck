@@ -19,6 +19,12 @@ const NAV_ITEMS: NavItem[] = [
     permission: "assessments.create",
   },
   {
+    to: "/ai-assessment-builder",
+    label: "AI Assessment Builder",
+    icon: "✦",
+    permission: "assessments.create",
+  },
+  {
     to: "/assessments/generate",
     label: "AI Paper Generator",
     icon: "✦",

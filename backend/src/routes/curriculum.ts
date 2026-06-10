@@ -224,4 +224,43 @@ router.get(
   }
 );
 
+router.get(
+  "/grades/:gradeId/subjects",
+  requireAuth,
+  requirePermission(PERMISSIONS.CURRICULUM_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    const gradeId = String(req.params.gradeId);
+
+    try {
+      const grade = await prisma.grade.findUnique({
+        where: { id: gradeId },
+        select: { id: true, phaseId: true, name: true },
+      });
+
+      if (!grade) {
+        return res.status(404).json({ error: "Grade not found" });
+      }
+
+      const subjects = await prisma.subject.findMany({
+        where: { phaseId: grade.phaseId, active: true },
+        orderBy: [{ category: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          curriculumId: true,
+          phaseId: true,
+          code: true,
+          name: true,
+          category: true,
+          active: true,
+        },
+      });
+
+      return res.json(subjects);
+    } catch (err) {
+      console.error("[curriculum/grades/subjects]", err);
+      return res.status(500).json({ error: "Failed to list subjects for grade" });
+    }
+  }
+);
+
 export default router;

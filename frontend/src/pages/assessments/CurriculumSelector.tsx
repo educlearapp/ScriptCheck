@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../api";
 import type { CurriculumRef, GradeRef, PhaseRef, SubjectRef } from "../../types";
+import { loadGradesAndSubjectsForPhase, phaseCodeFromPhases } from "../../utils/curriculumSubjects";
 
 type Props = {
   curriculumId: string;
@@ -40,15 +41,18 @@ export default function CurriculumSelector({
   }, [curriculumId]);
 
   useEffect(() => {
-    if (!phaseId) return;
-    Promise.all([
-      apiFetch<GradeRef[]>(`/curriculum/phases/${phaseId}/grades`),
-      apiFetch<SubjectRef[]>(`/curriculum/phases/${phaseId}/subjects`),
-    ]).then(([g, s]) => {
-      setGrades(g);
-      setSubjects(s);
-    });
-  }, [phaseId]);
+    if (!phaseId) {
+      setGrades([]);
+      setSubjects([]);
+      return;
+    }
+    const phaseCode = phaseCodeFromPhases(phases, phaseId);
+    loadGradesAndSubjectsForPhase(phaseId, { gradeId: gradeId || undefined, phaseCode })
+      .then(({ grades: g, subjects: s }) => {
+        setGrades(g);
+        setSubjects(s);
+      });
+  }, [phaseId, phases, gradeId]);
 
   return (
     <div className="sc-form-grid sc-form-grid-2">

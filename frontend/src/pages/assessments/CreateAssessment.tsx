@@ -23,7 +23,7 @@ const PATHS: { id: CreatePath | "ai"; icon: string; title: string; desc: string 
   { id: "blank", icon: "📄", title: "Blank Assessment", desc: "Start from scratch with curriculum context and metadata." },
   { id: "template", icon: "▤", title: "Start From Template", desc: "Reuse a saved template with pre-built questions." },
   { id: "bank", icon: "📚", title: "Build From Question Bank", desc: "Pick approved questions and create a draft assessment." },
-  { id: "ai", icon: "✦", title: "Generate With AI", desc: "Use the AI Paper Generator to create questions." },
+  { id: "ai", icon: "✦", title: "AI Assessment Builder", desc: "Upload study material and generate a full assessment with memo and rubric." },
 ];
 
 export default function CreateAssessment() {
@@ -198,7 +198,7 @@ export default function CreateAssessment() {
         <div className="sc-create-paths">
           {PATHS.map((p) =>
             p.id === "ai" ? (
-              <Link key={p.id} to="/assessments/generate" className="sc-create-path" style={{ textDecoration: "none" }}>
+              <Link key={p.id} to="/ai-assessment-builder" className="sc-create-path" style={{ textDecoration: "none" }}>
                 <div className="sc-create-path-icon">{p.icon}</div>
                 <div className="sc-create-path-title">{p.title}</div>
                 <p className="sc-create-path-desc">{p.desc}</p>

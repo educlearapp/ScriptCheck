@@ -11,6 +11,7 @@ import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
 import AssessmentsList from "./pages/assessments/AssessmentsList";
 import CreateAssessment from "./pages/assessments/CreateAssessment";
 import GenerateAssessment from "./pages/assessments/GenerateAssessment";
+import AiAssessmentBuilder from "./pages/assessments/AiAssessmentBuilder";
 import GenerationPreview from "./pages/assessments/GenerationPreview";
 import AssessmentDetail from "./pages/assessments/AssessmentDetail";
 import AssessmentPaperVault from "./pages/assessments/AssessmentPaperVault";
@@ -107,6 +108,8 @@ function AppRoutes() {
             </Route>
 
             <Route element={<RequirePermission permission="assessments.create" />}>
+              <Route path="/ai-assessment-builder" element={<AiAssessmentBuilder />} />
+              <Route path="/ai-assessment-builder/:requestId" element={<AiAssessmentBuilder />} />
               <Route path="/assessments/new" element={<CreateAssessment />} />
               <Route path="/assessments/generate" element={<GenerateAssessment />} />
               <Route
