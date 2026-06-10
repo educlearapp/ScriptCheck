@@ -1,7 +1,7 @@
 {
   "name": "scriptcheck",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "ScriptCheck — AI-assisted assessment, moderation and marking platform",
   "scripts": {
     "build": "npm run build --workspace=backend && npm run build --workspace=frontend",

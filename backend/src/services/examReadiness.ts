@@ -53,19 +53,22 @@ async function resolveDepartmentSubjectIds(
 
 async function computeComponents(
   workspaceId: string,
-  department?: string
+  filters?: { department?: string; gradeId?: string; subjectId?: string }
 ): Promise<ReadinessComponents> {
+  const department = filters?.department;
   const departmentSubjectIds = department
     ? await resolveDepartmentSubjectIds(workspaceId, department)
     : undefined;
 
-  const assessmentWhere = departmentSubjectIds
-    ? {
-        workspaceId,
-        subjectId: { in: departmentSubjectIds.length > 0 ? departmentSubjectIds : ["__none__"] },
-        status: { not: AssessmentStatus.DRAFT },
-      }
-    : { workspaceId, status: { not: AssessmentStatus.DRAFT } };
+  const assessmentWhere = {
+    workspaceId,
+    status: { not: AssessmentStatus.DRAFT },
+    ...(filters?.gradeId ? { gradeId: filters.gradeId } : {}),
+    ...(filters?.subjectId ? { subjectId: filters.subjectId } : {}),
+    ...(departmentSubjectIds
+      ? { subjectId: { in: departmentSubjectIds.length > 0 ? departmentSubjectIds : ["__none__"] } }
+      : {}),
+  };
 
   const [
     totalAssessments,
@@ -94,6 +97,8 @@ async function computeComponents(
       where: {
         workspaceId,
         finalPercentage: { not: null },
+        ...(filters?.gradeId ? { assessment: { gradeId: filters.gradeId } } : {}),
+        ...(filters?.subjectId ? { assessment: { subjectId: filters.subjectId } } : {}),
         ...(departmentSubjectIds
           ? { assessment: { subjectId: { in: departmentSubjectIds } } }
           : {}),
@@ -103,6 +108,8 @@ async function computeComponents(
       where: {
         workspaceId,
         status: { not: ScriptBatchStatus.DRAFT },
+        ...(filters?.gradeId ? { assessment: { gradeId: filters.gradeId } } : {}),
+        ...(filters?.subjectId ? { assessment: { subjectId: filters.subjectId } } : {}),
         ...(departmentSubjectIds
           ? { assessment: { subjectId: { in: departmentSubjectIds } } }
           : {}),
@@ -112,6 +119,8 @@ async function computeComponents(
       where: {
         workspaceId,
         status: { in: [ScriptBatchStatus.APPROVED, ScriptBatchStatus.PUBLISHED] },
+        ...(filters?.gradeId ? { assessment: { gradeId: filters.gradeId } } : {}),
+        ...(filters?.subjectId ? { assessment: { subjectId: filters.subjectId } } : {}),
         ...(departmentSubjectIds
           ? { assessment: { subjectId: { in: departmentSubjectIds } } }
           : {}),
@@ -121,6 +130,8 @@ async function computeComponents(
       where: {
         workspaceId,
         isCurrentVersion: true,
+        ...(filters?.gradeId ? { assessment: { gradeId: filters.gradeId } } : {}),
+        ...(filters?.subjectId ? { assessment: { subjectId: filters.subjectId } } : {}),
         ...(departmentSubjectIds
           ? { assessment: { subjectId: { in: departmentSubjectIds } } }
           : {}),
@@ -131,6 +142,8 @@ async function computeComponents(
         workspaceId,
         isCurrentVersion: true,
         status: { in: [PaperVaultStatus.APPROVED, PaperVaultStatus.LOCKED, PaperVaultStatus.RELEASED] },
+        ...(filters?.gradeId ? { assessment: { gradeId: filters.gradeId } } : {}),
+        ...(filters?.subjectId ? { assessment: { subjectId: filters.subjectId } } : {}),
         ...(departmentSubjectIds
           ? { assessment: { subjectId: { in: departmentSubjectIds } } }
           : {}),
@@ -141,6 +154,8 @@ async function computeComponents(
         workspaceId,
         isCurrentVersion: true,
         status: PaperVaultStatus.RELEASED,
+        ...(filters?.gradeId ? { assessment: { gradeId: filters.gradeId } } : {}),
+        ...(filters?.subjectId ? { assessment: { subjectId: filters.subjectId } } : {}),
         ...(departmentSubjectIds
           ? { assessment: { subjectId: { in: departmentSubjectIds } } }
           : {}),
@@ -204,14 +219,28 @@ async function computeComponents(
 
 export async function calculateExamReadiness(
   workspaceId: string,
-  options?: { department?: string; actorId?: string; forceRefresh?: boolean }
+  options?: {
+    department?: string;
+    gradeId?: string;
+    subjectId?: string;
+    actorId?: string;
+    forceRefresh?: boolean;
+  }
 ) {
-  const scope = options?.department ? ExamReadinessScope.DEPARTMENT : ExamReadinessScope.SCHOOL;
+  const scope = options?.gradeId
+    ? ExamReadinessScope.GRADE
+    : options?.subjectId
+      ? ExamReadinessScope.SUBJECT
+      : options?.department
+        ? ExamReadinessScope.DEPARTMENT
+        : ExamReadinessScope.SCHOOL;
   const department = options?.department ?? null;
+  const gradeId = options?.gradeId ?? null;
+  const subjectId = options?.subjectId ?? null;
 
   if (!options?.forceRefresh) {
     const recent = await prisma.examReadinessSnapshot.findFirst({
-      where: { workspaceId, scope, department },
+      where: { workspaceId, scope, department, gradeId, subjectId },
       orderBy: { calculatedAt: "desc" },
     });
     if (recent && Date.now() - recent.calculatedAt.getTime() < 15 * 60 * 1000) {
@@ -219,7 +248,11 @@ export async function calculateExamReadiness(
     }
   }
 
-  const components = await computeComponents(workspaceId, options?.department);
+  const components = await computeComponents(workspaceId, {
+    department: options?.department,
+    gradeId: options?.gradeId,
+    subjectId: options?.subjectId,
+  });
   const readinessPercentage = averageComponentPercentages(components);
   const status =
     readinessPercentage >= READY_THRESHOLD
@@ -231,6 +264,8 @@ export async function calculateExamReadiness(
       workspaceId,
       scope,
       department,
+      gradeId,
+      subjectId,
       readinessPercentage,
       status,
       components: components as object,
@@ -248,6 +283,8 @@ export async function calculateExamReadiness(
         status,
         scope,
         department,
+        gradeId,
+        subjectId,
       },
     });
   }
@@ -263,6 +300,8 @@ function serializeSnapshot(snapshot: {
   calculatedAt: Date;
   scope: ExamReadinessScope;
   department: string | null;
+  gradeId?: string | null;
+  subjectId?: string | null;
 }) {
   return {
     id: snapshot.id,
@@ -272,19 +311,54 @@ function serializeSnapshot(snapshot: {
     calculatedAt: snapshot.calculatedAt.toISOString(),
     scope: snapshot.scope,
     department: snapshot.department,
+    gradeId: snapshot.gradeId ?? null,
+    subjectId: snapshot.subjectId ?? null,
   };
 }
 
 export async function getLatestExamReadiness(
   workspaceId: string,
-  department?: string
+  filters?: { department?: string; gradeId?: string; subjectId?: string }
 ) {
-  const scope = department ? ExamReadinessScope.DEPARTMENT : ExamReadinessScope.SCHOOL;
+  const scope = filters?.gradeId
+    ? ExamReadinessScope.GRADE
+    : filters?.subjectId
+      ? ExamReadinessScope.SUBJECT
+      : filters?.department
+        ? ExamReadinessScope.DEPARTMENT
+        : ExamReadinessScope.SCHOOL;
+
   const existing = await prisma.examReadinessSnapshot.findFirst({
-    where: { workspaceId, scope, department: department ?? null },
+    where: {
+      workspaceId,
+      scope,
+      department: filters?.department ?? null,
+      gradeId: filters?.gradeId ?? null,
+      subjectId: filters?.subjectId ?? null,
+    },
     orderBy: { calculatedAt: "desc" },
   });
 
   if (existing) return serializeSnapshot(existing);
-  return calculateExamReadiness(workspaceId, { department });
+  return calculateExamReadiness(workspaceId, filters);
+}
+
+export async function getReadinessByGrade(workspaceId: string) {
+  const grades = await prisma.grade.findMany({
+    where: { learners: { some: { workspaceId, active: true } } },
+    select: { id: true, name: true },
+    orderBy: { orderIndex: "asc" },
+  });
+
+  return Promise.all(
+    grades.map(async (grade) => {
+      const readiness = await getLatestExamReadiness(workspaceId, { gradeId: grade.id });
+      return {
+        gradeId: grade.id,
+        grade: grade.name,
+        readinessPercentage: readiness.readinessPercentage,
+        status: readiness.status,
+      };
+    })
+  );
 }

@@ -108,6 +108,16 @@ enum AuditAction {
   EXECUTIVE_REPORT_GENERATED
   PRINCIPAL_DASHBOARD_VIEWED
   HOD_DASHBOARD_VIEWED
+  EXAM_CREATED
+  EXAM_UPDATED
+  EXAM_COMPLETED
+  INVIGILATOR_ASSIGNED
+  MODERATION_COMPLETED
+  MODERATION_VARIANCE_GENERATED
+  SEATING_PLAN_GENERATED
+  EXAM_PACK_GENERATED
+  EXAM_INCIDENT_CREATED
+  EXAM_REPORT_GENERATED
 }
 
 enum ModerationVarianceLevel {
@@ -277,6 +287,30 @@ enum ExamReadinessStatus {
 enum ExamReadinessScope {
   SCHOOL
   DEPARTMENT
+  GRADE
+  SUBJECT
+}
+
+enum ExaminationOpsSessionStatus {
+  SCHEDULED
+  READY
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum ExaminationIncidentStatus {
+  OPEN
+  UNDER_REVIEW
+  CLOSED
+}
+
+enum ExaminationIncidentType {
+  CANDIDATE_MISCONDUCT
+  ABSENTEEISM
+  LATE_ARRIVAL
+  PAPER_IRREGULARITY
+  VENUE_INCIDENT
 }
 
 enum PaperDocumentType {
@@ -330,6 +364,13 @@ model Workspace {
   portalAccounts               PortalAccount[]
   portalOtps                   PortalOtp[]
   parentLearnerLinks           ParentLearnerLink[]
+  examVenues                   ExamVenue[]
+  examinationTimetables        ExaminationTimetable[]
+  examinationSlots             ExaminationSlot[]
+  examinationOpsSessions       ExaminationOpsSession[]
+  invigilatorAssignments       InvigilatorAssignment[]
+  seatingPlans                 SeatingPlan[]
+  examinationIncidents         ExaminationIncident[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -371,6 +412,12 @@ model User {
   paperVaultDocumentsUploaded     PaperVaultDocument[]            @relation("PaperVaultUploader")
   interventionsCreated            LearnerIntervention[]           @relation("InterventionCreator")
   interventionsUpdated            LearnerIntervention[]           @relation("InterventionUpdater")
+  examinationTimetablesCreated    ExaminationTimetable[]          @relation("ExamTimetableCreator")
+  examinationOpsSessionsCreated   ExaminationOpsSession[]         @relation("ExamOpsSessionCreator")
+  invigilatorAssignments          InvigilatorAssignment[]         @relation("InvigilatorUser")
+  invigilatorAssignmentsCreated   InvigilatorAssignment[]         @relation("InvigilatorAssigner")
+  seatingPlansCreated             SeatingPlan[]                   @relation("SeatingPlanCreator")
+  examinationIncidentsReported    ExaminationIncident[]           @relation("IncidentReporter")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -477,6 +524,10 @@ model Grade {
   assessments       Assessment[]
   learners          Learner[]
   workspaceSubjects WorkspaceSubject[]
+  examinationTimetables ExaminationTimetable[]
+  examinationSlots      ExaminationSlot[]
+  examinationOpsSessions ExaminationOpsSession[]
+  examReadinessSnapshots ExamReadinessSnapshot[]
 
   @@unique([phaseId, code])
   @@index([phaseId, orderIndex])
@@ -498,6 +549,10 @@ model Subject {
   assessments       Assessment[]
   workspaceSubjects WorkspaceSubject[]
   rubricTemplates   RubricTemplate[]
+  examinationTimetables ExaminationTimetable[]
+  examinationSlots      ExaminationSlot[]
+  examinationOpsSessions ExaminationOpsSession[]
+  examReadinessSnapshots ExamReadinessSnapshot[]
 
   @@unique([phaseId, code])
   @@index([curriculumId, phaseId])
@@ -557,6 +612,8 @@ model Assessment {
   rubricTemplate         RubricTemplate?         @relation(fields: [rubricTemplateId], references: [id], onDelete: SetNull)
   learnerAssessmentMarks LearnerAssessmentMark[]
   paperVaultDocuments    PaperVaultDocument[]
+  examinationSlots       ExaminationSlot[]
+  examinationOpsSessions ExaminationOpsSession[]
 
   analyticsSnapshot Json?
 
@@ -795,6 +852,8 @@ model Learner {
   concessions             LearnerConcession[]
   portalAccount           PortalAccount?
   parentLinks             ParentLearnerLink[]
+  seatingAllocations      SeatingAllocation[]
+  examinationIncidents    ExaminationIncident[]
 
   @@unique([workspaceId, learnerNumber])
   @@index([workspaceId, active])
@@ -1177,15 +1236,216 @@ model ExamReadinessSnapshot {
   workspaceId         String
   scope               ExamReadinessScope  @default(SCHOOL)
   department          String?
+  gradeId             String?
+  subjectId           String?
   readinessPercentage Float
   status              ExamReadinessStatus
   components          Json
   calculatedAt        DateTime            @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grade     Grade?    @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  subject   Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, scope, calculatedAt])
   @@index([workspaceId, department])
+  @@index([workspaceId, gradeId])
+  @@index([workspaceId, subjectId])
+}
+
+// ─── Examination operations (Phase 6) ─────────────────────────────────────────
+
+model ExamVenue {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  location    String?
+  capacity    Int
+  rows        Int      @default(10)
+  columns     Int      @default(8)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace              Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  examinationSlots       ExaminationSlot[]
+  examinationOpsSessions ExaminationOpsSession[]
+  invigilatorAssignments InvigilatorAssignment[]
+  seatingPlans           SeatingPlan[]
+  examinationIncidents   ExaminationIncident[]
+
+  @@index([workspaceId, active])
+}
+
+model ExaminationTimetable {
+  id          String   @id @default(cuid())
+  workspaceId String
+  title       String
+  description String?
+  gradeId     String?
+  subjectId   String?
+  startDate   DateTime
+  endDate     DateTime
+  active      Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grade     Grade?    @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  subject   Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  createdBy User      @relation("ExamTimetableCreator", fields: [createdById], references: [id])
+  slots     ExaminationSlot[]
+
+  @@index([workspaceId, startDate, endDate])
+}
+
+model ExaminationSlot {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  timetableId     String?
+  title           String
+  gradeId         String?
+  subjectId       String?
+  assessmentId    String?
+  venueId         String?
+  startTime       DateTime
+  endTime         DateTime
+  durationMinutes Int
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  timetable   ExaminationTimetable? @relation(fields: [timetableId], references: [id], onDelete: SetNull)
+  grade       Grade?                @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  subject     Subject?              @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  assessment  Assessment?           @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  venue       ExamVenue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  opsSession  ExaminationOpsSession?
+
+  @@index([workspaceId, startTime, endTime])
+  @@index([venueId, startTime])
+  @@index([gradeId, startTime])
+  @@index([timetableId])
+}
+
+model ExaminationOpsSession {
+  id              String                      @id @default(cuid())
+  workspaceId     String
+  slotId          String?                     @unique
+  title           String
+  gradeId         String?
+  subjectId       String?
+  assessmentId    String?
+  venueId         String?
+  scheduledStart  DateTime
+  scheduledEnd    DateTime
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  status          ExaminationOpsSessionStatus @default(SCHEDULED)
+  durationMinutes Int
+  learnerCount    Int                         @default(0)
+  notes           String?
+  createdById     String
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  workspace              Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  slot                   ExaminationSlot?        @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  grade                  Grade?                  @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  subject                Subject?                @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  assessment             Assessment?             @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  venue                  ExamVenue?              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  createdBy              User                    @relation("ExamOpsSessionCreator", fields: [createdById], references: [id])
+  invigilatorAssignments InvigilatorAssignment[]
+  seatingPlans           SeatingPlan[]
+  examinationIncidents   ExaminationIncident[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, scheduledStart])
+  @@index([venueId])
+}
+
+model InvigilatorAssignment {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  sessionId    String
+  userId       String
+  venueId      String?
+  isLead       Boolean  @default(false)
+  assignedById String
+  assignedAt   DateTime @default(now())
+
+  workspace  Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  session    ExaminationOpsSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user       User                  @relation("InvigilatorUser", fields: [userId], references: [id])
+  venue      ExamVenue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  assignedBy User                  @relation("InvigilatorAssigner", fields: [assignedById], references: [id])
+
+  @@unique([sessionId, userId])
+  @@index([workspaceId, userId])
+  @@index([sessionId])
+}
+
+model SeatingPlan {
+  id          String   @id @default(cuid())
+  workspaceId String
+  sessionId   String
+  venueId     String
+  rows        Int
+  columns     Int
+  generatedAt DateTime @default(now())
+  createdById String
+
+  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  session     ExaminationOpsSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  venue       ExamVenue             @relation(fields: [venueId], references: [id])
+  createdBy   User                  @relation("SeatingPlanCreator", fields: [createdById], references: [id])
+  allocations SeatingAllocation[]
+
+  @@index([sessionId])
+}
+
+model SeatingAllocation {
+  id            String @id @default(cuid())
+  seatingPlanId String
+  learnerId     String
+  row           Int
+  column        Int
+  seatLabel     String
+
+  seatingPlan SeatingPlan @relation(fields: [seatingPlanId], references: [id], onDelete: Cascade)
+  learner     Learner     @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([seatingPlanId, learnerId])
+  @@unique([seatingPlanId, row, column])
+}
+
+model ExaminationIncident {
+  id              String                    @id @default(cuid())
+  workspaceId     String
+  sessionId       String?
+  learnerId       String?
+  venueId         String?
+  incidentType    ExaminationIncidentType
+  description     String
+  status          ExaminationIncidentStatus @default(OPEN)
+  reportedAt      DateTime                  @default(now())
+  resolutionNotes String?
+  closedAt        DateTime?
+  reportedById    String
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  workspace  Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  session    ExaminationOpsSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  learner    Learner?               @relation(fields: [learnerId], references: [id], onDelete: SetNull)
+  venue      ExamVenue?             @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  reportedBy User                   @relation("IncidentReporter", fields: [reportedById], references: [id])
+
+  @@index([workspaceId, status])
+  @@index([sessionId])
 }
 
 // ─── Secure examination paper vault ───────────────────────────────────────────

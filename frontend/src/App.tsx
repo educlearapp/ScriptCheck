@@ -34,6 +34,14 @@ import MarkImportWizard from "./pages/marks/MarkImportWizard";
 import BulkMarkCapture from "./pages/marks/BulkMarkCapture";
 import ConcessionsRegister from "./pages/concessions/ConcessionsRegister";
 import InterventionsPage from "./pages/interventions/InterventionsPage";
+import ExaminationDashboard from "./pages/examinations/ExaminationDashboard";
+import ExaminationTimetablePage from "./pages/examinations/ExaminationTimetable";
+import ExaminationSessionsPage from "./pages/examinations/ExaminationSessions";
+import ExaminationInvigilatorsPage from "./pages/examinations/ExaminationInvigilators";
+import ExaminationSeatingPage from "./pages/examinations/ExaminationSeating";
+import ExaminationPacksPage from "./pages/examinations/ExaminationPacks";
+import ExaminationIncidentsPage from "./pages/examinations/ExaminationIncidents";
+import ModerationCentrePage from "./pages/moderation/ModerationCentre";
 import { PortalAuthProvider } from "./portal/PortalAuthContext";
 import PortalGuard, { PortalGuestGuard } from "./portal/PortalGuard";
 import PortalLayout from "./portal/PortalLayout";
@@ -61,6 +69,21 @@ function AppRoutes() {
             <Route path="/dashboard/principal" element={<PrincipalDashboard />} />
             <Route path="/dashboard/hod" element={<HodDashboard />} />
             <Route path="/dashboard/teacher" element={<TeacherDashboard />} />
+
+            <Route element={<RequirePermission permission="examinations.view" />}>
+              <Route path="/dashboard/examinations" element={<ExaminationDashboard />} />
+              <Route path="/examinations/timetable" element={<ExaminationTimetablePage />} />
+              <Route path="/examinations/sessions" element={<ExaminationSessionsPage />} />
+              <Route path="/examinations/invigilators" element={<ExaminationInvigilatorsPage />} />
+              <Route path="/examinations/seating" element={<ExaminationSeatingPage />} />
+              <Route path="/examinations/packs" element={<ExaminationPacksPage />} />
+              <Route path="/examinations/incidents" element={<ExaminationIncidentsPage />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="moderation.queue" />}>
+              <Route path="/moderation" element={<ModerationCentrePage />} />
+              <Route path="/moderation/queue" element={<HodModerationQueue />} />
+            </Route>
 
             <Route element={<RequirePermission permission="assessments.view" />}>
               <Route path="/assessments" element={<AssessmentsList />} />
@@ -90,10 +113,6 @@ function AppRoutes() {
                 path="/assessments/generate/:requestId"
                 element={<GenerationPreview />}
               />
-            </Route>
-
-            <Route element={<RequirePermission permission="moderation.queue" />}>
-              <Route path="/moderation/queue" element={<HodModerationQueue />} />
             </Route>
 
             <Route element={<RequirePermission permission="users.view" />}>

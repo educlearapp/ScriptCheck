@@ -15,6 +15,7 @@ import {
   generateGoverningBodyExecutivePdf,
   generatePrincipalExecutivePdf,
 } from "../services/executiveReports";
+import { getExaminationDashboard } from "../services/examinationDashboard";
 import {
   hasAnyRole,
   hasPermission,
@@ -138,9 +139,13 @@ router.get(
   async (req: AuthenticatedRequest, res) => {
     try {
       const department = req.query.department ? String(req.query.department) : undefined;
+      const gradeId = req.query.gradeId ? String(req.query.gradeId) : undefined;
+      const subjectId = req.query.subjectId ? String(req.query.subjectId) : undefined;
       const refresh = req.query.refresh === "true";
       const data = await calculateExamReadiness(req.auth!.workspaceId, {
         department,
+        gradeId,
+        subjectId,
         actorId: refresh ? req.auth!.userId : undefined,
         forceRefresh: refresh,
       });
@@ -208,6 +213,21 @@ router.get(
     } catch (err) {
       console.error("[dashboard/reports/governing-body]", err);
       return res.status(500).json({ error: "Failed to generate governing body report" });
+    }
+  }
+);
+
+router.get(
+  "/examinations",
+  requireAuth,
+  requirePermission(PERMISSIONS.EXAMINATIONS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await getExaminationDashboard(req.auth!.workspaceId);
+      return res.json(data);
+    } catch (err) {
+      console.error("[dashboard/examinations]", err);
+      return res.status(500).json({ error: "Failed to load examination dashboard" });
     }
   }
 );

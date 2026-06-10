@@ -26,6 +26,8 @@ import concessionsRoutes from "./routes/concessions";
 import portalRoutes from "./routes/portal";
 import analysisRoutes from "./routes/analysis";
 import interventionsRoutes from "./routes/interventions";
+import examinationsRoutes from "./routes/examinations";
+import moderationCentreRoutes from "./routes/moderationCentre";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -34,7 +36,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "scriptcheck-api", version: "0.5.0", phase: "academic-intelligence-centre" });
+  res.json({ ok: true, service: "scriptcheck-api", version: "0.6.0", phase: "examination-operations-moderation-centre" });
 });
 
 app.use("/auth", authRoutes);
@@ -61,6 +63,8 @@ app.use("/concessions", concessionsRoutes);
 app.use("/portal", portalRoutes);
 app.use("/analysis", analysisRoutes);
 app.use("/interventions", interventionsRoutes);
+app.use("/examinations", examinationsRoutes);
+app.use("/moderation", moderationCentreRoutes);
 
 app.use(
   (

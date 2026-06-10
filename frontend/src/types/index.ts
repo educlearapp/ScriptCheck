@@ -848,8 +848,10 @@ export type ExamReadinessData = {
     reportsGenerated: { generated: number; total: number; percentage: number };
   };
   calculatedAt: string;
-  scope: "SCHOOL" | "DEPARTMENT";
+  scope: "SCHOOL" | "DEPARTMENT" | "GRADE" | "SUBJECT";
   department: string | null;
+  gradeId?: string | null;
+  subjectId?: string | null;
 };
 
 export type AcademicTrendsData = {
@@ -1692,4 +1694,153 @@ export type PortalActivityItem = {
   action: string;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+};
+
+export type ExamVenue = {
+  id: string;
+  name: string;
+  location: string | null;
+  capacity: number;
+  rows: number;
+  columns: number;
+  active: boolean;
+};
+
+export type ExaminationSlot = {
+  id: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  notes: string | null;
+  venue: ExamVenue | null;
+  grade: { id: string; name: string } | null;
+  subject: { id: string; name: string } | null;
+  assessment: { id: string; title: string } | null;
+  timetable: { id: string; title: string } | null;
+};
+
+export type ExaminationTimetable = {
+  id: string;
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string;
+  grade: { id: string; name: string } | null;
+  subject: { id: string; name: string } | null;
+  slotCount: number;
+  slots: ExaminationSlot[];
+};
+
+export type ExaminationOpsSession = {
+  id: string;
+  title: string;
+  status: "SCHEDULED" | "READY" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED";
+  scheduledStart: string;
+  scheduledEnd: string;
+  actualStart: string | null;
+  actualEnd: string | null;
+  durationMinutes: number;
+  learnerCount: number;
+  notes: string | null;
+  venue: { id: string; name: string; location: string | null; capacity: number } | null;
+  grade: { id: string; name: string } | null;
+  subject: { id: string; name: string } | null;
+  assessment: { id: string; title: string } | null;
+  invigilators: Array<{ id: string; userId: string; fullName: string; isLead: boolean; assignedAt: string }>;
+};
+
+export type ExaminationDashboardData = {
+  stats: {
+    examsScheduled: number;
+    examsCompleted: number;
+    examsOutstanding: number;
+    readinessScore: number;
+    readinessStatus: "READY" | "ATTENTION_REQUIRED";
+    invigilatorsAssigned: number;
+    invigilatorsRequired: number;
+    moderationCompliance: number;
+    incidentsLogged: number;
+  };
+  upcomingSessions: Array<{
+    id: string;
+    title: string;
+    status: string;
+    scheduledStart: string;
+    venue: string;
+    invigilatorCount: number;
+    learnerCount: number;
+    durationMinutes: number;
+  }>;
+  readiness: ExamReadinessData;
+};
+
+export type ModerationCentreData = {
+  stats: {
+    awaitingModeration: number;
+    moderationCompleted: number;
+    moderationOverdue: number;
+    assessmentsAwaitingHod: number;
+    varianceFlagged: number;
+    moderationCompliance: number;
+  };
+  awaitingModeration: Array<{
+    id: string;
+    title: string;
+    status: string;
+    assessment: { id: string; title: string; subject: { name: string }; creatorTeacher: { fullName: string } };
+    updatedAt: string;
+  }>;
+  varianceReports: Array<{
+    scriptId: string;
+    learnerName: string;
+    teacherMark: number | null;
+    moderatorMark: number | null;
+    variancePercent: number | null;
+    varianceLevel: string;
+  }>;
+};
+
+export type SeatingPlanData = {
+  id: string;
+  sessionId: string;
+  rows: number;
+  columns: number;
+  venue: { id: string; name: string };
+  session: { id: string; title: string };
+  allocations: Array<{
+    learnerId: string;
+    learnerNumber: string;
+    learnerName: string;
+    className: string | null;
+    row: number;
+    column: number;
+    seatLabel: string;
+  }>;
+};
+
+export type ExaminationIncident = {
+  id: string;
+  incidentType: string;
+  description: string;
+  status: "OPEN" | "UNDER_REVIEW" | "CLOSED";
+  reportedAt: string;
+  session: { id: string; title: string } | null;
+  learner: { id: string; learnerName: string; learnerNumber: string } | null;
+  venue: { id: string; name: string } | null;
+};
+
+export type GradeReadiness = {
+  gradeId: string;
+  grade: string;
+  readinessPercentage: number;
+  status: "READY" | "ATTENTION_REQUIRED";
+};
+
+export type InvigilatorAssignment = {
+  id: string;
+  user: { id: string; fullName: string; email: string };
+  session: { id: string; title: string; scheduledStart: string; scheduledEnd: string };
+  venue: { id: string; name: string } | null;
+  isLead: boolean;
 };
