@@ -69,7 +69,8 @@ app.get("/health", async (_req, res) => {
   }
 
   const ok = database === "connected";
-  res.status(ok ? 200 : 503).json({
+  // Always 200 for platform health probes — database status is in the body.
+  res.status(200).json({
     ok,
     service: "scriptcheck-api",
     version: "0.8.0",
