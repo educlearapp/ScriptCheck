@@ -1,0 +1,38 @@
+.sc-feedback-fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 1100;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.95), rgba(180, 140, 30, 0.95));
+  color: #111;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sc-feedback-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 900px) {
+  .sc-feedback-fab {
+    right: 0.85rem;
+    bottom: 0.85rem;
+    padding: 0.7rem 1rem;
+    font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .sc-feedback-fab {
+    right: 0.65rem;
+    bottom: 0.65rem;
+  }
+}

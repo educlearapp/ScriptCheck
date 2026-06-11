@@ -49,7 +49,7 @@ export default function ScriptWorkflowBar({
           <span className="sc-lock-badge sc-lock-badge-teacher">Teacher layer locked</span>
         ) : null}
         {workflow.hodLayerLocked ? (
-          <span className="sc-lock-badge sc-lock-badge-hod">HOD layer locked</span>
+          <span className="sc-lock-badge sc-lock-badge-hod">DH layer locked</span>
         ) : null}
         {workflow.examSessionMode ? (
           <span className="sc-lock-badge sc-lock-badge-exam">Exam session mode</span>

@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: scriptcheck
+      POSTGRES_PASSWORD: scriptcheck_beta
+      POSTGRES_DB: scriptcheck_beta
+    volumes:
+      - scriptcheck_beta_pg:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scriptcheck -d scriptcheck_beta"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      APP_ENV: beta
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://scriptcheck:scriptcheck_beta@db:5432/scriptcheck_beta?schema=public
+      JWT_SECRET: beta_jwt_change_before_public_use
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGINS: https://beta.scriptcheck.co.za,http://localhost:8080
+    volumes:
+      - scriptcheck_beta_uploads:/app/uploads
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_URL: http://localhost:3001
+        VITE_APP_ENV: beta
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  scriptcheck_beta_pg:
+  scriptcheck_beta_uploads:

@@ -3,6 +3,7 @@ import { Router, type Response } from "express";
 import multer from "multer";
 import { AnnotationLayerType } from "@prisma/client";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requirePaidPlan } from "../middleware/requirePaidPlan";
 import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
 import { auditRequestMeta, logAudit } from "../services/auditLog";
@@ -43,12 +44,13 @@ import {
   getScriptAuditTimeline,
   getScriptWorkflow,
 } from "../services/scriptWorkflow";
+import { MAX_UPLOAD_FILES, MAX_UPLOAD_FILE_SIZE } from "../config/uploadLimits";
 
 const router = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024, files: 20 },
+  limits: { fileSize: MAX_UPLOAD_FILE_SIZE, files: MAX_UPLOAD_FILES },
 });
 
 function handleError(res: Response, err: unknown) {
@@ -80,7 +82,7 @@ router.post(
   "/:id/pages/upload",
   requireAuth,
   requirePermission(PERMISSIONS.SCRIPTS_CREATE),
-  upload.array("files", 20),
+  upload.array("files", MAX_UPLOAD_FILES),
   async (req: AuthenticatedRequest, res) => {
     const scriptId = String(req.params.id);
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
@@ -167,6 +169,7 @@ router.get(
 router.get(
   "/:id/pages/:pageId/composite.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.SCRIPTS_VIEW),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -296,6 +299,7 @@ router.post(
 router.get(
   "/:id/reports/learner.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     const scriptId = String(req.params.id);

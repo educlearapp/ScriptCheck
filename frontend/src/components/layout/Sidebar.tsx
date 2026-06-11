@@ -1,180 +1,101 @@
 import { NavLink } from "react-router-dom";
+import BrandLogo from "../brand/BrandLogo";
 import { formatRoles, hasPermission } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
-import type { NavItem } from "../../types";
+import type { NavItem, NavSection } from "../../types";
+import { NAV_SECTION_LABELS } from "../../types";
 import "./Sidebar.css";
 
-const NAV_ITEMS: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard", icon: "◆" },
+const MAIN_NAV: NavItem[] = [
+  { to: "/dashboard", label: "Dashboard", icon: "◆", section: "assessment" },
   {
     to: "/assessments",
     label: "Assessments",
     icon: "▣",
     permission: "assessments.view",
+    section: "assessment",
   },
   {
-    to: "/assessments/new",
-    label: "Create Assessment",
-    icon: "＋",
-    permission: "assessments.create",
+    to: "/marking",
+    label: "Marking",
+    icon: "✎",
+    permission: "assessments.view",
+    section: "assessment",
+  },
+  {
+    to: "/moderation",
+    label: "Moderation",
+    icon: "⚖",
+    section: "assessment",
+  },
+  {
+    to: "/results",
+    label: "Results",
+    icon: "◉",
+    permission: "results.view",
+    section: "assessment",
   },
   {
     to: "/ai-assessment-builder",
     label: "AI Assessment Builder",
     icon: "✦",
     permission: "assessments.create",
+    section: "ai",
   },
   {
     to: "/assessments/generate",
     label: "AI Paper Generator",
-    icon: "✦",
-    permission: "assessments.create",
-  },
-  {
-    to: "/dashboard/examinations",
-    label: "Examination Dashboard",
-    icon: "⬡",
-    permission: "examinations.view",
-  },
-  {
-    to: "/examinations/timetable",
-    label: "Exam Timetable",
-    icon: "📋",
-    permission: "examinations.view",
-  },
-  {
-    to: "/examinations/sessions",
-    label: "Exam Sessions",
-    icon: "▶",
-    permission: "examinations.view",
-  },
-  {
-    to: "/examinations/invigilators",
-    label: "Invigilators",
-    icon: "👁",
-    permission: "examinations.view",
-  },
-  {
-    to: "/moderation",
-    label: "Moderation Centre",
-    icon: "⚖",
-    permission: "moderation.queue",
-  },
-  {
-    to: "/examinations/seating",
-    label: "Seating Plans",
-    icon: "▦",
-    permission: "examinations.view",
-  },
-  {
-    to: "/examinations/packs",
-    label: "Exam Packs",
-    icon: "📦",
-    permission: "examinations.view",
-  },
-  {
-    to: "/examinations/incidents",
-    label: "Incidents",
-    icon: "⚠",
-    permission: "examinations.view",
-  },
-  {
-    to: "/moderation/queue",
-    label: "HOD Moderation Queue",
-    icon: "✓",
-    permission: "moderation.queue",
-  },
-  {
-    to: "/results",
-    label: "Department Results",
-    icon: "◉",
-    permission: "results.view",
-  },
-  {
-    to: "/question-bank",
-    label: "Question Bank",
-    icon: "◈",
-    permission: "questionBank.view",
-  },
-  {
-    to: "/assessment-templates",
-    label: "Assessment Templates",
-    icon: "▤",
-    permission: "assessmentTemplates.view",
-  },
-  {
-    to: "/schedule",
-    label: "Assessment Schedule",
-    icon: "📅",
-    permission: "schedule.view",
-  },
-  {
-    to: "/concessions",
-    label: "Concessions",
-    icon: "♿",
-    permission: "concessions.view",
-  },
-  {
-    to: "/subjects",
-    label: "Subjects",
     icon: "◇",
-    permission: "subjects.view",
+    permission: "assessments.create",
+    section: "ai",
   },
   {
-    to: "/rubrics",
-    label: "Rubrics",
-    icon: "▦",
-    permission: "rubrics.view",
-  },
-  {
-    to: "/interventions",
-    label: "Interventions",
-    icon: "⚑",
-    permission: "results.view",
-  },
-  {
-    to: "/curriculum",
-    label: "Curriculum Management",
-    icon: "◎",
-    permission: "curriculum.view",
-  },
-  {
-    to: "/users",
-    label: "Users & Roles",
-    icon: "☰",
-    permission: "users.view",
+    to: "/settings",
+    label: "Settings",
+    icon: "⚙",
+    section: "admin",
   },
 ];
+
+const SECTION_ORDER: NavSection[] = ["assessment", "ai", "admin"];
 
 export default function Sidebar() {
   const { user } = useAuth();
 
-  const navItems = NAV_ITEMS.filter(
+  const navItems = MAIN_NAV.filter(
     (item) => !item.permission || hasPermission(user, item.permission)
   );
+
+  const grouped = SECTION_ORDER.map((section) => ({
+    section,
+    label: NAV_SECTION_LABELS[section],
+    items: navItems.filter((item) => item.section === section),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <aside className="sc-sidebar">
       <div className="sc-sidebar-brand">
-        <div className="sc-sidebar-logo">SC</div>
-        <div>
-          <div className="sc-sidebar-title">ScriptCheck</div>
-          <div className="sc-sidebar-tagline">Assessment Intelligence</div>
-        </div>
+        <BrandLogo variant="sidebar" showGroup />
       </div>
 
       <nav className="sc-sidebar-nav">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `sc-sidebar-link${isActive ? " is-active" : ""}`
-            }
-          >
-            <span className="sc-sidebar-link-icon">{item.icon}</span>
-            {item.label}
-          </NavLink>
+        {grouped.map((group) => (
+          <div key={group.section} className="sc-sidebar-section">
+            <div className="sc-sidebar-section-label">{group.label}</div>
+            {group.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/dashboard"}
+                className={({ isActive }) =>
+                  `sc-sidebar-link${isActive ? " is-active" : ""}`
+                }
+              >
+                <span className="sc-sidebar-link-icon">{item.icon}</span>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 

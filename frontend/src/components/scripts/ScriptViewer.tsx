@@ -328,7 +328,7 @@ export default function ScriptViewer({
                 : mode === "teacher"
                   ? "Teacher"
                   : mode === "hod"
-                    ? "HOD"
+                    ? "DH"
                     : "All"}
             </button>
           ))}

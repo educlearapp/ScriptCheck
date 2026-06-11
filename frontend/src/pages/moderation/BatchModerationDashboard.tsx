@@ -5,6 +5,7 @@ import MarkVarianceBadge from "../../components/scripts/MarkVarianceBadge";
 import ConcessionAlerts from "../../components/concessions/ConcessionAlerts";
 import { hasPermission } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
+import { useTrialGate } from "../../trial/TrialGateContext";
 import type {
   BatchModerationAnalytics,
   MarkerPerformanceRow,
@@ -14,6 +15,7 @@ import "../scripts/Scripts.css";
 export default function BatchModerationDashboard() {
   const { batchId } = useParams<{ batchId: string }>();
   const { user } = useAuth();
+  const { gateProductionAction } = useTrialGate();
   const [analytics, setAnalytics] = useState<BatchModerationAnalytics | null>(null);
   const [markers, setMarkers] = useState<MarkerPerformanceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,7 @@ export default function BatchModerationDashboard() {
 
   const handleExport = () => {
     if (!batchId) return;
+    if (!gateProductionAction()) return;
     void apiDownloadPath(
       `/script-batches/${batchId}/export.csv`,
       `batch-${batchId.slice(0, 8)}-marks.csv`
@@ -167,7 +170,7 @@ export default function BatchModerationDashboard() {
                 <th>Script</th>
                 <th>Learner</th>
                 <th>Teacher</th>
-                <th>HOD</th>
+                <th>DH</th>
                 <th>Final</th>
                 <th>Diff</th>
                 <th>Variance</th>

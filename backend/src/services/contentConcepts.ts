@@ -1,4 +1,11 @@
-import { sanitizeOcrText, isValidConceptTerm, containsOcrGarbage } from "./contentSanitizer";
+import {
+  sanitizeOcrText,
+  isValidConceptTerm,
+  containsOcrGarbage,
+  CAPS_LIFE_SKILLS_VOCABULARY,
+  canonicalCapsTerm,
+  isCapsVocabularyTerm,
+} from "./contentSanitizer";
 
 export type StudyConcept = {
   term: string;
@@ -25,7 +32,7 @@ const TOPIC_HEADINGS = [
   { pattern: /bully|bullying|harassment|exclusion/i, topic: "Bullying" },
   { pattern: /mediation|mediate|conflict\s+resolution/i, topic: "Mediation" },
   { pattern: /peacekeeping|peace\s*keeping|calm|violence/i, topic: "Peacekeeping" },
-  { pattern: /cultural\s+rites?|rite\s+of\s+passage|lobola|tradition|ceremony/i, topic: "Cultural Rites" },
+  { pattern: /cultural\s+rites?|rite\s+of\s+passage|lobola|tradition|ceremony|wedding|funeral/i, topic: "Cultural Rites" },
   { pattern: /dignity|respect|human\s+rights/i, topic: "Dignity and Respect" },
 ];
 
@@ -51,17 +58,31 @@ function detectTopic(text: string): string | undefined {
   return undefined;
 }
 
+/** A concept is quality-grade if it has a definition, CAPS vocabulary match, or multi-word heading. */
+export function isQualityConcept(concept: StudyConcept): boolean {
+  if (!isValidConceptTerm(concept.term)) return false;
+  if (containsOcrGarbage(concept.context) && !concept.definition) return false;
+  if (concept.definition?.trim()) return true;
+  if (isCapsVocabularyTerm(concept.term)) return true;
+  if (concept.term.split(/\s+/).length >= 2) return true;
+  return false;
+}
+
 function dedupeConcepts(concepts: StudyConcept[]): StudyConcept[] {
   const seen = new Set<string>();
   const result: StudyConcept[] = [];
 
   for (const c of concepts) {
-    const key = c.term.toLowerCase();
-    if (seen.has(key) || !isValidConceptTerm(c.term)) continue;
+    const canonical = canonicalCapsTerm(c.term) ?? c.term;
+    const key = canonical.toLowerCase();
+    if (seen.has(key) || !isQualityConcept({ ...c, term: canonical })) continue;
     if (/\b(is|are|means)\b/.test(key)) continue;
-    if (containsOcrGarbage(c.context) && !c.definition) continue;
     seen.add(key);
-    result.push(c);
+    result.push({
+      ...c,
+      term: canonical,
+      definition: c.definition ?? CAPS_LIFE_SKILLS_VOCABULARY[key]?.definition,
+    });
   }
 
   return result;
@@ -78,6 +99,7 @@ const PREFERRED_CONCEPT_ORDER = [
   "dignity",
   "rite of passage",
   "cultural rites",
+  "puberty",
 ];
 
 export function orderConceptsForAssessment(concepts: StudyConcept[]): StudyConcept[] {
@@ -97,6 +119,10 @@ export function orderConceptsForAssessment(concepts: StudyConcept[]): StudyConce
   return dedupeConcepts([...ordered, ...concepts]);
 }
 
+export function filterQualityConcepts(concepts: StudyConcept[]): StudyConcept[] {
+  return dedupeConcepts(concepts.filter(isQualityConcept));
+}
+
 export function isPlaceholderText(text: string): boolean {
   const t = text.trim();
   if (!t) return true;
@@ -112,31 +138,54 @@ export function sanitiseSourceText(text: string): string {
   return text.trim();
 }
 
+function extractCapsVocabularyFromText(text: string): StudyConcept[] {
+  const concepts: StudyConcept[] = [];
+  const lower = text.toLowerCase();
+
+  for (const [key, entry] of Object.entries(CAPS_LIFE_SKILLS_VOCABULARY)) {
+    if (!lower.includes(key)) continue;
+    concepts.push({
+      term: entry.term,
+      definition: entry.definition,
+      context: sentenceContaining(text, key),
+      topic: detectTopic(sentenceContaining(text, key)),
+    });
+  }
+
+  return concepts;
+}
+
 export function extractConcepts(sourceText: string, max = 24): StudyConcept[] {
   const text = sanitizeOcrText(sanitiseSourceText(sourceText));
   if (!text) return [];
 
-  const concepts: StudyConcept[] = [];
+  const concepts: StudyConcept[] = extractCapsVocabularyFromText(text);
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
 
   for (const line of lines) {
     const headingMatch = line.match(/^([A-Z][A-Za-z0-9\s,'/-]{3,60})$/);
     if (headingMatch && line.length < 70 && !line.endsWith(".")) {
-      concepts.push({
-        term: titleCase(headingMatch[1]),
-        context: line,
-        topic: detectTopic(line),
-      });
+      const term = titleCase(headingMatch[1]);
+      if (isValidConceptTerm(term)) {
+        concepts.push({
+          term: canonicalCapsTerm(term) ?? term,
+          context: line,
+          topic: detectTopic(line),
+        });
+      }
     }
 
     const colonHeading = line.match(/^([A-Za-z][A-Za-z0-9\s,'/-]{2,40}):\s*(.+)/);
     if (colonHeading) {
-      concepts.push({
-        term: titleCase(colonHeading[1]),
-        definition: colonHeading[2].trim(),
-        context: line,
-        topic: detectTopic(line),
-      });
+      const term = titleCase(colonHeading[1]);
+      if (isValidConceptTerm(term)) {
+        concepts.push({
+          term: canonicalCapsTerm(term) ?? term,
+          definition: colonHeading[2].trim(),
+          context: line,
+          topic: detectTopic(line),
+        });
+      }
     }
   }
 
@@ -147,91 +196,73 @@ export function extractConcepts(sourceText: string, max = 24): StudyConcept[] {
       /^([A-Za-z][A-Za-z\s'-]{2,45}?)\s+(is|are|means|refers to|involves|includes)\s+(.+)$/i
     );
     if (defMatch) {
-      const term = titleCase(defMatch[1].trim());
-      concepts.push({
-        term,
-        definition: defMatch[3].replace(/[.!?]+$/, "").trim(),
-        context: sentence,
-        topic: detectTopic(sentence),
-      });
+      const rawTerm = titleCase(defMatch[1].trim());
+      const term = canonicalCapsTerm(rawTerm) ?? rawTerm;
+      if (isValidConceptTerm(term)) {
+        concepts.push({
+          term,
+          definition: defMatch[3].replace(/[.!?]+$/, "").trim(),
+          context: sentence,
+          topic: detectTopic(sentence),
+        });
+      }
       continue;
     }
 
-    const explainMatch = sentence.match(
-      /^(adolescence|hormones?|bullying|mediation|peacekeeping|lobola|dignity|puberty)\b/i
-    );
-    if (explainMatch) {
-      const term = titleCase(explainMatch[1]);
-      concepts.push({
-        term,
-        context: sentence,
-        topic: detectTopic(sentence),
-      });
+    for (const key of Object.keys(CAPS_LIFE_SKILLS_VOCABULARY)) {
+      if (new RegExp(`\\b${key.replace(/\s+/g, "\\s+")}\\b`, "i").test(sentence)) {
+        const entry = CAPS_LIFE_SKILLS_VOCABULARY[key];
+        concepts.push({
+          term: entry.term,
+          definition: entry.definition,
+          context: sentence,
+          topic: detectTopic(sentence),
+        });
+      }
     }
-  }
-
-  const words = text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s'-]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w.length > 4 && !STOP_WORDS.has(w));
-
-  const freq = new Map<string, number>();
-  for (const w of words) {
-    freq.set(w, (freq.get(w) ?? 0) + 1);
-  }
-
-  const ranked = [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12);
-
-  for (const [word] of ranked) {
-    concepts.push({
-      term: titleCase(word),
-      context: sentenceContaining(text, word),
-      topic: detectTopic(sentenceContaining(text, word)),
-    });
   }
 
   return dedupeConcepts(concepts).slice(0, max);
 }
 
+export function formatConceptTermForQuestion(term: string): string {
+  return canonicalCapsTerm(term) ?? titleCase(term);
+}
+
 export function conceptQuestionStem(concept: StudyConcept, style: string): string {
-  const term = concept.term.toLowerCase();
+  const term = formatConceptTermForQuestion(concept.term);
 
   switch (style) {
     case "definition":
-      return term.endsWith("s") && !term.endsWith("ss")
-        ? `What are ${term}?`
-        : `What is ${term}?`;
+      return `Explain the term ${term}.`;
     case "explain":
-      return `Explain ${term} in your own words.`;
+      return `Explain ${term.toLowerCase()} in your own words.`;
     case "describe":
       return `Describe ${term}.`;
     case "advice":
-      return `Give advice to a learner about ${term}.`;
+      return `Give advice to a learner about ${term.toLowerCase()}.`;
     case "paragraph":
-      return `Write a paragraph explaining ${term} using examples from the study material.`;
+      return `Write a paragraph explaining ${term.toLowerCase()} using examples from the study material.`;
     case "comprehension":
-      return `Read the following and answer: What is important to know about ${term}?\n\n"${concept.context.slice(0, 280)}${concept.context.length > 280 ? "…" : ""}"`;
+      return `Read the following and answer: What is important to know about ${term.toLowerCase()}?\n\n"${concept.context.slice(0, 280)}${concept.context.length > 280 ? "…" : ""}"`;
     case "tf": {
       if (!isValidConceptTerm(concept.term)) {
         return "True or False: Learners should treat others with dignity and respect.";
       }
       const statement = concept.definition && !containsOcrGarbage(concept.definition)
-        ? `${concept.term} ${concept.definition.split(/\s+/).slice(0, 8).join(" ")}…`
-        : `${concept.term} is an important Life Skills topic in the study material.`;
+        ? `${term} ${concept.definition.split(/\s+/).slice(0, 8).join(" ")}…`
+        : `${term} is an important Life Skills topic in the study material.`;
       return `True or False: ${statement}`;
     }
     case "mcq":
-      return `Which statement best describes ${term}?`;
+      return `Which statement best describes ${term.toLowerCase()}?`;
     case "match":
-      return `Match each term related to ${term} with its correct description.`;
+      return `Match each term with its correct description.`;
     case "rite":
       return `Describe one rite of passage mentioned in the study material.`;
     case "lobola":
       return `Explain lobola.`;
     default:
-      return `What is ${term}?`;
+      return `Explain the term ${term}.`;
   }
 }

@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { apiFetch } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { canSubmitAssessment } from "../../auth/permissions";
+import AssessmentIntelligenceBadge from "../../components/intelligence/AssessmentIntelligenceBadge";
 import type { Assessment } from "../../types";
+import "../../components/intelligence/AssessmentHealthReport.css";
 
 export default function AssessmentsList() {
   const { user } = useAuth();
@@ -86,6 +88,7 @@ export default function AssessmentsList() {
                     <th>Subject</th>
                     <th>Type</th>
                     <th>Status</th>
+                    <th>Intelligence</th>
                     <th>Marks</th>
                     <th>Actions</th>
                   </tr>
@@ -111,6 +114,9 @@ export default function AssessmentsList() {
                           {item.status}
                         </span>
                       </td>
+                      <td>
+                        <AssessmentIntelligenceBadge assessmentId={item.id} compact />
+                      </td>
                       <td>{item.totalMarks}</td>
                       <td>
                         {canSubmit(item) ? (
@@ -121,7 +127,7 @@ export default function AssessmentsList() {
                             disabled={submittingId === item.id}
                             onClick={() => handleSubmitToHod(item)}
                           >
-                            {submittingId === item.id ? "Submitting…" : "Submit to HOD"}
+                            {submittingId === item.id ? "Submitting…" : "Submit to DH"}
                           </button>
                         ) : (
                           "—"

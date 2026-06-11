@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import multer from "multer";
 import { PaperDocumentType } from "@prisma/client";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requirePaidPlan } from "../middleware/requirePaidPlan";
 import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
 import { auditRequestMeta, logAudit } from "../services/auditLog";
@@ -307,6 +308,7 @@ router.post(
 router.post(
   "/:documentId/release",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.PAPER_VAULT_RELEASE),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -365,6 +367,7 @@ router.post(
 router.get(
   "/:documentId/download",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.PAPER_VAULT_VIEW),
   async (req: AuthenticatedRequest, res) => {
     try {

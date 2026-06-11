@@ -15,6 +15,11 @@ enum WorkspaceType {
   EXAMINATION_BODY
 }
 
+enum SubscriptionPlan {
+  TRIAL
+  PAID
+}
+
 enum WorkspaceRole {
   TEACHER
   HOD
@@ -22,7 +27,16 @@ enum WorkspaceRole {
   EXAMINATION_OFFICER
   PRINCIPAL
   SCHOOL_ADMIN
+  SCHOOL_OWNER
   EXAM_BODY_ADMIN
+  EXAMINATION_BODY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIAL
+  EXPIRED
+  SUSPENDED
 }
 
 enum AuditAction {
@@ -132,6 +146,17 @@ enum AuditAction {
   QUESTION_BANK_QUESTION_EXTRACTED
   QUESTION_BANK_DUPLICATE_DETECTED
   QUESTION_BANK_QUESTION_SAVED
+  MARK_ADJUSTED
+  WORKFLOW_TRANSITION
+  WORKFLOW_CONFIG_UPDATED
+  MODERATION_COMMENT_ADDED
+  MODERATION_APPROVAL_REQUESTED
+  MODERATION_APPROVAL_RESPONDED
+  INTELLIGENCE_GENERATED
+  SUBSCRIPTION_UPGRADED
+  SUBSCRIPTION_DOWNGRADED
+  SUBSCRIPTION_EXPIRED
+  ASSESSMENT_PACK_EXPORTED
 }
 
 enum ModerationVarianceLevel {
@@ -285,17 +310,37 @@ enum AssessmentStatus {
   RETURNED_TO_TEACHER
   AI_REVIEW
   HOD_REVIEW
+  UNDER_REVIEW
+  MODERATION
   APPROVED
   WRITTEN
   MARKING
   MARKED
   PUBLISHED
+  ARCHIVED
 }
 
 enum ModerationAction {
   SUBMIT_TO_HOD
+  SUBMIT_TO_MODERATOR
+  SUBMIT_TO_EXAM_BODY
   APPROVE
   RETURN_TO_TEACHER
+  PUBLISH
+  ARCHIVE
+}
+
+enum ModerationCommentType {
+  COMMENT
+  CHANGE_REQUEST
+  APPROVAL_NOTE
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum AssessmentType {
@@ -412,18 +457,22 @@ enum PaperVaultStatus {
 // ─── Workspace (organisation) ─────────────────────────────────────────────────
 
 model Workspace {
-  id        String        @id @default(cuid())
-  name      String
-  slug      String        @unique
-  type      WorkspaceType
-  email     String?
-  phone     String?
-  address   String?
-  logoUrl   String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id                 String             @id @default(cuid())
+  name               String
+  slug               String             @unique
+  type               WorkspaceType
+  subscriptionPlan   SubscriptionPlan   @default(PAID)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  trialExpiresAt     DateTime?
+  email              String?
+  phone              String?
+  address            String?
+  logoUrl            String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   memberships                  WorkspaceMembership[]
+  workflowConfig               WorkspaceWorkflowConfig?
   assessments                  Assessment[]
   auditLogs                    AuditLog[]
   assessmentGenerationRequests AssessmentGenerationRequest[]
@@ -451,6 +500,8 @@ model Workspace {
   seatingPlans                 SeatingPlan[]
   examinationIncidents         ExaminationIncident[]
   aiAssessmentBuilderRequests  AiAssessmentBuilderRequest[]
+  markAdjustments              MarkAdjustmentAudit[]
+  betaFeedback                 BetaFeedback[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -500,6 +551,12 @@ model User {
   examinationIncidentsReported    ExaminationIncident[]           @relation("IncidentReporter")
   aiAssessmentBuilderRequests     AiAssessmentBuilderRequest[]    @relation("AiBuilderCreator")
   aiStudyMaterialsUploaded        AiStudyMaterial[]               @relation("AiMaterialUploader")
+  moderationCommentsAuthored      ModerationComment[]             @relation("ModerationCommentAuthor")
+  approvalRequestsCreated         ModerationApprovalRequest[]     @relation("ApprovalRequestCreator")
+  approvalRequestsResponded       ModerationApprovalRequest[]     @relation("ApprovalRequestResponder")
+  markAdjustmentsMade             MarkAdjustmentAudit[]           @relation("MarkAdjustmentAuthor")
+  intelligenceReportsGenerated    AssessmentIntelligenceReport[] @relation("IntelligenceGenerator")
+  betaFeedbackSubmitted         BetaFeedback[]                 @relation("BetaFeedbackAuthor")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -661,6 +718,13 @@ model Assessment {
   weightingPercent Float?
   durationMinutes  Int?
 
+  questionCount       Int?
+  pagesPerScript      Int?
+  memorandumAvailable Boolean  @default(false)
+  rubricAvailable     Boolean  @default(false)
+  setupComplete       Boolean  @default(false)
+  setupCompletedAt    DateTime?
+
   assessmentDate      DateTime?
   dueDate             DateTime?
   markingDeadline     DateTime?
@@ -686,6 +750,10 @@ model Assessment {
   creatorTeacher   User                        @relation("AssessmentCreator", fields: [creatorTeacherId], references: [id])
   assignedUser     User?                       @relation("AssessmentAssignee", fields: [assignedUserId], references: [id])
   moderationAudits    AssessmentModerationAudit[]
+  moderationComments  ModerationComment[]
+  approvalRequests    ModerationApprovalRequest[]
+  intelligenceReport  AssessmentIntelligenceReport?
+  markAdjustments     MarkAdjustmentAudit[]
   questions           AssessmentQuestion[]
   generatedVersions   GeneratedAssessment[]
   scriptBatches       ScriptBatch[]
@@ -1716,4 +1784,154 @@ model AiStudyMaterial {
 
   @@index([requestId])
   @@index([workspaceId])
+}
+
+// ─── Phase 2: Configurable workflow ───────────────────────────────────────────
+
+model WorkspaceWorkflowConfig {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique
+  stages      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ─── Phase 2: Mark adjustment audit trail ─────────────────────────────────────
+
+model MarkAdjustmentAudit {
+  id                 String            @id @default(cuid())
+  workspaceId        String
+  assessmentId       String
+  learnerScriptId    String?
+  learnerId          String?
+  questionMarkId     String?
+  field              String
+  previousValue      Float?
+  newValue           Float?
+  reason             String?
+  adjustedById       String
+  source             MarkCaptureSource @default(SCRIPT_MARKING)
+  createdAt          DateTime          @default(now())
+
+  workspace    Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment   Assessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  adjustedBy   User        @relation("MarkAdjustmentAuthor", fields: [adjustedById], references: [id])
+
+  @@index([assessmentId, createdAt])
+  @@index([learnerScriptId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+// ─── Phase 2: Moderation trail ────────────────────────────────────────────────
+
+model ModerationComment {
+  id           String                @id @default(cuid())
+  assessmentId String
+  authorId     String
+  body         String
+  type         ModerationCommentType @default(COMMENT)
+  resolved     Boolean               @default(false)
+  parentId     String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  author     User               @relation("ModerationCommentAuthor", fields: [authorId], references: [id])
+  parent     ModerationComment? @relation("CommentThread", fields: [parentId], references: [id], onDelete: SetNull)
+  replies    ModerationComment[] @relation("CommentThread")
+
+  @@index([assessmentId, createdAt])
+  @@index([authorId])
+}
+
+model ModerationApprovalRequest {
+  id            String                @id @default(cuid())
+  assessmentId  String
+  requestedById String
+  assignedRole  WorkspaceRole
+  status        ApprovalRequestStatus @default(PENDING)
+  comment       String?
+  respondedById String?
+  respondedAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  assessment  Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  requestedBy User       @relation("ApprovalRequestCreator", fields: [requestedById], references: [id])
+  respondedBy User?      @relation("ApprovalRequestResponder", fields: [respondedById], references: [id])
+
+  @@index([assessmentId, status])
+  @@index([requestedById])
+}
+
+// ─── Phase 2: ScriptCheck Intelligence ────────────────────────────────────────
+
+model AssessmentIntelligenceReport {
+  id                 String   @id @default(cuid())
+  assessmentId       String   @unique
+  complianceScore    Float
+  capsCompliance     Float
+  cognitiveBalance   Float
+  missingRubrics     Boolean  @default(false)
+  missingMemorandums Boolean  @default(false)
+  riskIndicators     Json
+  recommendations    Json
+  generatedAt        DateTime @default(now())
+  generatedById      String?
+
+  assessment  Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  generatedBy User?      @relation("IntelligenceGenerator", fields: [generatedById], references: [id])
+
+  @@index([assessmentId])
+}
+
+// ─── Beta testing feedback (HOD beta programme) ───────────────────────────────
+
+enum BetaFeedbackCategory {
+  BUG_REPORT
+  WORKFLOW_ISSUE
+  SUGGESTION
+  FEATURE_REQUEST
+  CONFUSING_SCREEN
+}
+
+enum BetaFeedbackSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum BetaFeedbackStatus {
+  NEW
+  REVIEWING
+  IN_PROGRESS
+  FIXED
+  REJECTED
+}
+
+model BetaFeedback {
+  id             String               @id @default(cuid())
+  workspaceId    String
+  userId         String
+  userName       String
+  userRole       String
+  subject        String
+  page           String
+  category       BetaFeedbackCategory
+  severity       BetaFeedbackSeverity
+  comment        String
+  screenshotPath String?
+  status         BetaFeedbackStatus   @default(NEW)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation("BetaFeedbackAuthor", fields: [userId], references: [id])
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, status])
+  @@index([userId])
 }

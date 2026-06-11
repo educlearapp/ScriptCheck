@@ -1,0 +1,27 @@
+.sc-trial-card .sc-trial-intro {
+  margin-bottom: 1.25rem;
+  text-align: center;
+}
+
+.sc-trial-card .sc-trial-intro p {
+  margin: 0.75rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--sc-text-muted);
+}
+
+.sc-trial-limits {
+  margin: 1.25rem 0 0;
+  padding: 1rem 1.1rem 1rem 2rem;
+  list-style: disc;
+  background: var(--sc-bg);
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid var(--sc-border);
+  font-size: 0.85rem;
+  color: var(--sc-text-muted);
+  line-height: 1.5;
+}
+
+.sc-trial-limits li + li {
+  margin-top: 0.35rem;
+}

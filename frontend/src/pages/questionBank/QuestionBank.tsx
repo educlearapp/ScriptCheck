@@ -186,7 +186,7 @@ export default function QuestionBank() {
         <div>
           <h1 className="sc-page-title">Question Bank</h1>
           <p className="sc-page-subtitle">
-            Reusable questions from teacher work, AI generation, and HOD-approved assessments.
+            Reusable questions from teacher work, AI generation, and DH-approved assessments.
           </p>
         </div>
         {hasPermission(user, "questionBank.create") ? (
@@ -363,7 +363,7 @@ export default function QuestionBank() {
                     <td><span className="sc-badge sc-badge-muted">{item.source.replaceAll("_", " ")}</span></td>
                     <td>
                       {item.status === "APPROVED" ? (
-                        <span className="sc-hod-badge">✓ HOD Approved</span>
+                        <span className="sc-hod-badge">✓ DH Approved</span>
                       ) : (
                         <span className="sc-badge sc-badge-gold">{item.status}</span>
                       )}

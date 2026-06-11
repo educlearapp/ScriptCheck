@@ -8,6 +8,7 @@
     "build": "prisma generate && tsc",
     "typecheck": "prisma generate && tsc --noEmit",
     "dev": "tsc && node dist/index.js",
+    "dev:watch": "tsc && (tsc -w & node --watch dist/index.js)",
     "start": "node dist/index.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -16,7 +17,9 @@
     "verify:ocr": "tsc && node dist/scripts/verifyOcrPipeline.js",
     "verify:past-paper": "tsc && node dist/scripts/verifyPastPaperExtraction.js",
     "verify:framework": "tsc && node dist/scripts/verifyFrameworkEngine.js",
-    "verify:framework-auto": "tsc && node dist/scripts/verifyFrameworkAutoDetection.js"
+    "verify:framework-auto": "tsc && node dist/scripts/verifyFrameworkAutoDetection.js",
+    "verify:content-quality": "tsc && node dist/scripts/verifyContentQuality.js",
+    "verify:review-workspace": "tsc && node dist/scripts/verifyReviewWorkspace.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

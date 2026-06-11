@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import BrandLogo from "../components/brand/BrandLogo";
 import type { AuthSession } from "../types";
 import "./Login.css";
 
@@ -39,13 +40,7 @@ export default function Login() {
   return (
     <div className="sc-login-page">
       <div className="sc-login-card sc-card sc-card-gold">
-        <div className="sc-login-brand">
-          <div className="sc-login-logo">SC</div>
-          <div>
-            <h1>ScriptCheck</h1>
-            <p>Assessment · Moderation · Marking Intelligence</p>
-          </div>
-        </div>
+        <BrandLogo variant="auth" showGroup />
 
         <form className="sc-form-grid" onSubmit={handleSubmit}>
           <div>
@@ -88,9 +83,14 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="sc-login-footnote">
-          Access foundation — multi-workspace roles & permissions
-        </p>
+        <div className="sc-login-links">
+          <Link to="/">Back to home</Link>
+          <Link to="/forgot-password">Forgot password?</Link>
+          <Link to="/register">Create an account</Link>
+          <Link to="/trial">Start free trial</Link>
+        </div>
+
+        <p className="sc-login-footnote">An EduClear Group Product</p>
       </div>
     </div>
   );

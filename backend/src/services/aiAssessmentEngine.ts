@@ -6,12 +6,20 @@ import {
 import {
   conceptQuestionStem,
   extractConcepts,
+  filterQualityConcepts,
   isPlaceholderText,
+  isQualityConcept,
   orderConceptsForAssessment,
   sanitiseSourceText,
   type StudyConcept,
 } from "./contentConcepts";
-import { sanitizeOcrText, sanitizeQuestionText, containsOcrGarbage } from "./contentSanitizer";
+import {
+  sanitizeOcrText,
+  sanitizeQuestionText,
+  containsOcrGarbage,
+  validateQuestionConceptQuality,
+  CAPS_LIFE_SKILLS_VOCABULARY,
+} from "./contentSanitizer";
 import {
   blueprintToDraftSections,
   type BankItemForSlot,
@@ -199,7 +207,7 @@ const PSW_SLOT_CONCEPT_FOCUS: { style: string; keyword: string }[] = [
   { style: "mcq", keyword: "adolescence" },
   { style: "definition", keyword: "hormones" },
   { style: "definition", keyword: "adolescence" },
-  { style: "definition", keyword: "puberty" },
+  { style: "definition", keyword: "dignity" },
   { style: "match_item", keyword: "bullying" },
   { style: "match_item", keyword: "mediation" },
   { style: "match_item", keyword: "peacekeeping" },
@@ -219,22 +227,80 @@ function pickConceptByKeyword(
   keyword: string,
   fallbackIndex: number
 ): StudyConcept {
+  const quality = filterQualityConcepts(concepts);
+  const pool = quality.length > 0 ? quality : concepts;
   const lower = keyword.toLowerCase();
 
-  const exact = concepts.find((c) => c.term.toLowerCase() === lower);
+  const exact = pool.find((c) => c.term.toLowerCase() === lower);
   if (exact) return exact;
 
-  const shortMatch = concepts.find(
+  const capsHit = Object.entries(CAPS_LIFE_SKILLS_VOCABULARY).find(
+    ([key]) => key === lower || key.includes(lower) || lower.includes(key)
+  );
+  if (capsHit) {
+    const [, entry] = capsHit;
+    const fromPool = pool.find((c) => c.term.toLowerCase() === entry.term.toLowerCase());
+    if (fromPool) return fromPool;
+    return {
+      term: entry.term,
+      definition: entry.definition,
+      context: entry.definition,
+      topic: undefined,
+    };
+  }
+
+  const shortMatch = pool.find(
     (c) =>
       (c.term.toLowerCase().includes(lower) || c.context.toLowerCase().includes(lower)) &&
-      c.term.length <= lower.length + 20
+      c.term.length <= lower.length + 20 &&
+      isQualityConcept(c)
   );
   if (shortMatch) return shortMatch;
 
-  const contextMatch = concepts.find((c) => c.context.toLowerCase().includes(lower));
+  const contextMatch = pool.find(
+    (c) => c.context.toLowerCase().includes(lower) && isQualityConcept(c)
+  );
   if (contextMatch) return contextMatch;
 
-  return concepts[fallbackIndex % concepts.length];
+  return pool[fallbackIndex % pool.length];
+}
+
+const CAPS_MATCHING_SETS: { term: string; desc: string }[][] = [
+  [
+    { term: "Hormones", desc: "Chemical messengers controlling growth and development" },
+    { term: "Adolescence", desc: "Period between childhood and adulthood" },
+    { term: "Social Bullying", desc: "Excluding someone from a group" },
+  ],
+  [
+    { term: "Mediation", desc: "A peaceful way to resolve conflict between people" },
+    { term: "Peacekeeping", desc: "Creating calm and preventing violence" },
+    { term: "Dignity", desc: "Treating every person with respect and worth" },
+  ],
+];
+
+function buildMatchingColumnsStem(matchSlotOffset: number): string {
+  const set = CAPS_MATCHING_SETS[0];
+  const colA = set.map((p, i) => `${i + 1} ${p.term}`).join("\n");
+  const letters = ["A", "B", "C"];
+  const colB = set
+    .map((p, i) => `${letters[i]} ${p.desc}`)
+    .join("\n");
+  const target = set[matchSlotOffset % set.length];
+
+  return (
+    `Match Column A with Column B.\n\n` +
+    `COLUMN A\n${colA}\n\n` +
+    `COLUMN B\n${colB}\n\n` +
+    `Write the letter (${letters.join(", ")}) that correctly describes ${target.term}.`
+  );
+}
+
+function buildMatchingMemo(matchSlotOffset: number): string {
+  const set = CAPS_MATCHING_SETS[0];
+  const letters = ["A", "B", "C"];
+  const target = set[matchSlotOffset % set.length];
+  const correctLetter = letters[matchSlotOffset % set.length];
+  return `${correctLetter}) ${target.desc} (1 mark).`;
 }
 
 function buildCapsInstructions(input: AiGenerationInput): string {
@@ -247,21 +313,6 @@ function buildCapsInstructions(input: AiGenerationInput): string {
       `Section B: Constructed responses, paragraph writing and advice/goals.\n` +
       `Total marks: ${input.totalMarks}.`
   );
-}
-
-function buildMatchItemStem(concept: StudyConcept, index: number): string {
-  const pairs = [
-    { term: "Hormones", desc: "Chemical messengers that control growth and development" },
-    { term: "Adolescence", desc: "The period between childhood and adulthood" },
-    { term: "Social bullying", desc: "Spreading rumours or excluding someone from a group" },
-    { term: "Mediation", desc: "A peaceful way to resolve conflict between people" },
-    { term: "Lobola", desc: "A cultural custom where the groom's family gives gifts to the bride's family" },
-    { term: "Dignity", desc: "Treating every person with respect and worth" },
-  ];
-
-  const pair = pairs[index % pairs.length];
-  const term = concept.term.toLowerCase().includes(pair.term.toLowerCase()) ? concept.term : pair.term;
-  return `Match the term "${term}" with the correct description from Column B.\n\nColumn A: ${term}\nColumn B:\n(a) ${pairs[(index + 1) % pairs.length].desc}\n(b) ${pair.desc}\n(c) ${pairs[(index + 2) % pairs.length].desc}\n(d) ${pairs[(index + 3) % pairs.length].desc}`;
 }
 
 function buildMcqStemForBullying(concept: StudyConcept, index: number): string {
@@ -314,9 +365,11 @@ function fillSlotFromConcepts(
       questionText = buildMcqStemForBullying(concept, slotIndex % 3);
       options = buildMcqOptionsForStem(slotIndex % 3, concept);
       break;
-    case "match_item":
-      questionText = buildMatchItemStem(concept, slotIndex);
+    case "match_item": {
+      const matchOffset = slotIndex - 6;
+      questionText = buildMatchingColumnsStem(matchOffset >= 0 ? matchOffset : slotIndex % 3);
       break;
+    }
     case "comprehension":
       questionText = buildComprehensionStem(concept);
       break;
@@ -324,7 +377,14 @@ function fillSlotFromConcepts(
       questionText = conceptQuestionStem(concept, slot.style);
   }
 
-  questionText = sanitizeQuestionText(questionText);
+  questionText = slot.style === "match_item" ? questionText : sanitizeQuestionText(questionText);
+  const qualityCheck = validateQuestionConceptQuality(questionText);
+  if (!qualityCheck.valid && slot.style === "definition") {
+    const fallback = pickConceptByKeyword(concepts, focus?.keyword ?? "dignity", slotIndex);
+    questionText = sanitizeQuestionText(
+      conceptQuestionStem(fallback, "definition")
+    );
+  }
 
   const question: AiGeneratedQuestion = {
     questionNumber: slot.questionNumber,
@@ -334,7 +394,10 @@ function fillSlotFromConcepts(
     marks: slot.marks,
     bloomLevel: slot.bloom,
     difficulty,
-    memoAnswer: buildMemoAnswer(slot.questionType, concept, slot.marks),
+    memoAnswer:
+      slot.style === "match_item"
+        ? buildMatchingMemo(slotIndex - 6 >= 0 ? slotIndex - 6 : slotIndex % 3)
+        : buildMemoAnswer(slot.questionType, concept, slot.marks),
     memoNotes: `Award full marks for accurate CAPS-aligned response on ${concept.term.toLowerCase()}.`,
   };
 
@@ -364,6 +427,26 @@ function buildFrameworkInstructions(input: AiGenerationInput, blueprint: PaperBl
 }
 
 /**
+ * Block generation when more than 5% of questions fail concept validation.
+ */
+export function assertContentQualityGate(questions: AiGeneratedQuestion[]): void {
+  if (questions.length === 0) return;
+
+  const failed = questions.filter((q) => !validateQuestionConceptQuality(q.questionText).valid);
+  const failureRate = failed.length / questions.length;
+
+  if (failureRate > 0.05) {
+    const examples = failed
+      .slice(0, 3)
+      .map((q) => q.questionNumber)
+      .join(", ");
+    throw new Error(
+      `Content quality gate failed: ${failed.length} of ${questions.length} questions (${Math.round(failureRate * 100)}%) contain invalid concepts or OCR fragments (e.g. questions ${examples}). Review study material and try again.`
+    );
+  }
+}
+
+/**
  * Framework-first generation — structure comes from blueprint only.
  * AI fills content into fixed slots. Priority: Question Bank → Past Paper → AI fill.
  */
@@ -377,9 +460,9 @@ export function generateFromBlueprint(input: BlueprintGenerationInput): AiGenera
     );
   }
 
-  const concepts = orderConceptsForAssessment(extractConcepts(studyText));
+  const concepts = orderConceptsForAssessment(filterQualityConcepts(extractConcepts(studyText)));
   if (concepts.length === 0) {
-    throw new Error("Could not identify concepts in study material. Review extracted text.");
+    throw new Error("Could not identify quality concepts in study material. Review extracted text.");
   }
 
   const usedBankIds = new Set<string>();
@@ -417,6 +500,8 @@ export function generateFromBlueprint(input: BlueprintGenerationInput): AiGenera
 
     questions.push(filled);
   }
+
+  assertContentQualityGate(questions);
 
   return {
     instructions: buildFrameworkInstructions(genInput, blueprint),
@@ -539,16 +624,18 @@ export async function generateAssessmentFromMaterial(
     );
   }
 
-  const concepts = orderConceptsForAssessment(extractConcepts(sourceText));
+  const concepts = orderConceptsForAssessment(filterQualityConcepts(extractConcepts(sourceText)));
   if (concepts.length === 0) {
     throw new Error(
-      "Could not identify concepts in the extracted text. Review OCR output and try again."
+      "Could not identify quality concepts in the extracted text. Review OCR output and try again."
     );
   }
 
   const questions = isLifeSkillsCaps(input)
     ? generateLifeSkillsPaper(input, concepts)
     : generateGenericPaper(input, concepts);
+
+  assertContentQualityGate(questions);
 
   const sectionA = questions.filter((q) => q.section === "Section A").map((q) => q.questionNumber);
   const sectionB = questions.filter((q) => q.section === "Section B").map((q) => q.questionNumber);

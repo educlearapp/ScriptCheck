@@ -3,6 +3,8 @@ export type WorkspaceType =
   | "SCHOOL"
   | "EXAMINATION_BODY";
 
+export type SubscriptionPlan = "TRIAL" | "PAID";
+
 export type WorkspaceRole =
   | "TEACHER"
   | "HOD"
@@ -10,7 +12,9 @@ export type WorkspaceRole =
   | "EXAMINATION_OFFICER"
   | "PRINCIPAL"
   | "SCHOOL_ADMIN"
-  | "EXAM_BODY_ADMIN";
+  | "SCHOOL_OWNER"
+  | "EXAM_BODY_ADMIN"
+  | "EXAMINATION_BODY";
 
 export type Permission =
   | "assessments.view"
@@ -21,6 +25,15 @@ export type Permission =
   | "moderation.queue"
   | "moderation.approve"
   | "moderation.return"
+  | "moderation.comment"
+  | "moderation.request_approval"
+  | "workflow.configure"
+  | "workflow.transition"
+  | "intelligence.view"
+  | "intelligence.generate"
+  | "subscription.manage"
+  | "export.assessment_pack"
+  | "marks.audit"
   | "users.view"
   | "users.manage"
   | "users.invite"
@@ -57,6 +70,9 @@ export type Permission =
   | "dashboard.academic.view"
   | "feedback.create"
   | "feedback.view"
+  | "betaFeedback.create"
+  | "betaFeedback.view"
+  | "betaFeedback.manage"
   | "reports.generate"
   | "subjects.view"
   | "subjects.manage"
@@ -82,6 +98,12 @@ export type AuthUser = {
   workspaceId: string;
   workspaceName: string;
   workspaceType: WorkspaceType;
+  subscriptionPlan: SubscriptionPlan;
+  subscriptionStatus?: "ACTIVE" | "TRIAL" | "EXPIRED" | "SUSPENDED";
+  trialExpiresAt?: string | null;
+  isTrial?: boolean;
+  isExpired?: boolean;
+  daysRemaining?: number | null;
   roles: WorkspaceRole[];
   permissions: Permission[];
 };
@@ -91,6 +113,7 @@ export type WorkspaceSummary = {
   name: string;
   slug: string;
   type: WorkspaceType;
+  subscriptionPlan?: SubscriptionPlan;
   roles: WorkspaceRole[];
   isActive?: boolean;
 };
@@ -209,6 +232,12 @@ export type Assessment = {
   markingDeadline: string | null;
   moderationDeadline: string | null;
   rubricTemplateId: string | null;
+  questionCount?: number | null;
+  pagesPerScript?: number | null;
+  memorandumAvailable?: boolean;
+  rubricAvailable?: boolean;
+  setupComplete?: boolean;
+  setupCompletedAt?: string | null;
   status: AssessmentStatus;
   creatorTeacher: { id: string; fullName: string };
   assignedUser: { id: string; fullName: string } | null;
@@ -496,6 +525,43 @@ export type AiQualityChecks = {
   frameworkValidation?: { passed: boolean; issues: AiQualityIssue[] };
 };
 
+export type CognitiveOrder = "LOW" | "MIDDLE" | "HIGH";
+
+export type CognitiveAnalysisRow = {
+  questionNumber: string;
+  questionType: string;
+  marks: number;
+  cognitiveLevel: string;
+  cognitiveOrder: CognitiveOrder;
+};
+
+export type CognitiveAnalysisReport = {
+  rows: CognitiveAnalysisRow[];
+  totals: { lowOrder: number; middleOrder: number; highOrder: number };
+  percentages: { lowOrder: number; middleOrder: number; highOrder: number };
+  targets: { lowOrder: number; middleOrder: number; highOrder: number };
+  passed: boolean;
+};
+
+export type FrameworkComplianceCheck = {
+  id: string;
+  label: string;
+  passed: boolean;
+  detail?: string;
+};
+
+export type FrameworkComplianceReport = {
+  checks: FrameworkComplianceCheck[];
+  overallStatus: "FRAMEWORK COMPLIANT" | "FRAMEWORK FAILED";
+  passed: boolean;
+};
+
+export type AiReviewReport = {
+  cognitiveAnalysis: CognitiveAnalysisReport;
+  frameworkCompliance: FrameworkComplianceReport;
+  reviewComplete: boolean;
+};
+
 export type AiBuilderRequest = {
   id: string;
   workspaceId: string;
@@ -515,6 +581,7 @@ export type AiBuilderRequest = {
   instructions: string | null;
   draft: AiGeneratedDraft | null;
   qualityChecks: AiQualityChecks | null;
+  reviewReport: AiReviewReport | null;
   sourceMode: AiBuilderSourceMode;
   selectedQuestionBankIds: string[];
   frameworkText: string | null;
@@ -708,6 +775,7 @@ export type LearnerScriptSummary = {
   id: string;
   scriptNumber: string;
   status: LearnerScriptStatus;
+  pageCount?: number;
   teacherTotal: number | null;
   hodTotal: number | null;
   finalTotal: number | null;
@@ -1622,11 +1690,20 @@ export type PaperVaultAuditEntry = {
   metadata: Record<string, unknown> | null;
 };
 
+export type NavSection = "assessment" | "ai" | "admin";
+
 export type NavItem = {
   to: string;
   label: string;
   icon: string;
   permission?: Permission;
+  section: NavSection;
+};
+
+export const NAV_SECTION_LABELS: Record<NavSection, string> = {
+  assessment: "Assessment Management",
+  ai: "AI Tools",
+  admin: "Administration",
 };
 
 export type Learner = {

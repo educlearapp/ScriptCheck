@@ -1,0 +1,49 @@
+.sc-beta-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(212, 175, 55, 0.1);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sc-gold-light, #e8c96a);
+  line-height: 1.2;
+}
+
+.sc-beta-label.is-compact {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.65rem;
+}
+
+.sc-beta-label-secondary {
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.sc-beta-label-secondary::before {
+  content: "·";
+  margin-right: 0.5rem;
+  opacity: 0.6;
+}
+
+.sc-beta-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: var(--sc-radius-sm, 8px);
+  border: 1px dashed rgba(212, 175, 55, 0.35);
+  background: rgba(212, 175, 55, 0.06);
+}
+
+.sc-beta-banner-note {
+  font-size: 0.82rem;
+  color: var(--sc-text-muted);
+}

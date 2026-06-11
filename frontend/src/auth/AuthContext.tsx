@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -20,6 +21,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   workspaces: WorkspaceSummary[];
   isAuthenticated: boolean;
+  authReady: boolean;
   login: (session: AuthSession) => void;
   logout: () => Promise<void>;
   switchWorkspace: (workspaceId: string) => Promise<void>;
@@ -29,10 +31,25 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => getAuthUser());
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>(() =>
-    getWorkspaces()
-  );
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    const storedUser = getAuthUser();
+
+    if (token && storedUser) {
+      setUser(storedUser);
+      setWorkspaces(getWorkspaces());
+    } else {
+      clearAuthSession();
+      setUser(null);
+      setWorkspaces([]);
+    }
+
+    setAuthReady(true);
+  }, []);
 
   const login = useCallback((session: AuthSession) => {
     setAuthSession(session);
@@ -83,13 +100,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       workspaces,
-      isAuthenticated: Boolean(user && getAuthToken()),
+      authReady,
+      isAuthenticated: authReady && Boolean(user && getAuthToken()),
       login,
       logout,
       switchWorkspace,
       refreshUser,
     }),
-    [user, workspaces, login, logout, switchWorkspace, refreshUser]
+    [user, workspaces, authReady, login, logout, switchWorkspace, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

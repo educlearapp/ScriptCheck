@@ -1,14 +1,17 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { useTrialGate } from "../../trial/TrialGateContext";
+import { SALES_EMAIL } from "../../trial/constants";
 import "./TopBar.css";
 
 export default function TopBar() {
   const navigate = useNavigate();
   const { user, workspaces, logout, switchWorkspace } = useAuth();
+  const { isTrial, showUpgradeModal } = useTrialGate();
 
   const handleLogout = async () => {
     await logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleWorkspaceChange = async (workspaceId: string) => {
@@ -25,7 +28,22 @@ export default function TopBar() {
     <header className="sc-topbar">
       <div>
         <div className="sc-topbar-eyebrow">South African Schools</div>
-        <div className="sc-topbar-heading">CAPS · IEB · Cambridge</div>
+        <div className="sc-topbar-heading">
+          CAPS · IEB · Cambridge
+          {isTrial ? (
+            <span className="sc-topbar-trial-badge">Free Trial</span>
+          ) : null}
+        </div>
+        {isTrial ? (
+          <p className="sc-topbar-trial-note">
+            Trial preview mode — upgrade to print, export, send or publish.{" "}
+            <button type="button" className="sc-topbar-trial-link" onClick={showUpgradeModal}>
+              Upgrade
+            </button>
+            {" · "}
+            <a href={`mailto:${SALES_EMAIL}?subject=ScriptCheck%20Sales`}>Contact sales</a>
+          </p>
+        ) : null}
       </div>
 
       <div className="sc-topbar-actions">

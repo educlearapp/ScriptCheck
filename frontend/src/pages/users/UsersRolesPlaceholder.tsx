@@ -1,6 +1,7 @@
 import { useAuth } from "../../auth/AuthContext";
 import { hasPermission } from "../../auth/permissions";
 import type { WorkspaceRole } from "../../types";
+import { getRoleDisplay } from "../../utils/roleLabels";
 
 export default function UsersRolesPlaceholder() {
   const { user } = useAuth();
@@ -45,7 +46,7 @@ export default function UsersRolesPlaceholder() {
               className="sc-card sc-card-gold"
               style={{ padding: "1rem" }}
             >
-              <span className="sc-badge sc-badge-gold">{role}</span>
+              <span className="sc-badge sc-badge-gold">{getRoleDisplay(role)}</span>
               <p
                 style={{
                   margin: "0.75rem 0 0",

@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { hashAuthPassword } from "./services/authCredentials";
 import { seedCurriculumCatalog } from "./seed/seedCurriculum";
 import { seedPortalDemo } from "./seed/seedPortal";
+import { seedBetaTestData } from "./seed/seedBetaTestData";
 
 async function createMembershipWithRoles(
   userId: string,
@@ -123,6 +124,7 @@ async function main() {
   }
 
   await seedPortalDemo("demo-high-school");
+  await seedBetaTestData();
 
   console.log("Seed complete.");
   console.log("Demo logins (password: ScriptCheck2026!):");

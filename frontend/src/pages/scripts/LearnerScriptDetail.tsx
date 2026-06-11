@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiDownload, apiFetch, apiOpenPdf, apiUpload } from "../../api";
+import { useTrialGate } from "../../trial/TrialGateContext";
 import ScriptAuditTimeline from "../../components/scripts/ScriptAuditTimeline";
 import ScriptMarkingPanel from "../../components/scripts/ScriptMarkingPanel";
 import RubricMarkingPanel from "../../components/scripts/RubricMarkingPanel";
@@ -28,6 +29,7 @@ import "./Scripts.css";
 export default function LearnerScriptDetailPage() {
   const { scriptId } = useParams<{ scriptId: string }>();
   const { user } = useAuth();
+  const { gateProductionAction } = useTrialGate();
 
   const [script, setScript] = useState<LearnerScriptDetail | null>(null);
   const [pages, setPages] = useState<ScriptPageInfo[]>([]);
@@ -313,6 +315,7 @@ export default function LearnerScriptDetailPage() {
 
   const handleDownloadLearnerPdf = async () => {
     if (!scriptId) return;
+    if (!gateProductionAction()) return;
     try {
       await apiDownload(`/scripts/${scriptId}/reports/learner.pdf`, "learner-report.pdf");
     } catch (err) {
@@ -322,6 +325,7 @@ export default function LearnerScriptDetailPage() {
 
   const handlePrintLearnerPdf = async () => {
     if (!scriptId) return;
+    if (!gateProductionAction()) return;
     try {
       await apiOpenPdf(`/scripts/${scriptId}/reports/learner.pdf`);
     } catch (err) {

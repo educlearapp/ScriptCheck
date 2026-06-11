@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { apiDownload, apiFetch } from "../../api";
+import { useTrialGate } from "../../trial/TrialGateContext";
 import type { ExaminationOpsSession, SeatingPlanData } from "../../types";
 
 export default function ExaminationSeatingPage() {
+  const { gateProductionAction } = useTrialGate();
   const [sessions, setSessions] = useState<ExaminationOpsSession[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [plan, setPlan] = useState<SeatingPlanData | null>(null);
@@ -60,10 +62,32 @@ export default function ExaminationSeatingPage() {
           </button>
           {plan ? (
             <>
-              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => apiDownload(`/examinations/seating/${selectedId}/plan.pdf`, "seating-plan.pdf")}>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                onClick={() => {
+                  gateProductionAction(() => {
+                    void apiDownload(
+                      `/examinations/seating/${selectedId}/plan.pdf`,
+                      "seating-plan.pdf"
+                    );
+                  });
+                }}
+              >
                 Download seating PDF
               </button>
-              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => apiDownload(`/examinations/seating/${selectedId}/candidates.pdf`, "candidate-list.pdf")}>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                onClick={() => {
+                  gateProductionAction(() => {
+                    void apiDownload(
+                      `/examinations/seating/${selectedId}/candidates.pdf`,
+                      "candidate-list.pdf"
+                    );
+                  });
+                }}
+              >
                 Download candidate list
               </button>
             </>

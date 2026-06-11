@@ -9,6 +9,7 @@ import type {
   AiGeneratedDraft,
   AiGeneratedQuestion,
   AiQuestionType,
+  AiStudyMaterial,
   AiUploadPurpose,
   AssessmentType,
   CurriculumRef,
@@ -20,6 +21,9 @@ import type {
 } from "../../types";
 import "./GenerateAssessment.css";
 import "./AiAssessmentBuilder.css";
+import { MAX_UPLOAD_FILES, UPLOAD_FILES_HINT } from "../../config/uploadLimits";
+import PageLoader from "../../components/loading/PageLoader";
+import ReviewWorkspace from "./ReviewWorkspace";
 import {
   loadGradesAndSubjectsForPhase,
   phaseCodeFromPhases,
@@ -30,7 +34,7 @@ const STEPS = [
   "Extract Content",
   "Settings",
   "Generate",
-  "Review & Edit",
+  "Review Workspace",
   "Approve",
 ] as const;
 
@@ -128,6 +132,9 @@ export default function AiAssessmentBuilder() {
     Record<string, { action: "save" | "skip" | "merge"; mergedText?: string }>
   >({});
 
+  const [ocrPanelMode, setOcrPanelMode] = useState<Record<string, "hidden" | "view" | "edit">>({});
+  const [confirmingMaterialId, setConfirmingMaterialId] = useState<string | null>(null);
+
   const readiness = request?.generationReadiness ?? null;
   const blueprint = readiness?.blueprint ?? null;
   const canGenerate = readiness?.canGenerate ?? false;
@@ -157,7 +164,7 @@ export default function AiAssessmentBuilder() {
 
     const edits: Record<string, string> = {};
     for (const m of data.materials) {
-      edits[m.id] = m.manualText ?? m.extractedText ?? "";
+      edits[m.id] = m.effectiveText || m.manualText || m.extractedText || "";
     }
     setTextEdits(edits);
 
@@ -218,11 +225,17 @@ export default function AiAssessmentBuilder() {
 
   async function handleUpload(files: FileList | null) {
     if (!files?.length || !requestId) return;
+    const selected = Array.from(files);
+    const existingCount = request?.materials.length ?? 0;
+    if (existingCount + selected.length > MAX_UPLOAD_FILES) {
+      setError(UPLOAD_FILES_HINT);
+      return;
+    }
     setUploading(true);
     setError("");
 
     try {
-      for (const file of Array.from(files)) {
+      for (const file of selected) {
         const form = new FormData();
         form.append("file", file);
         form.append("uploadPurpose", uploadPurpose);
@@ -268,7 +281,7 @@ export default function AiAssessmentBuilder() {
     try {
       await apiFetch(`/ai-assessment-builder/${requestId}/extract`, { method: "POST" });
       await loadRequest(requestId);
-      setStep(2);
+      setStep(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Extraction failed");
     } finally {
@@ -288,18 +301,107 @@ export default function AiAssessmentBuilder() {
     }
   }
 
+  function materialTextForReview(materialId: string) {
+    const material = request?.materials.find((m) => m.id === materialId);
+    return textEdits[materialId] ?? material?.effectiveText ?? material?.extractedText ?? "";
+  }
+
   async function handleConfirmReview(materialId: string) {
+    console.log("Confirm review clicked", materialId, { requestId });
+    if (!requestId) {
+      console.warn("Confirm review aborted — missing requestId");
+      setError("Builder request not loaded — refresh the page and try again");
+      return;
+    }
+
+    setConfirmingMaterialId(materialId);
+    setError("");
+    const manualText = materialTextForReview(materialId);
+
+    try {
+      console.log("Confirm review POST", `${API_URL}/ai-assessment-builder/${requestId}/materials/${materialId}/confirm-review`);
+      const updated = await apiFetch<AiStudyMaterial>(
+        `/ai-assessment-builder/${requestId}/materials/${materialId}/confirm-review`,
+        {
+          method: "POST",
+          body: JSON.stringify({ manualText }),
+        }
+      );
+      console.log("Confirm review success", materialId, {
+        reviewConfirmed: updated.reviewConfirmed,
+        extractionStatus: updated.extractionStatus,
+      });
+
+      setRequest((prev) =>
+        prev
+          ? {
+              ...prev,
+              materials: prev.materials.map((m) =>
+                m.id === materialId ? { ...m, ...updated } : m
+              ),
+            }
+          : prev
+      );
+      setTextEdits((prev) => ({
+        ...prev,
+        [materialId]: updated.effectiveText || manualText,
+      }));
+      setOcrPanelMode((prev) => ({ ...prev, [materialId]: "hidden" }));
+
+      await loadRequest(requestId);
+    } catch (err) {
+      console.error("Confirm review failed", materialId, err);
+      setError(err instanceof Error ? err.message : "Failed to confirm review");
+    } finally {
+      setConfirmingMaterialId(null);
+    }
+  }
+
+  async function handleUseExtractedText(materialId: string) {
+    await handleConfirmReview(materialId);
+  }
+
+  async function handleAdvanceToSettings() {
     if (!requestId) return;
+    setLoading(true);
     setError("");
     try {
-      await apiFetch(`/ai-assessment-builder/${requestId}/materials/${materialId}/confirm-review`, {
+      await apiFetch(`/ai-assessment-builder/${requestId}/complete-extraction-review`, {
         method: "POST",
       });
       await loadRequest(requestId);
+      setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to confirm review");
+      setError(err instanceof Error ? err.message : "Complete OCR review before continuing");
+    } finally {
+      setLoading(false);
     }
   }
+
+  function isFrameworkMaterial(m: AiStudyMaterial) {
+    return m.uploadPurpose === "ASSESSMENT_FRAMEWORK";
+  }
+
+  function materialNeedsReview(m: AiStudyMaterial) {
+    if (isFrameworkMaterial(m)) return false;
+    if (m.extractionStatus === "PENDING" || m.extractionStatus === "FAILED") return false;
+    return !m.reviewConfirmed;
+  }
+
+  function formatOcrConfidence(confidence: number | null) {
+    if (confidence == null) return "Unknown";
+    return `${confidence.toFixed(0)}%`;
+  }
+
+  const extractedMaterials = request?.materials.filter(
+    (m) => m.extractionStatus !== "PENDING" || Boolean(m.effectiveText?.trim())
+  ) ?? [];
+  const reviewableMaterials = request?.materials.filter((m) => !isFrameworkMaterial(m)) ?? [];
+  const reviewedCount = reviewableMaterials.filter((m) => m.reviewConfirmed).length;
+  const allMaterialsReviewed =
+    reviewableMaterials.length > 0 &&
+    reviewableMaterials.every((m) => m.reviewConfirmed);
+  const hasExtractedContent = request?.materials.some((m) => m.effectiveText?.trim()) ?? false;
 
   useEffect(() => {
     const params = new URLSearchParams({ subjectId, forPicker: "true" });
@@ -463,13 +565,16 @@ export default function AiAssessmentBuilder() {
     }
   }
 
-  async function handleExport(type: "question-paper" | "memorandum" | "rubric") {
+  async function handleExport(
+    type: "question-paper" | "memorandum" | "rubric" | "complete-pack"
+  ) {
     if (!requestId) return;
     try {
-      await apiDownloadPath(
-        `/ai-assessment-builder/${requestId}/export/${type}`,
-        `${title || "assessment"}-${type}.pdf`
-      );
+      const filename =
+        type === "complete-pack"
+          ? `${title || "assessment"}-complete-pack.pdf`
+          : `${title || "assessment"}-${type}.pdf`;
+      await apiDownloadPath(`/ai-assessment-builder/${requestId}/export/${type}`, filename);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Export failed");
     }
@@ -495,18 +600,13 @@ export default function AiAssessmentBuilder() {
   }
 
   const step1Valid = (request?.materials.length ?? 0) > 0;
-  const step2Valid = request?.materials.some((m) => m.effectiveText?.trim()) ?? false;
+  const step2Valid = hasExtractedContent && allMaterialsReviewed;
   const step3Valid =
     curriculumId && phaseId && gradeId && subjectId && title.trim() &&
     questionTypes.length > 0 && bloomLevels.length > 0 && Number(totalMarks) > 0;
 
   if (loading && !request) {
-    return (
-      <div>
-        <h1 className="sc-page-title">AI Assessment Builder</h1>
-        <p className="sc-page-subtitle">Loading…</p>
-      </div>
-    );
+    return <PageLoader message="Loading AI Assessment Builder…" />;
   }
 
   return (
@@ -532,7 +632,9 @@ export default function AiAssessmentBuilder() {
       {step === 0 && (
         <div className="sc-card sc-card-gold">
           <h2>Step 1 — Upload</h2>
-          <p className="sc-page-subtitle">Supported: PDF, JPG, PNG, DOCX, TXT (max 25 MB each)</p>
+          <p className="sc-page-subtitle">
+            Supported: PDF, JPG, PNG, DOCX, TXT (max 25 MB each). {UPLOAD_FILES_HINT}
+          </p>
 
           <div className="ai-checkbox-grid" style={{ marginBottom: "1rem" }}>
             {(
@@ -625,45 +727,110 @@ export default function AiAssessmentBuilder() {
             </div>
           )}
 
-          {request?.materials.map((m) => (
-            <div key={m.id} className="ai-material-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <strong>{m.fileName}</strong>
-                <span
-                  className={`ai-extraction-badge ${
-                    m.extractionStatus === "EXTRACTED"
-                      ? "is-extracted"
-                      : m.extractionStatus === "NEEDS_REVIEW" || m.extractionStatus === "MANUAL_REQUIRED"
-                        ? "is-manual"
-                        : "is-pending"
-                  }`}
-                >
-                  {m.extractionStatus.replaceAll("_", " ")}
-                </span>
+          {extractedMaterials.length > 0 && reviewableMaterials.length > 0 && (
+            <div className="ai-ocr-review-summary">
+              OCR Review: {reviewedCount} / {reviewableMaterials.length} files reviewed
+              {allMaterialsReviewed && reviewableMaterials.length > 0 && (
+                <span className="ai-reviewed-badge"> — All reviewed ✅</span>
+              )}
+            </div>
+          )}
+
+          {request?.materials.map((m) => {
+            const panelMode = ocrPanelMode[m.id] ?? "hidden";
+            const isExtracted = m.extractionStatus !== "PENDING" || Boolean(m.effectiveText?.trim());
+            const isFramework = isFrameworkMaterial(m);
+
+            return (
+            <div key={m.id} className="ai-ocr-review-card">
+              <div className="ai-ocr-review-header">
+                <div>
+                  <strong>{m.fileName}</strong>
+                  <div className="ai-material-meta">
+                    {m.uploadPurpose?.replaceAll("_", " ") ?? "STUDY MATERIAL"} · {m.fileType}
+                  </div>
+                </div>
+                <div className="ai-ocr-review-status">
+                  {m.reviewConfirmed || isFramework ? (
+                    <span className="ai-reviewed-badge">REVIEWED ✅</span>
+                  ) : isExtracted ? (
+                    <span className="ai-extraction-badge is-manual">NEEDS REVIEW</span>
+                  ) : (
+                    <span className="ai-extraction-badge is-pending">{m.extractionStatus.replaceAll("_", " ")}</span>
+                  )}
+                </div>
               </div>
-              {(m.ocrConfidence == null || m.ocrConfidence < 55) && m.extractionStatus !== "EXTRACTED" && (
+
+              <div className="ai-ocr-meta-grid">
+                <div><span className="ai-ocr-meta-label">OCR Confidence</span> {formatOcrConfidence(m.ocrConfidence)}</div>
+                <div><span className="ai-ocr-meta-label">Status</span> {m.extractionStatus.replaceAll("_", " ")}</div>
+                <div><span className="ai-ocr-meta-label">Type</span> {m.uploadPurpose.replaceAll("_", " ")}</div>
+              </div>
+
+              {isFramework && (
+                <div className="ai-material-meta">Framework file — OCR review not required</div>
+              )}
+
+              {!isFramework && materialNeedsReview(m) && (
                 <div className="ai-material-meta sc-error" style={{ fontSize: "0.82rem" }}>
-                  Low or unknown OCR confidence — review and correct text before generating
+                  Review extracted text, edit if needed, then confirm before generating
                 </div>
               )}
-              {(m.extractionStatus !== "PENDING" || m.effectiveText) && (
+
+              {isExtracted && !isFramework && (
+                <div className="ai-ocr-review-actions">
+                  <button
+                    type="button"
+                    className="sc-btn sc-btn-ghost"
+                    onClick={() => setOcrPanelMode((prev) => ({ ...prev, [m.id]: "view" }))}
+                  >
+                    View OCR Text
+                  </button>
+                  <button
+                    type="button"
+                    className="sc-btn sc-btn-ghost"
+                    onClick={() => setOcrPanelMode((prev) => ({ ...prev, [m.id]: "edit" }))}
+                  >
+                    Edit OCR Text
+                  </button>
+                  {(m.ocrConfidence == null || m.ocrConfidence < 55) && !m.reviewConfirmed && (
+                    <button
+                      type="button"
+                      className="sc-btn sc-btn-ghost"
+                      disabled={confirmingMaterialId === m.id}
+                      onClick={() => void handleUseExtractedText(m.id)}
+                    >
+                      Use Extracted Text
+                    </button>
+                  )}
+                  {!m.reviewConfirmed && (
+                    <button
+                      type="button"
+                      className="sc-btn sc-btn-primary"
+                      disabled={confirmingMaterialId === m.id}
+                      onClick={() => {
+                        console.log("Confirm Review button onClick fired", m.id);
+                        void handleConfirmReview(m.id);
+                      }}
+                    >
+                      {confirmingMaterialId === m.id ? "Confirming…" : "Confirm Review"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {isExtracted && panelMode === "view" && (
+                <pre className="ai-ocr-text-view">{textEdits[m.id] ?? m.effectiveText ?? ""}</pre>
+              )}
+
+              {isExtracted && panelMode === "edit" && (
                 <textarea
                   className="sc-input ai-text-editor"
                   value={textEdits[m.id] ?? ""}
                   onChange={(e) => setTextEdits((prev) => ({ ...prev, [m.id]: e.target.value }))}
                   onBlur={() => void handleSaveText(m.id)}
-                  placeholder="Extracted or manually entered text…"
+                  placeholder="Edit extracted OCR text…"
                 />
-              )}
-              {m.extractionStatus === "NEEDS_REVIEW" && !m.reviewConfirmed && (
-                <button
-                  type="button"
-                  className="sc-btn sc-btn-primary"
-                  style={{ marginTop: "0.5rem" }}
-                  onClick={() => void handleConfirmReview(m.id)}
-                >
-                  Confirm OCR Review
-                </button>
               )}
 
               {m.uploadPurpose === "ASSESSMENT_FRAMEWORK" && (
@@ -799,7 +966,8 @@ export default function AiAssessmentBuilder() {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
 
           <div className="marks-step-actions" style={{ marginTop: "1rem" }}>
             <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setStep(0)}>
@@ -816,8 +984,8 @@ export default function AiAssessmentBuilder() {
             <button
               type="button"
               className="sc-btn sc-btn-primary"
-              disabled={!step2Valid}
-              onClick={() => setStep(2)}
+              disabled={!step2Valid || loading}
+              onClick={() => void handleAdvanceToSettings()}
             >
               Next — Settings
             </button>
@@ -1072,130 +1240,104 @@ export default function AiAssessmentBuilder() {
 
       {step === 4 && draft && (
         <div className="sc-card sc-card-gold">
-          <h2>Step 5 — Review & Edit</h2>
-
-          {request?.qualityChecks && (
-            <div className="ai-quality-issues">
-              <strong>
-                Validation: {request.qualityChecks.passed ? "Passed" : "Issues Found"}
-              </strong>
-              {request.qualityChecks.blueprint && (
-                <p className="ai-material-meta" style={{ marginTop: "0.35rem" }}>
-                  Framework: {request.qualityChecks.blueprint.name} —{" "}
-                  {request.qualityChecks.blueprint.slots.length} slots,{" "}
-                  {request.qualityChecks.blueprint.totalMarks} marks
-                </p>
-              )}
-              {request.qualityChecks.issues.map((issue, i) => (
-                <div
-                  key={i}
-                  className={`ai-quality-issue is-${issue.severity}`}
-                >
-                  {issue.message}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <label className="sc-label">
-            Instructions
-            <textarea
-              className="sc-input"
-              rows={2}
-              value={draft.instructions}
-              onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
-            />
-          </label>
-
-          {draft.questions.map((q, i) => (
-            <div key={q.questionNumber} className="ai-question-editor">
-              <div className="sc-form-grid-2">
+          <ReviewWorkspace
+            draft={draft}
+            title={title || request?.title || "Assessment"}
+            grade={request?.grade?.name}
+            subject={request?.subject?.name}
+            term={term || request?.term}
+            qualityChecks={request?.qualityChecks ?? null}
+            reviewReport={request?.reviewReport ?? null}
+            onExport={(type) => void handleExport(type)}
+            onSaveEdits={() => void handleSaveDraft()}
+            onContinueToApprove={() => setStep(5)}
+            saving={loading}
+            showEditPanel
+            editPanel={
+              <>
                 <label className="sc-label">
-                  Q{q.questionNumber} Marks
-                  <input
+                  Instructions
+                  <textarea
                     className="sc-input"
-                    type="number"
-                    min={1}
-                    value={q.marks}
-                    onChange={(e) => updateQuestion(i, { marks: Number(e.target.value) })}
+                    rows={2}
+                    value={draft.instructions}
+                    onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
                   />
                 </label>
-                <label className="sc-label">
-                  Bloom Level
-                  <select
-                    className="sc-select"
-                    value={q.bloomLevel}
-                    onChange={(e) => updateQuestion(i, { bloomLevel: e.target.value as AiBloomLevel })}
-                  >
-                    {BLOOM_LEVELS.map((bl) => (
-                      <option key={bl.value} value={bl.value}>{bl.label}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label className="sc-label">
-                Question Text
-                <textarea
-                  className="sc-input"
-                  rows={2}
-                  value={q.questionText}
-                  onChange={(e) => updateQuestion(i, { questionText: e.target.value })}
-                />
-              </label>
-              <label className="sc-label">
-                Memo Answer
-                <textarea
-                  className="sc-input"
-                  rows={2}
-                  value={q.memoAnswer}
-                  onChange={(e) => updateQuestion(i, { memoAnswer: e.target.value })}
-                />
-              </label>
-              {q.rubric?.criteria?.length ? (
-                <div>
-                  <span className="sc-label">Rubric Criteria</span>
-                  {q.rubric.criteria.map((c, ci) => (
-                    <div key={ci} style={{ marginBottom: "0.5rem" }}>
-                      <input
-                        className="sc-input"
-                        value={c.name}
-                        onChange={(e) => {
-                          const criteria = [...q.rubric!.criteria];
-                          criteria[ci] = { ...c, name: e.target.value };
-                          updateQuestion(i, { rubric: { criteria } });
-                        }}
-                      />
+                {draft.questions.map((q, i) => (
+                  <div key={q.questionNumber} className="ai-question-editor">
+                    <div className="sc-form-grid-2">
+                      <label className="sc-label">
+                        Q{q.questionNumber} Marks
+                        <input
+                          className="sc-input"
+                          type="number"
+                          min={1}
+                          value={q.marks}
+                          onChange={(e) => updateQuestion(i, { marks: Number(e.target.value) })}
+                        />
+                      </label>
+                      <label className="sc-label">
+                        Bloom Level
+                        <select
+                          className="sc-select"
+                          value={q.bloomLevel}
+                          onChange={(e) =>
+                            updateQuestion(i, { bloomLevel: e.target.value as AiBloomLevel })
+                          }
+                        >
+                          {BLOOM_LEVELS.map((bl) => (
+                            <option key={bl.value} value={bl.value}>
+                              {bl.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ))}
-
-          <div className="ai-export-actions">
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void handleExport("question-paper")}>
-              Export Question Paper
-            </button>
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void handleExport("memorandum")}>
-              Export Memorandum
-            </button>
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => void handleExport("rubric")}>
-              Export Rubric
-            </button>
-          </div>
-
-          <div className="marks-step-actions" style={{ marginTop: "1rem" }}>
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setStep(3)}>Back</button>
-            <button type="button" className="sc-btn sc-btn-ghost" disabled={loading} onClick={() => void handleSaveDraft()}>
-              Save Edits
-            </button>
-            <button
-              type="button"
-              className="sc-btn sc-btn-primary"
-              disabled={loading || request?.qualityChecks?.passed === false}
-              onClick={() => setStep(5)}
-            >
-              Continue to Approve
+                    <label className="sc-label">
+                      Question Text
+                      <textarea
+                        className="sc-input"
+                        rows={2}
+                        value={q.questionText}
+                        onChange={(e) => updateQuestion(i, { questionText: e.target.value })}
+                      />
+                    </label>
+                    <label className="sc-label">
+                      Memo Answer
+                      <textarea
+                        className="sc-input"
+                        rows={2}
+                        value={q.memoAnswer}
+                        onChange={(e) => updateQuestion(i, { memoAnswer: e.target.value })}
+                      />
+                    </label>
+                    {q.rubric?.criteria?.length ? (
+                      <div>
+                        <span className="sc-label">Rubric Criteria</span>
+                        {q.rubric.criteria.map((c, ci) => (
+                          <div key={ci} style={{ marginBottom: "0.5rem" }}>
+                            <input
+                              className="sc-input"
+                              value={c.name}
+                              onChange={(e) => {
+                                const criteria = [...q.rubric!.criteria];
+                                criteria[ci] = { ...c, name: e.target.value };
+                                updateQuestion(i, { rubric: { criteria } });
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </>
+            }
+          />
+          <div className="marks-step-actions" style={{ marginTop: "0.5rem" }}>
+            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setStep(3)}>
+              Back
             </button>
           </div>
         </div>
@@ -1213,9 +1355,11 @@ export default function AiAssessmentBuilder() {
               Assessment created.{" "}
               <a href={`/assessments/${request.assessmentId}`}>View assessment →</a>
             </p>
-          ) : (
+          ) : request?.reviewReport?.reviewComplete ? (
             <div className="marks-step-actions">
-              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setStep(4)}>Back</button>
+              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setStep(4)}>
+                Back to Review
+              </button>
               <button
                 type="button"
                 className="sc-btn sc-btn-primary"
@@ -1223,6 +1367,15 @@ export default function AiAssessmentBuilder() {
                 onClick={() => void handleApprove()}
               >
                 {loading ? "Creating…" : "Approve & Create Assessment"}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="sc-error">
+                Complete the Review Workspace before approving — all tabs must pass validation.
+              </p>
+              <button type="button" className="sc-btn sc-btn-primary" onClick={() => setStep(4)}>
+                Return to Review Workspace
               </button>
             </div>
           )}

@@ -4,6 +4,7 @@ import { PDFDocument } from "pdf-lib";
 import sizeOf from "image-size";
 import { LearnerScriptStatus } from "@prisma/client";
 import { prisma } from "../prisma";
+import { MAX_UPLOAD_FILES, MAX_UPLOAD_FILE_SIZE } from "../config/uploadLimits";
 import { ScriptError } from "./scriptMarking";
 
 const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
@@ -15,7 +16,7 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/png",
 ]);
 
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const MAX_FILE_SIZE = MAX_UPLOAD_FILE_SIZE;
 
 export type UploadedFile = {
   originalname: string;
@@ -122,6 +123,9 @@ export async function uploadScriptPages(
   files: UploadedFile[]
 ) {
   if (!files.length) throw new ScriptError("No files provided", 400);
+  if (files.length > MAX_UPLOAD_FILES) {
+    throw new ScriptError(`Maximum ${MAX_UPLOAD_FILES} files allowed per upload`, 400);
+  }
 
   const script = await loadScript(scriptId, workspaceId);
   const uploadDir = scriptUploadDir(workspaceId, scriptId);

@@ -1,5 +1,10 @@
 import { useCallback, useState } from "react";
 import { usePageRender } from "../../hooks/usePageRender";
+import {
+  MAX_UPLOAD_FILES,
+  MAX_UPLOAD_FILE_SIZE_MB,
+  UPLOAD_FILES_HINT,
+} from "../../config/uploadLimits";
 import type { ScriptPageInfo } from "../../types";
 
 const ACCEPTED_TYPES = new Set([
@@ -27,6 +32,11 @@ function validateFiles(files: File[]): { valid: File[]; errors: string[] } {
   const valid: File[] = [];
   const errors: string[] = [];
 
+  if (files.length > MAX_UPLOAD_FILES) {
+    errors.push(UPLOAD_FILES_HINT);
+    return { valid: [], errors };
+  }
+
   for (const file of files) {
     const ext = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
     const mime = file.type.toLowerCase();
@@ -38,8 +48,8 @@ function validateFiles(files: File[]): { valid: File[]; errors: string[] } {
       continue;
     }
 
-    if (file.size > 25 * 1024 * 1024) {
-      errors.push(`"${file.name}" exceeds the 25 MB limit.`);
+    if (file.size > MAX_UPLOAD_FILE_SIZE_MB * 1024 * 1024) {
+      errors.push(`"${file.name}" exceeds the ${MAX_UPLOAD_FILE_SIZE_MB} MB limit.`);
       continue;
     }
 
@@ -139,7 +149,9 @@ export default function ScriptPageList({
           <p className="sc-upload-dropzone-text">
             {uploading ? "Uploading…" : "Drag & drop script pages"}
           </p>
-          <p className="sc-upload-dropzone-hint">PDF, JPG, PNG · up to 25 MB each</p>
+          <p className="sc-upload-dropzone-hint">
+            PDF, JPG, PNG · up to {MAX_UPLOAD_FILE_SIZE_MB} MB each · {UPLOAD_FILES_HINT}
+          </p>
 
           {uploading ? (
             <div className="sc-upload-progress">

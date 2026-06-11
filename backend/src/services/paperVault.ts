@@ -19,8 +19,10 @@ import {
 import { applyPdfWatermark } from "./paperVaultWatermark";
 import { logAudit } from "./auditLog";
 
+import { MAX_UPLOAD_FILE_SIZE } from "../config/uploadLimits";
+
 const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const MAX_FILE_SIZE = MAX_UPLOAD_FILE_SIZE;
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",

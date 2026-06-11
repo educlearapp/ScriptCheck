@@ -1,3 +1,4 @@
+import { PDFDocument } from "pdf-lib";
 import {
   drawPdfHeader,
   drawSectionTitle,
@@ -7,7 +8,7 @@ import {
 import type { AiGeneratedDraft } from "./aiAssessmentEngine";
 import { bloomLevelLabel } from "./aiAssessmentQuality";
 
-export type ExportType = "question-paper" | "memorandum" | "rubric";
+export type ExportType = "question-paper" | "memorandum" | "rubric" | "complete-pack";
 
 export async function generateAiAssessmentPdf(
   draft: AiGeneratedDraft,
@@ -22,7 +23,33 @@ export async function generateAiAssessmentPdf(
       return buildMemorandumPdf(draft, title, context);
     case "rubric":
       return buildRubricPdf(draft, title, context);
+    case "complete-pack":
+      return buildCompletePackPdf(draft, title, context);
   }
+}
+
+async function buildCompletePackPdf(
+  draft: AiGeneratedDraft,
+  title: string,
+  context?: { grade?: string; subject?: string; term?: string }
+): Promise<Buffer> {
+  const parts: Buffer[] = [
+    await buildQuestionPaperPdf(draft, title, context),
+    await buildMemorandumPdf(draft, title, context),
+  ];
+
+  if (draft.questions.some((q) => q.rubric?.criteria?.length)) {
+    parts.push(await buildRubricPdf(draft, title, context));
+  }
+
+  const merged = await PDFDocument.create();
+  for (const part of parts) {
+    const doc = await PDFDocument.load(part);
+    const pages = await merged.copyPages(doc, doc.getPageIndices());
+    for (const page of pages) merged.addPage(page);
+  }
+
+  return Buffer.from(await merged.save());
 }
 
 function buildSubtitle(context?: { grade?: string; subject?: string; term?: string }) {

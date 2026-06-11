@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requirePaidPlan } from "../middleware/requirePaidPlan";
 import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
 import {
@@ -16,6 +17,10 @@ import {
   generatePrincipalExecutivePdf,
 } from "../services/executiveReports";
 import { getExaminationDashboard } from "../services/examinationDashboard";
+import {
+  getExaminationBodyDashboard,
+  getModeratorDashboard,
+} from "../services/dashboardVariants";
 import {
   hasAnyRole,
   hasPermission,
@@ -175,6 +180,7 @@ router.get(
 router.get(
   "/reports/principal.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -196,6 +202,7 @@ router.get(
 router.get(
   "/reports/governing-body.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -213,6 +220,54 @@ router.get(
     } catch (err) {
       console.error("[dashboard/reports/governing-body]", err);
       return res.status(500).json({ error: "Failed to generate governing body report" });
+    }
+  }
+);
+
+router.get(
+  "/moderator",
+  requireAuth,
+  requirePermission(PERMISSIONS.DASHBOARD_ACADEMIC_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const workspaceId = req.auth!.workspaceId;
+      if (
+        !hasAnyRole(req.access!, workspaceId, [WorkspaceRole.MODERATOR]) &&
+        !hasPermission(req.access!, workspaceId, PERMISSIONS.MODERATION_QUEUE)
+      ) {
+        return res.status(403).json({ error: "Moderator dashboard access required" });
+      }
+
+      const data = await getModeratorDashboard(workspaceId, req.auth!.userId);
+      return res.json(data);
+    } catch (err) {
+      console.error("[dashboard/moderator]", err);
+      return res.status(500).json({ error: "Failed to load moderator dashboard" });
+    }
+  }
+);
+
+router.get(
+  "/examination-body",
+  requireAuth,
+  requirePermission(PERMISSIONS.DASHBOARD_ACADEMIC_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const workspaceId = req.auth!.workspaceId;
+      if (
+        !hasAnyRole(req.access!, workspaceId, [
+          WorkspaceRole.EXAMINATION_BODY,
+          WorkspaceRole.EXAM_BODY_ADMIN,
+        ])
+      ) {
+        return res.status(403).json({ error: "Examination body dashboard access required" });
+      }
+
+      const data = await getExaminationBodyDashboard(workspaceId);
+      return res.json(data);
+    } catch (err) {
+      console.error("[dashboard/examination-body]", err);
+      return res.status(500).json({ error: "Failed to load examination body dashboard" });
     }
   }
 );

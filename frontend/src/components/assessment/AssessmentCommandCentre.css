@@ -1,0 +1,68 @@
+.sc-assessment-command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.sc-assessment-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--sc-border, rgba(255, 255, 255, 0.08));
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  .sc-assessment-tab {
+    flex-shrink: 0;
+  }
+}
+
+.sc-assessment-tab {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sc-text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.sc-assessment-tab:hover {
+  color: var(--sc-gold-light);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sc-assessment-tab.is-active {
+  color: var(--sc-gold-light);
+  border-color: rgba(212, 175, 55, 0.35);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.sc-workflow-stages {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.sc-workflow-stages li.is-current {
+  color: var(--sc-gold-light);
+  font-weight: 600;
+}
+
+.sc-memo-missing {
+  color: #f0b429;
+  font-size: 0.9rem;
+}
+
+.sc-assessment-command-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}

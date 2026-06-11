@@ -3,6 +3,8 @@ import { containsOcrGarbage, isValidQuestionText, sanitizeQuestionText } from ".
 import { PSW_FRAMEWORK_DISPLAY_NAME } from "./frameworkDetector";
 import type { AiGeneratedDraft, AiGeneratedQuestion } from "./aiAssessmentEngine";
 
+export type CognitiveOrder = "LOW" | "MIDDLE" | "HIGH";
+
 export type FrameworkSlot = {
   questionNumber: string;
   parentQuestion: string;
@@ -12,6 +14,7 @@ export type FrameworkSlot = {
   marks: number;
   bloom: AiBloomLevel;
   label: string;
+  cognitiveOrder?: CognitiveOrder;
 };
 
 export type BlueprintSection = {
@@ -105,30 +108,30 @@ function buildSectionsFromSlots(slots: FrameworkSlot[]): BlueprintSection[] {
  */
 export function getPswLifeSkillsGrade6Blueprint(): PaperBlueprint {
   const slots: FrameworkSlot[] = [
-    // Section A — Question 1: MCQ × 3
-    { questionNumber: "1.1", parentQuestion: "1", section: "Section A", questionType: "MULTIPLE_CHOICE", style: "mcq", marks: 1, bloom: "KNOWLEDGE", label: "MCQ" },
-    { questionNumber: "1.2", parentQuestion: "1", section: "Section A", questionType: "MULTIPLE_CHOICE", style: "mcq", marks: 1, bloom: "KNOWLEDGE", label: "MCQ" },
-    { questionNumber: "1.3", parentQuestion: "1", section: "Section A", questionType: "MULTIPLE_CHOICE", style: "mcq", marks: 1, bloom: "KNOWLEDGE", label: "MCQ" },
-    // Question 2: Explain terms × 3
-    { questionNumber: "2.1", parentQuestion: "2", section: "Section A", questionType: "SHORT", style: "definition", marks: 1, bloom: "KNOWLEDGE", label: "Explain terms" },
-    { questionNumber: "2.2", parentQuestion: "2", section: "Section A", questionType: "SHORT", style: "definition", marks: 1, bloom: "KNOWLEDGE", label: "Explain terms" },
-    { questionNumber: "2.3", parentQuestion: "2", section: "Section A", questionType: "SHORT", style: "definition", marks: 1, bloom: "KNOWLEDGE", label: "Explain terms" },
-    // Question 3: Matching × 3
-    { questionNumber: "3.1", parentQuestion: "3", section: "Section A", questionType: "MATCH_COLUMNS", style: "match_item", marks: 1, bloom: "UNDERSTANDING", label: "Matching" },
-    { questionNumber: "3.2", parentQuestion: "3", section: "Section A", questionType: "MATCH_COLUMNS", style: "match_item", marks: 1, bloom: "UNDERSTANDING", label: "Matching" },
-    { questionNumber: "3.3", parentQuestion: "3", section: "Section A", questionType: "MATCH_COLUMNS", style: "match_item", marks: 1, bloom: "UNDERSTANDING", label: "Matching" },
-    // Question 4: True/False × 3
-    { questionNumber: "4.1", parentQuestion: "4", section: "Section A", questionType: "TRUE_FALSE", style: "tf", marks: 1, bloom: "UNDERSTANDING", label: "True/False" },
-    { questionNumber: "4.2", parentQuestion: "4", section: "Section A", questionType: "TRUE_FALSE", style: "tf", marks: 1, bloom: "UNDERSTANDING", label: "True/False" },
-    { questionNumber: "4.3", parentQuestion: "4", section: "Section A", questionType: "TRUE_FALSE", style: "tf", marks: 1, bloom: "UNDERSTANDING", label: "True/False" },
-    // Question 5: Comprehension × 3
-    { questionNumber: "5.1", parentQuestion: "5", section: "Section A", questionType: "SHORT", style: "comprehension", marks: 1, bloom: "APPLICATION", label: "Comprehension" },
-    { questionNumber: "5.2", parentQuestion: "5", section: "Section A", questionType: "SHORT", style: "comprehension", marks: 1, bloom: "APPLICATION", label: "Comprehension" },
-    { questionNumber: "5.3", parentQuestion: "5", section: "Section A", questionType: "SHORT", style: "comprehension", marks: 1, bloom: "APPLICATION", label: "Comprehension" },
+    // Section A — Question 1: MCQ × 3 (Low Order)
+    { questionNumber: "1.1", parentQuestion: "1", section: "Section A", questionType: "MULTIPLE_CHOICE", style: "mcq", marks: 1, bloom: "KNOWLEDGE", label: "MCQ", cognitiveOrder: "LOW" },
+    { questionNumber: "1.2", parentQuestion: "1", section: "Section A", questionType: "MULTIPLE_CHOICE", style: "mcq", marks: 1, bloom: "KNOWLEDGE", label: "MCQ", cognitiveOrder: "LOW" },
+    { questionNumber: "1.3", parentQuestion: "1", section: "Section A", questionType: "MULTIPLE_CHOICE", style: "mcq", marks: 1, bloom: "KNOWLEDGE", label: "MCQ", cognitiveOrder: "LOW" },
+    // Question 2: Explain terms × 3 (Low Order)
+    { questionNumber: "2.1", parentQuestion: "2", section: "Section A", questionType: "SHORT", style: "definition", marks: 1, bloom: "KNOWLEDGE", label: "Explain terms", cognitiveOrder: "LOW" },
+    { questionNumber: "2.2", parentQuestion: "2", section: "Section A", questionType: "SHORT", style: "definition", marks: 1, bloom: "KNOWLEDGE", label: "Explain terms", cognitiveOrder: "LOW" },
+    { questionNumber: "2.3", parentQuestion: "2", section: "Section A", questionType: "SHORT", style: "definition", marks: 1, bloom: "KNOWLEDGE", label: "Explain terms", cognitiveOrder: "LOW" },
+    // Question 3: Matching × 3 (Low Order)
+    { questionNumber: "3.1", parentQuestion: "3", section: "Section A", questionType: "MATCH_COLUMNS", style: "match_item", marks: 1, bloom: "UNDERSTANDING", label: "Matching", cognitiveOrder: "LOW" },
+    { questionNumber: "3.2", parentQuestion: "3", section: "Section A", questionType: "MATCH_COLUMNS", style: "match_item", marks: 1, bloom: "UNDERSTANDING", label: "Matching", cognitiveOrder: "LOW" },
+    { questionNumber: "3.3", parentQuestion: "3", section: "Section A", questionType: "MATCH_COLUMNS", style: "match_item", marks: 1, bloom: "UNDERSTANDING", label: "Matching", cognitiveOrder: "LOW" },
+    // Question 4: True/False × 3 (Low Order)
+    { questionNumber: "4.1", parentQuestion: "4", section: "Section A", questionType: "TRUE_FALSE", style: "tf", marks: 1, bloom: "UNDERSTANDING", label: "True/False", cognitiveOrder: "LOW" },
+    { questionNumber: "4.2", parentQuestion: "4", section: "Section A", questionType: "TRUE_FALSE", style: "tf", marks: 1, bloom: "UNDERSTANDING", label: "True/False", cognitiveOrder: "LOW" },
+    { questionNumber: "4.3", parentQuestion: "4", section: "Section A", questionType: "TRUE_FALSE", style: "tf", marks: 1, bloom: "UNDERSTANDING", label: "True/False", cognitiveOrder: "LOW" },
+    // Question 5: Comprehension × 3 (Middle + High Order for 40/40/20 split)
+    { questionNumber: "5.1", parentQuestion: "5", section: "Section A", questionType: "SHORT", style: "comprehension", marks: 1, bloom: "APPLICATION", label: "Comprehension", cognitiveOrder: "HIGH" },
+    { questionNumber: "5.2", parentQuestion: "5", section: "Section A", questionType: "SHORT", style: "comprehension", marks: 1, bloom: "APPLICATION", label: "Comprehension", cognitiveOrder: "MIDDLE" },
+    { questionNumber: "5.3", parentQuestion: "5", section: "Section A", questionType: "SHORT", style: "comprehension", marks: 1, bloom: "APPLICATION", label: "Comprehension", cognitiveOrder: "MIDDLE" },
     // Section B
-    { questionNumber: "6", parentQuestion: "6", section: "Section B", questionType: "SHORT", style: "explain", marks: 5, bloom: "APPLICATION", label: "Constructed Response" },
-    { questionNumber: "7", parentQuestion: "7", section: "Section B", questionType: "PARAGRAPH", style: "paragraph", marks: 5, bloom: "ANALYSIS", label: "Paragraph/Essay" },
-    { questionNumber: "8", parentQuestion: "8", section: "Section B", questionType: "SHORT", style: "advice", marks: 5, bloom: "EVALUATION", label: "Advice/Goal Setting" },
+    { questionNumber: "6", parentQuestion: "6", section: "Section B", questionType: "SHORT", style: "explain", marks: 5, bloom: "APPLICATION", label: "Constructed Response", cognitiveOrder: "MIDDLE" },
+    { questionNumber: "7", parentQuestion: "7", section: "Section B", questionType: "PARAGRAPH", style: "paragraph", marks: 5, bloom: "ANALYSIS", label: "Paragraph/Essay", cognitiveOrder: "HIGH" },
+    { questionNumber: "8", parentQuestion: "8", section: "Section B", questionType: "SHORT", style: "advice", marks: 5, bloom: "EVALUATION", label: "Advice/Goal Setting", cognitiveOrder: "MIDDLE" },
   ];
 
   return {
@@ -385,7 +388,9 @@ export function slotCompatibleWithQuestion(
     case "PARAGRAPH":
       return /paragraph|essay|write\s+a\s+/i.test(t);
     case "SHORT":
-      if (slot.style === "definition") return /what\s+(is|are)|explain|define/i.test(t);
+      if (slot.style === "definition") {
+        return /explain\s+the\s+term|what\s+(is|are)|explain|define/i.test(t);
+      }
       if (slot.style === "comprehension") return /read|comprehension|according|passage/i.test(t);
       if (slot.style === "advice") return /advice|goal|recommend/i.test(t);
       if (slot.style === "explain") return /explain|describe|discuss/i.test(t);

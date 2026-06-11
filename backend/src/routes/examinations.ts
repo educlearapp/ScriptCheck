@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { ExaminationIncidentStatus, ExaminationOpsSessionStatus } from "@prisma/client";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requirePaidPlan } from "../middleware/requirePaidPlan";
 import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
 import { ExaminationError } from "../services/examinationErrors";
@@ -346,6 +347,7 @@ router.patch(
 router.get(
   "/seating/:sessionId/plan.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -366,6 +368,7 @@ router.get(
 router.get(
   "/seating/:sessionId/candidates.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -385,6 +388,7 @@ router.get(
 router.get(
   "/packs/:sessionId.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -455,6 +459,7 @@ router.patch(
 router.get(
   "/reports/principal.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -475,6 +480,7 @@ router.get(
 router.get(
   "/reports/board.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     try {

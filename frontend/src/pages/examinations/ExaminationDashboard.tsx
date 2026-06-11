@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiDownload, apiFetch } from "../../api";
+import { useTrialGate } from "../../trial/TrialGateContext";
 import type { ExaminationDashboardData, GradeReadiness } from "../../types";
 
 function formatPct(v: number | null | undefined) {
@@ -9,6 +10,7 @@ function formatPct(v: number | null | undefined) {
 }
 
 export default function ExaminationDashboard() {
+  const { gateProductionAction } = useTrialGate();
   const [data, setData] = useState<ExaminationDashboardData | null>(null);
   const [gradeReadiness, setGradeReadiness] = useState<GradeReadiness[]>([]);
   const [downloading, setDownloading] = useState(false);
@@ -31,6 +33,7 @@ export default function ExaminationDashboard() {
   const stats = data?.stats;
 
   async function downloadReport(type: "principal" | "board") {
+    if (!gateProductionAction()) return;
     setDownloading(true);
     try {
       await apiDownload(

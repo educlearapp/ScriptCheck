@@ -1,13 +1,28 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
-import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { AuthProvider } from "./auth/AuthContext";
 import AuthGuard from "./auth/AuthGuard";
+import GuestGuard from "./auth/GuestGuard";
+import PublicHomeRoute from "./auth/PublicHomeRoute";
 import RequirePermission from "./auth/RequirePermission";
 import AppLayout from "./components/layout/AppLayout";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import TrialRegister from "./pages/TrialRegister";
+import PublicLayout from "./components/layout/PublicLayout";
 import DashboardRouter from "./pages/dashboard/DashboardRouter";
 import PrincipalDashboard from "./pages/dashboard/PrincipalDashboard";
 import HodDashboard from "./pages/dashboard/HodDashboard";
 import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
+import ExamBodyDashboard from "./pages/dashboard/ExamBodyDashboard";
+import ModeratorDashboard from "./pages/dashboard/ModeratorDashboard";
+import ReportsAnalytics from "./pages/reports/ReportsAnalytics";
+import MarkingOverview from "./pages/marking/MarkingOverview";
+import SettingsPage from "./pages/settings/SettingsPage";
+import WorkflowSettings from "./pages/settings/WorkflowSettings";
+import SubscriptionSettings from "./pages/settings/SubscriptionSettings";
+import BetaFeedbackPage from "./pages/settings/BetaFeedbackPage";
+import BetaChecklistPage from "./pages/settings/BetaChecklistPage";
 import AssessmentsList from "./pages/assessments/AssessmentsList";
 import CreateAssessment from "./pages/assessments/CreateAssessment";
 import GenerateAssessment from "./pages/assessments/GenerateAssessment";
@@ -17,6 +32,8 @@ import AssessmentDetail from "./pages/assessments/AssessmentDetail";
 import AssessmentPaperVault from "./pages/assessments/AssessmentPaperVault";
 import AssessmentResults from "./pages/assessments/AssessmentResults";
 import AssessmentScripts from "./pages/scripts/AssessmentScripts";
+import ScriptVerification from "./pages/scripts/ScriptVerification";
+import AssessmentSetupWizard from "./pages/assessments/AssessmentSetupWizard";
 import LearnerScriptDetail from "./pages/scripts/LearnerScriptDetail";
 import QuestionBank from "./pages/questionBank/QuestionBank";
 import AssessmentTemplates from "./pages/templates/AssessmentTemplates";
@@ -42,7 +59,7 @@ import ExaminationInvigilatorsPage from "./pages/examinations/ExaminationInvigil
 import ExaminationSeatingPage from "./pages/examinations/ExaminationSeating";
 import ExaminationPacksPage from "./pages/examinations/ExaminationPacks";
 import ExaminationIncidentsPage from "./pages/examinations/ExaminationIncidents";
-import ModerationCentrePage from "./pages/moderation/ModerationCentre";
+import ModerationEntry from "./pages/moderation/ModerationEntry";
 import { PortalAuthProvider } from "./portal/PortalAuthContext";
 import PortalGuard, { PortalGuestGuard } from "./portal/PortalGuard";
 import PortalLayout from "./portal/PortalLayout";
@@ -52,24 +69,46 @@ import PortalAssessmentDetailPage from "./pages/portal/PortalAssessmentDetail";
 import PortalHistoryPage from "./pages/portal/PortalHistory";
 import PortalAnalyticsPage from "./pages/portal/PortalAnalytics";
 
-function HomeRedirect() {
-  const { isAuthenticated } = useAuth();
-  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
-}
-
 function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomeRedirect />} />
-        <Route path="/login" element={<Login />} />
+        {/* Public marketing + auth pages — never wrapped in AppLayout/Sidebar */}
+        <Route element={<PublicLayout />}>
+          <Route index element={<PublicHomeRoute />} />
+          <Route element={<GuestGuard />}>
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+            <Route path="trial" element={<TrialRegister />} />
+            <Route path="forgot-password" element={<ForgotPassword />} />
+          </Route>
+        </Route>
 
+        {/* Authenticated application shell */}
         <Route element={<AuthGuard />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardRouter />} />
             <Route path="/dashboard/principal" element={<PrincipalDashboard />} />
             <Route path="/dashboard/hod" element={<HodDashboard />} />
+            <Route path="/dashboard/exam-body" element={<ExamBodyDashboard />} />
+            <Route path="/dashboard/moderator" element={<ModeratorDashboard />} />
             <Route path="/dashboard/teacher" element={<TeacherDashboard />} />
+
+            <Route element={<RequirePermission permission="dashboard.academic.view" />}>
+              <Route path="/reports" element={<ReportsAnalytics />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="assessments.view" />}>
+              <Route path="/marking" element={<MarkingOverview />} />
+            </Route>
+
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/workflow" element={<WorkflowSettings />} />
+            <Route path="/settings/subscription" element={<SubscriptionSettings />} />
+            <Route path="/settings/beta-checklist" element={<BetaChecklistPage />} />
+            <Route element={<RequirePermission permission="betaFeedback.view" />}>
+              <Route path="/settings/beta-feedback" element={<BetaFeedbackPage />} />
+            </Route>
 
             <Route element={<RequirePermission permission="examinations.view" />}>
               <Route path="/dashboard/examinations" element={<ExaminationDashboard />} />
@@ -81,13 +120,16 @@ function AppRoutes() {
               <Route path="/examinations/incidents" element={<ExaminationIncidentsPage />} />
             </Route>
 
+            <Route path="/moderation" element={<ModerationEntry />} />
+
             <Route element={<RequirePermission permission="moderation.queue" />}>
-              <Route path="/moderation" element={<ModerationCentrePage />} />
               <Route path="/moderation/queue" element={<HodModerationQueue />} />
             </Route>
 
             <Route element={<RequirePermission permission="assessments.view" />}>
               <Route path="/assessments" element={<AssessmentsList />} />
+              <Route path="/assessments/:id/setup" element={<AssessmentSetupWizard />} />
+              <Route path="/assessments/:id/scripts/verify/:batchId" element={<ScriptVerification />} />
               <Route path="/assessments/:id/scripts" element={<AssessmentScripts />} />
               <Route path="/assessments/:id/paper-vault" element={<AssessmentPaperVault />} />
               <Route path="/assessments/:id" element={<AssessmentDetail />} />

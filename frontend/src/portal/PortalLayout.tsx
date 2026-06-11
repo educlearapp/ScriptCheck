@@ -1,4 +1,5 @@
 import { Link, Outlet, useNavigate } from "react-router-dom";
+import BrandLogo from "../components/brand/BrandLogo";
 import { usePortalAuth } from "./PortalAuthContext";
 import "./PortalLayout.css";
 
@@ -18,7 +19,7 @@ export default function PortalLayout() {
     <div className="portal-shell">
       <header className="portal-header">
         <div className="portal-brand">
-          <div className="portal-logo">SC</div>
+          <BrandLogo variant="compact" showTagline={false} />
           <div>
             <div className="portal-title">ScriptCheck Portal</div>
             <div className="portal-subtitle">{session?.workspaceName}</div>

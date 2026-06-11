@@ -386,7 +386,7 @@ export default function CreateAssessment() {
                         <td>{item.topic || "—"}</td>
                         <td>{item.marks}</td>
                         <td>{item.difficulty || "—"}</td>
-                        <td>{item.status === "APPROVED" ? <span className="sc-hod-badge">✓ HOD Approved</span> : item.status}</td>
+                        <td>{item.status === "APPROVED" ? <span className="sc-hod-badge">✓ DH Approved</span> : item.status}</td>
                         <td>{item.usageCount}</td>
                       </tr>
                     ))}

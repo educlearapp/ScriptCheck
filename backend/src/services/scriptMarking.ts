@@ -19,6 +19,7 @@ import { computeMarkTotals } from "./markTotals";
 import { ModerationVarianceLevel } from "@prisma/client";
 import { syncMarkFromScript } from "./markCapture";
 import { ensureRubricMarksForScript } from "./rubricMarking";
+import { trackQuestionMarkChanges } from "./marking/markAudit";
 
 export class ScriptError extends Error {
   constructor(
@@ -208,9 +209,15 @@ export async function createScriptBatch(
   });
 
   if (!assessment) throw new ScriptError("Assessment not found", 404);
-  if (assessment.questions.length === 0 && !assessment.rubricTemplateId) {
+  const setup = await prisma.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { setupComplete: true, pagesPerScript: true },
+  });
+  const hasContent = assessment.questions.length > 0 || !!assessment.rubricTemplateId;
+  const hasSetup = setup?.setupComplete && (setup.pagesPerScript ?? 0) > 0;
+  if (!hasContent && !hasSetup) {
     throw new ScriptError(
-      "Assessment must have questions or an attached rubric before creating a script batch",
+      "Complete assessment setup or add questions before creating a script batch",
       400
     );
   }
@@ -643,6 +650,14 @@ export async function saveScriptMarks(
       await prisma.scriptQuestionMark.update({
         where: { id: existing.id },
         data: updateData,
+      });
+
+      await trackQuestionMarkChanges(existing, updateData, {
+        workspaceId,
+        assessmentId: script.assessmentId,
+        learnerScriptId: scriptId,
+        learnerId: script.learnerId,
+        adjustedById: userId,
       });
     }
   }

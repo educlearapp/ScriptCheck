@@ -5,8 +5,7 @@
   gap: 1rem;
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--sc-border);
-  background: rgba(8, 8, 8, 0.85);
-  backdrop-filter: blur(8px);
+  background: var(--sc-bg-elevated);
 }
 
 .sc-topbar-eyebrow {
@@ -18,8 +17,44 @@
 
 .sc-topbar-heading {
   font-size: 0.95rem;
-  color: var(--sc-gold-light);
+  color: var(--sc-gold-dark);
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sc-topbar-trial-badge {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sc-gold-dark);
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid var(--sc-border-gold);
+}
+
+.sc-topbar-trial-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: var(--sc-text-muted);
+  max-width: 28rem;
+  line-height: 1.4;
+}
+
+.sc-topbar-trial-link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sc-gold-dark);
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .sc-topbar-actions {
@@ -40,6 +75,7 @@
 .sc-topbar-name {
   font-size: 0.9rem;
   font-weight: 600;
+  color: var(--sc-text);
 }
 
 .sc-topbar-email {

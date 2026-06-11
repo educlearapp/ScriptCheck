@@ -22,16 +22,9 @@
   gap: 0.75rem;
 }
 
-.portal-logo {
+.portal-brand .sc-brand-image {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #d4af37, #b8941f);
-  color: #1a1a1a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
 }
 
 .portal-title {
@@ -185,6 +178,19 @@
   border: 1px solid rgba(212, 175, 55, 0.25);
   border-radius: 12px;
   padding: 2rem;
+}
+
+.portal-login-brand {
+  margin-bottom: 1.25rem;
+}
+
+.portal-login-brand .sc-brand-title,
+.portal-login-brand .sc-brand-tagline {
+  color: #e8e8e8;
+}
+
+.portal-login-brand .sc-brand-group {
+  color: #d4af37;
 }
 
 .portal-login-card h1 {

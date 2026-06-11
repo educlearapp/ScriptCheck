@@ -136,7 +136,7 @@ export default function HodModerationQueue() {
 
   return (
     <div>
-      <h1 className="sc-page-title">HOD Moderation Queue</h1>
+      <h1 className="sc-page-title">DH Moderation Queue</h1>
       <p className="sc-page-subtitle">
         Review assessments submitted by teachers. Approve or return with feedback.
       </p>
@@ -212,7 +212,7 @@ export default function HodModerationQueue() {
           {queue.length === 0 ? (
             <div className="sc-placeholder-panel">
               <h3>Queue is empty</h3>
-              <p>No assessments awaiting HOD review.</p>
+              <p>No assessments awaiting DH review.</p>
             </div>
           ) : (
             <div className="sc-table-wrap">
@@ -292,7 +292,7 @@ export default function HodModerationQueue() {
               checked={saveToBank}
               onChange={(e) => setSaveToBank(e.target.checked)}
             />
-            Save approved questions to Question Bank (HOD Approved)
+            Save approved questions to Question Bank (DH Approved)
           </label>
           <div className="sc-form-actions">
             <button
@@ -362,7 +362,7 @@ export default function HodModerationQueue() {
         <div className="sc-card" style={{ marginTop: "2rem", padding: "0.5rem 0" }}>
           <h2 style={{ padding: "0 1rem", color: "var(--sc-gold-light)" }}>Script Marking Review</h2>
           <p className="sc-page-subtitle" style={{ padding: "0 1rem" }}>
-            Batches submitted by teachers for HOD moderation.
+            Batches submitted by teachers for DH moderation.
           </p>
           {scriptQueue.length === 0 ? (
             <div className="sc-placeholder-panel">
@@ -405,7 +405,7 @@ export default function HodModerationQueue() {
                       <tr>
                         <th>Learner</th>
                         <th>Teacher total</th>
-                        <th>HOD total</th>
+                        <th>DH total</th>
                         <th>Final</th>
                         <th></th>
                       </tr>
@@ -466,7 +466,7 @@ export default function HodModerationQueue() {
         <p style={{ margin: 0, color: "var(--sc-text-muted)", fontSize: "0.9rem" }}>
           When script marking is built, annotations will use layered overlays on a single
           scan: original script (base), teacher marks in <strong style={{ color: "#ff6b6b" }}>red</strong>,
-          and HOD moderation in <strong style={{ color: "#3ecf8e" }}>green</strong> — no rescanning required.
+          and DH moderation in <strong style={{ color: "#3ecf8e" }}>green</strong> — no rescanning required.
           See <code>docs/SCRIPT_MARKING_LAYERS.md</code>.
         </p>
       </div>

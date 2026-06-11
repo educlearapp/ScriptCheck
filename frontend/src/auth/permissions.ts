@@ -33,15 +33,33 @@ export function formatRoles(roles: WorkspaceRole[]): string {
   return roles.map((r) => r.replaceAll("_", " ")).join(" · ");
 }
 
+export function isExamBodyDashboard(user: AuthUser | null | undefined): boolean {
+  return hasAnyRole(user, ["EXAMINATION_BODY", "EXAM_BODY_ADMIN"]);
+}
+
 export function isPrincipalDashboard(user: AuthUser | null | undefined): boolean {
+  if (isExamBodyDashboard(user)) return false;
   return (
-    hasAnyRole(user, ["PRINCIPAL", "SCHOOL_ADMIN", "EXAM_BODY_ADMIN"]) ||
+    hasAnyRole(user, ["PRINCIPAL", "SCHOOL_ADMIN", "SCHOOL_OWNER"]) ||
     hasPermission(user, "workspace.manage")
   );
 }
 
+export function isModeratorDashboard(user: AuthUser | null | undefined): boolean {
+  if (isExamBodyDashboard(user) || isPrincipalDashboard(user)) return false;
+  return (
+    hasRole(user, "MODERATOR") &&
+    !hasRole(user, "HOD")
+  );
+}
+
 export function isHodDashboard(user: AuthUser | null | undefined): boolean {
-  return hasAnyRole(user, ["HOD", "MODERATOR"]) || hasPermission(user, "moderation.queue");
+  if (isExamBodyDashboard(user) || isPrincipalDashboard(user)) return false;
+  return hasRole(user, "HOD") || (
+    hasAnyRole(user, ["MODERATOR"]) &&
+    hasPermission(user, "moderation.queue") &&
+    !isModeratorDashboard(user)
+  );
 }
 
 export function canSubmitAssessment(
@@ -98,7 +116,7 @@ function hasBroadResultsAccess(user: AuthUser | null | undefined): boolean {
     hasPermission(user, "assessments.edit") ||
     hasPermission(user, "moderation.queue") ||
     hasPermission(user, "workspace.manage") ||
-    hasAnyRole(user, ["HOD", "MODERATOR", "PRINCIPAL", "SCHOOL_ADMIN", "EXAM_BODY_ADMIN"])
+    hasAnyRole(user, ["HOD", "MODERATOR", "PRINCIPAL", "SCHOOL_ADMIN", "SCHOOL_OWNER", "EXAM_BODY_ADMIN", "EXAMINATION_BODY"])
   );
 }
 

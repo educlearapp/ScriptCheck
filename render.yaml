@@ -1,0 +1,55 @@
+# ScriptCheck Beta — isolated from production (scriptcheck.co.za)
+# Deploy: render blueprint apply (from repo root) or connect repo in Render dashboard.
+services:
+  - type: pserv
+    name: scriptcheck-beta-db
+    runtime: postgresql
+    plan: free
+    databaseName: scriptcheck_beta
+    databaseUser: scriptcheck_beta
+
+  - type: web
+    name: scriptcheck-beta-backend
+    runtime: node
+    rootDir: backend
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    disk:
+      name: scriptcheck-beta-uploads
+      mountPath: /opt/render/project/src/backend/uploads
+      sizeGB: 5
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_ENV
+        value: beta
+      - key: NODE_ENV
+        value: production
+      - key: UPLOAD_DIR
+        value: /opt/render/project/src/backend/uploads
+      - key: DATABASE_URL
+        fromDatabase:
+          name: scriptcheck-beta-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://beta.scriptcheck.co.za,https://beta.scriptcheck.educlear.co.za
+
+  - type: web
+    name: scriptcheck-beta-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://api.beta.scriptcheck.co.za
+      - key: VITE_APP_ENV
+        value: beta

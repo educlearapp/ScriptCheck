@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import BrandLogo from "../../components/brand/BrandLogo";
 import type { PortalAuthResponse, PortalSession, PortalUserType } from "../../types";
 import { portalFetch } from "../../portal/api";
 import { usePortalAuth } from "../../portal/PortalAuthContext";
@@ -83,6 +84,9 @@ export default function PortalLogin() {
   return (
     <div className="portal-login-page">
       <div className="portal-login-card">
+        <div className="portal-login-brand">
+          <BrandLogo variant="auth" showGroup />
+        </div>
         <h1>Academic Progress Portal</h1>
         <p className="portal-page-subtitle">
           Sign in to view assessment results and progress

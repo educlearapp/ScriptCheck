@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { apiDownload, apiFetch } from "../../api";
+import { useTrialGate } from "../../trial/TrialGateContext";
 import type { ExaminationOpsSession } from "../../types";
 
 export default function ExaminationPacksPage() {
+  const { gateProductionAction } = useTrialGate();
   const [sessions, setSessions] = useState<ExaminationOpsSession[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [downloading, setDownloading] = useState(false);
@@ -15,6 +17,7 @@ export default function ExaminationPacksPage() {
 
   async function downloadPack() {
     if (!selectedId) return;
+    if (!gateProductionAction()) return;
     setDownloading(true);
     try {
       await apiDownload(`/examinations/packs/${selectedId}.pdf`, "examination-pack.pdf");

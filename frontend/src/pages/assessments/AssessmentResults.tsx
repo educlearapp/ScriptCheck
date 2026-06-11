@@ -3,8 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { apiDownload, apiFetch, apiOpenPdf } from "../../api";
 import { hasPermission } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
+import { useTrialGate } from "../../trial/TrialGateContext";
 import type { AssessmentResults } from "../../types";
+import AssessmentIntelligenceHeader from "../../components/assessment/AssessmentIntelligenceHeader";
 import ConcessionAlerts from "../../components/concessions/ConcessionAlerts";
+import "../../components/intelligence/AssessmentHealthReport.css";
 import "./AssessmentResults.css";
 
 function formatPct(value: number | null | undefined): string {
@@ -36,6 +39,7 @@ function scopeLabel(scope: AssessmentResults["viewerScope"]): string {
 export default function AssessmentResultsPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { gateProductionAction } = useTrialGate();
   const [results, setResults] = useState<AssessmentResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,6 +74,7 @@ export default function AssessmentResultsPage() {
 
   const handleExportCsv = async () => {
     if (!id || !results) return;
+    if (!gateProductionAction()) return;
     setExporting(true);
     setExportMessage("");
     try {
@@ -86,6 +91,7 @@ export default function AssessmentResultsPage() {
 
   const handleDownloadAssessmentPdf = async () => {
     if (!id) return;
+    if (!gateProductionAction()) return;
     setExporting(true);
     setExportMessage("");
     try {
@@ -102,6 +108,7 @@ export default function AssessmentResultsPage() {
 
   const handlePrintAssessmentPdf = async () => {
     if (!id) return;
+    if (!gateProductionAction()) return;
     setExportMessage("");
     try {
       await apiOpenPdf(`/assessments/${id}/reports/assessment.pdf`);
@@ -115,6 +122,7 @@ export default function AssessmentResultsPage() {
       setExportMessage("Select a learner first");
       return;
     }
+    if (!gateProductionAction()) return;
     setExporting(true);
     setExportMessage("");
     try {
@@ -134,6 +142,7 @@ export default function AssessmentResultsPage() {
       setExportMessage("Select a learner first");
       return;
     }
+    if (!gateProductionAction()) return;
     setExportMessage("");
     try {
       await apiOpenPdf(`/scripts/${selectedScriptId}/reports/learner.pdf`);
@@ -144,11 +153,12 @@ export default function AssessmentResultsPage() {
 
   const handleRequestPublish = async () => {
     if (!id) return;
+    if (!gateProductionAction()) return;
     setPublishing(true);
     setActionMessage("");
     try {
       await apiFetch(`/assessments/${id}/request-publish`, { method: "POST" });
-      setActionMessage("Publish request sent to HOD.");
+      setActionMessage("Publish request sent to DH.");
       await loadResults();
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : "Request failed");
@@ -159,6 +169,7 @@ export default function AssessmentResultsPage() {
 
   const handlePublish = async () => {
     if (!id) return;
+    if (!gateProductionAction()) return;
     setPublishing(true);
     setActionMessage("");
     try {
@@ -215,6 +226,7 @@ export default function AssessmentResultsPage() {
             {assessment.title} · {assessment.subject.name} · {assessment.grade.name} ·{" "}
             {assessment.totalMarks} marks
           </p>
+          {id ? <AssessmentIntelligenceHeader assessmentId={id} /> : null}
           <span className="sc-badge sc-badge-gold sc-results-scope-badge">
             {scopeLabel(results.viewerScope)}
           </span>
@@ -347,7 +359,7 @@ export default function AssessmentResultsPage() {
       {exportMessage ? <p className="sc-page-subtitle">{exportMessage}</p> : null}
       {results.publishing.isReadOnly ? (
         <p className="sc-page-subtitle" style={{ color: "var(--sc-gold-light)" }}>
-          Published results are read-only. HOD or admin can reopen if changes are needed.
+          Published results are read-only. DH or admin can reopen if changes are needed.
         </p>
       ) : null}
 

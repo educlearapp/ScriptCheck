@@ -108,7 +108,10 @@ assert(sectionA === 15, "Section A = 15 marks");
 assert(sectionB === 15, "Section B = 15 marks");
 
 const q11 = draft.questions.find((q) => q.questionNumber === "1.1");
-assert(q11?.marks === 1 && q11.questionType === "MULTIPLE_CHOICE", "Q1.1 MCQ 1 mark");
+assert(Boolean(q11?.marks === 1 && q11.questionType === "MULTIPLE_CHOICE"), "Q1.1 MCQ 1 mark");
+
+const q21 = draft.questions.find((q) => q.questionNumber === "2.1");
+assert(q21?.questionText.startsWith("Explain the term") ?? false, "Q2.1 uses Explain the term stem");
 
 const readinessBlocked = assessGenerationReadiness({
   frameworkText: IMG_6633_FRAMEWORK,

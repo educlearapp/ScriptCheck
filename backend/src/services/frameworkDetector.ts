@@ -106,10 +106,12 @@ export function assessGenerationReadiness(input: {
   const materialsNeedingReview: string[] = [];
 
   for (const m of input.materials) {
-    if (m.extractionStatus === "NEEDS_REVIEW" && !m.reviewConfirmed) {
+    if (m.uploadPurpose === "ASSESSMENT_FRAMEWORK") continue;
+
+    if (!m.reviewConfirmed && m.extractionStatus !== "PENDING" && m.extractionStatus !== "FAILED") {
       materialsNeedingReview.push(m.fileName);
       blockingReasons.push(
-        `OCR review required for "${m.fileName}" — correct extracted text and confirm review`
+        `OCR review required for "${m.fileName}" — view, edit, or confirm extracted text`
       );
     }
     if (m.extractionStatus === "PENDING" || m.extractionStatus === "FAILED") {

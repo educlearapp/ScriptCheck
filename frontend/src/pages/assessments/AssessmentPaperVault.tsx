@@ -3,8 +3,11 @@ import { Link, useParams } from "react-router-dom";
 import { API_URL, apiDownload, apiFetch } from "../../api";
 import { getAuthToken } from "../../auth/session";
 import { useAuth } from "../../auth/AuthContext";
+import { useTrialGate } from "../../trial/TrialGateContext";
 import { hasPermission } from "../../auth/permissions";
+import AssessmentIntelligenceHeader from "../../components/assessment/AssessmentIntelligenceHeader";
 import PaperAuditTimeline from "../../components/paperVault/PaperAuditTimeline";
+import "../../components/intelligence/AssessmentHealthReport.css";
 import type {
   AssessmentDetail,
   PaperDocumentType,
@@ -44,6 +47,7 @@ function statusClass(status: PaperVaultStatus): string {
 export default function AssessmentPaperVault() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { gateProductionAction } = useTrialGate();
 
   const [assessment, setAssessment] = useState<AssessmentDetail | null>(null);
   const [documents, setDocuments] = useState<PaperVaultDocument[]>([]);
@@ -113,6 +117,7 @@ export default function AssessmentPaperVault() {
 
   const runAction = async (documentId: string, action: string, body?: object) => {
     if (!id) return;
+    if (action === "release" && !gateProductionAction()) return;
     setActionLoading(`${documentId}-${action}`);
     setActionError("");
     try {
@@ -176,6 +181,7 @@ export default function AssessmentPaperVault() {
 
   const handleDownload = async (doc: PaperVaultDocument) => {
     if (!id) return;
+    if (!gateProductionAction()) return;
     setActionError("");
     try {
       await apiDownload(
@@ -217,6 +223,7 @@ export default function AssessmentPaperVault() {
           <p className="sc-page-subtitle">
             Secure examination papers, memorandums, and marking materials
           </p>
+          {id ? <AssessmentIntelligenceHeader assessmentId={id} /> : null}
         </div>
       </div>
 

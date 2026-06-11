@@ -12,7 +12,11 @@ export function getAuthUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as AuthUser;
+    const user = JSON.parse(raw) as AuthUser;
+    return {
+      ...user,
+      subscriptionPlan: user.subscriptionPlan ?? "PAID",
+    };
   } catch {
     return null;
   }

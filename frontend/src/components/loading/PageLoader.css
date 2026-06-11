@@ -1,0 +1,43 @@
+.sc-page-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  padding: 3rem 2rem;
+  gap: 0.5rem;
+}
+
+.sc-page-loader-message {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--sc-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.sc-page-loader-bar {
+  width: 120px;
+  height: 3px;
+  margin-top: 0.75rem;
+  border-radius: 999px;
+  background: var(--sc-border);
+  overflow: hidden;
+}
+
+.sc-page-loader-bar-fill {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--sc-gold) 0%, var(--sc-gold-dark) 100%);
+  animation: sc-loader-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes sc-loader-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}

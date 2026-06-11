@@ -1,0 +1,76 @@
+.sc-setup-wizard {
+  max-width: 960px;
+}
+
+.sc-setup-steps {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+}
+
+.sc-setup-step {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  background: var(--sc-surface-2, rgba(255, 255, 255, 0.04));
+  color: var(--sc-text-muted);
+  text-align: center;
+  font-size: 0.85rem;
+  border: 1px solid transparent;
+}
+
+.sc-setup-step.is-active {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold-light);
+}
+
+.sc-setup-step.is-done {
+  color: var(--sc-success, #3ecf8e);
+}
+
+.sc-setup-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.sc-setup-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.sc-setup-upload-card {
+  padding: 1rem;
+  border: 1px dashed var(--sc-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+}
+
+.sc-setup-upload-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.sc-setup-bulk-zone {
+  border: 2px dashed var(--sc-gold);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.sc-setup-progress {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.sc-setup-progress-bar {
+  height: 100%;
+  background: var(--sc-gold);
+  transition: width 0.2s ease;
+}

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { PortalLearnerDashboard } from "../../types";
 import { portalFetch, portalOpenPdf } from "../../portal/api";
 import { usePortalAuth } from "../../portal/PortalAuthContext";
+import PageLoader from "../../components/loading/PageLoader";
 import "../../portal/PortalLayout.css";
 
 function formatPct(v: number | null | undefined): string {
@@ -41,7 +42,7 @@ function PortalParentDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <PageLoader message="Loading portal…" />;
   if (!data) return <p>Unable to load dashboard.</p>;
 
   return (
@@ -101,7 +102,7 @@ function PortalLearnerDashboardView({
   }, [learnerId]);
 
   if (!learnerId) return <p>No learner selected.</p>;
-  if (loading) return <p>Loading dashboard…</p>;
+  if (loading) return <PageLoader message="Loading dashboard…" />;
   if (!data) return <p>Unable to load dashboard.</p>;
 
   return (

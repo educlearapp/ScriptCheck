@@ -55,13 +55,16 @@ import {
   type DuplicateCheckResult,
 } from "./questionDuplicateDetection";
 import { runQualityChecks, bloomLevelLabel } from "./aiAssessmentQuality";
+import { buildReviewReport } from "./reviewAnalysis";
 import { generateAiAssessmentPdf, type ExportType } from "./aiAssessmentExport";
 import { uploadPaperVaultDocument, type UploadedVaultFile } from "./paperVault";
 import type { UserAccessContext } from "./permissions";
 
+import { MAX_UPLOAD_FILES, MAX_UPLOAD_FILE_SIZE } from "../config/uploadLimits";
+
 const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
-const MAX_FILE_SIZE = 25 * 1024 * 1024;
-const MAX_FILES = 10;
+const MAX_FILE_SIZE = MAX_UPLOAD_FILE_SIZE;
+const MAX_FILES = MAX_UPLOAD_FILES;
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
@@ -260,14 +263,6 @@ export async function extractAllContent(
       const extraction = await extractTextFromFile(material.fileType, filePath);
       const effectiveText = sanitiseSourceText(extraction.text);
 
-      let extractionStatus = extraction.status;
-      if (
-        extraction.ocrAttempted &&
-        (extraction.ocrConfidence == null || extraction.ocrConfidence < 55)
-      ) {
-        extractionStatus = "NEEDS_REVIEW";
-      }
-
       let uploadPurpose = material.uploadPurpose;
       if (
         effectiveText &&
@@ -276,6 +271,20 @@ export async function extractAllContent(
       ) {
         uploadPurpose = "ASSESSMENT_FRAMEWORK";
       }
+
+      let extractionStatus = extraction.status;
+      const isFrameworkMaterial = uploadPurpose === "ASSESSMENT_FRAMEWORK";
+
+      if (isFrameworkMaterial) {
+        extractionStatus = "EXTRACTED";
+      } else if (
+        extraction.ocrAttempted &&
+        (extraction.ocrConfidence == null || extraction.ocrConfidence < 55)
+      ) {
+        extractionStatus = "NEEDS_REVIEW";
+      }
+
+      const reviewConfirmed = isFrameworkMaterial || extractionStatus === "EXTRACTED";
 
       let extractedQuestions: ExtractedPaperQuestion[] | null = null;
       let duplicateWarnings: DuplicateCheckResult[] | null = null;
@@ -315,7 +324,7 @@ export async function extractAllContent(
           extractionStatus,
           ocrAttempted: extraction.ocrAttempted,
           ocrConfidence: extraction.ocrConfidence ?? null,
-          reviewConfirmed: extractionStatus === "EXTRACTED",
+          reviewConfirmed,
           ...(extractedQuestions
             ? {
                 extractedQuestions: extractedQuestions as unknown as Prisma.InputJsonValue,
@@ -339,7 +348,7 @@ export async function extractAllContent(
 
   await prisma.aiAssessmentBuilderRequest.update({
     where: { id: requestId },
-    data: { status: "SETTINGS" },
+    data: { status: "EXTRACTING" },
   });
 
   return results;
@@ -380,7 +389,11 @@ async function syncBestFrameworkFromMaterials(
       if (text && isAssessmentFrameworkText(text)) {
         await prisma.aiStudyMaterial.update({
           where: { id: material.id },
-          data: { uploadPurpose: "ASSESSMENT_FRAMEWORK" },
+          data: {
+            uploadPurpose: "ASSESSMENT_FRAMEWORK",
+            reviewConfirmed: true,
+            extractionStatus: "EXTRACTED",
+          },
         });
       }
     }
@@ -606,7 +619,8 @@ export async function confirmMaterialReview(
   requestId: string,
   materialId: string,
   workspaceId: string,
-  userId: string
+  userId: string,
+  options?: { manualText?: string }
 ) {
   const request = await loadBuilderRequest(requestId, workspaceId);
   if (!request) throw new AiBuilderError("Builder request not found", 404);
@@ -619,20 +633,66 @@ export async function confirmMaterialReview(
   const material = request.materials.find((m) => m.id === materialId);
   if (!material) throw new AiBuilderError("Material not found", 404);
 
-  const text = resolveMaterialText(material);
-  if (!text || isPlaceholderText(text)) {
+  const pendingManual = options?.manualText?.trim() ?? "";
+  let textForReview = pendingManual && !isPlaceholderText(pendingManual)
+    ? pendingManual
+    : resolveMaterialText(material);
+
+  if (!textForReview || isPlaceholderText(textForReview)) {
     throw new AiBuilderError("Enter or correct extracted text before confirming review", 400);
   }
 
   const updated = await prisma.aiStudyMaterial.update({
     where: { id: materialId },
     data: {
+      ...(pendingManual && !isPlaceholderText(pendingManual)
+        ? { manualText: pendingManual }
+        : {}),
       reviewConfirmed: true,
       extractionStatus: "EXTRACTED",
     },
   });
 
   return serializeMaterial(updated);
+}
+
+export async function completeExtractionReview(
+  requestId: string,
+  workspaceId: string,
+  userId: string
+) {
+  const request = await loadBuilderRequest(requestId, workspaceId);
+  if (!request) throw new AiBuilderError("Builder request not found", 404);
+  assertEditable(request);
+
+  if (request.createdById !== userId) {
+    throw new AiBuilderError("Not permitted", 403);
+  }
+
+  for (const m of request.materials) {
+    if (m.uploadPurpose === "ASSESSMENT_FRAMEWORK") continue;
+    if (m.extractionStatus === "PENDING" || m.extractionStatus === "FAILED") {
+      throw new AiBuilderError(
+        `Extract all materials before continuing — "${m.fileName}" is not ready`,
+        400
+      );
+    }
+    if (!m.reviewConfirmed) {
+      throw new AiBuilderError(
+        `Confirm OCR review for "${m.fileName}" before continuing to settings`,
+        400
+      );
+    }
+  }
+
+  await prisma.aiAssessmentBuilderRequest.update({
+    where: { id: requestId },
+    data: { status: "SETTINGS" },
+  });
+
+  const refreshed = await loadBuilderRequest(requestId, workspaceId);
+  if (!refreshed) throw new AiBuilderError("Builder request not found", 404);
+  return refreshed;
 }
 
 export type BuilderSettingsInput = {
@@ -784,15 +844,16 @@ function assertMaterialsReadyForGeneration(
   materials: LoadedRequest["materials"]
 ) {
   for (const m of materials) {
-    if (m.extractionStatus === "NEEDS_REVIEW" && !m.reviewConfirmed) {
-      throw new AiBuilderError(
-        `OCR review required for "${m.fileName}" — review extracted text and confirm before generating`,
-        400
-      );
-    }
+    if (m.uploadPurpose === "ASSESSMENT_FRAMEWORK") continue;
     if (m.extractionStatus === "PENDING" || m.extractionStatus === "FAILED") {
       throw new AiBuilderError(
         `Material "${m.fileName}" must be extracted successfully before generating`,
+        400
+      );
+    }
+    if (!m.reviewConfirmed) {
+      throw new AiBuilderError(
+        `OCR review required for "${m.fileName}" — confirm review before generating`,
         400
       );
     }
@@ -1109,6 +1170,31 @@ export async function approveBuilderRequest(
   if (!qualityChecks.passed) {
     throw new AiBuilderError(
       `Quality checks failed: ${qualityChecks.issues.filter((i) => i.severity === "error").map((i) => i.message).join("; ")}`,
+      400
+    );
+  }
+
+  const frameworkText = resolveFrameworkText(request);
+  const blueprint = frameworkText ? buildBlueprintFromFramework(frameworkText) : null;
+  const reviewReport = buildReviewReport(
+    draft,
+    blueprint,
+    request.materials.map((m) => ({
+      reviewConfirmed: m.reviewConfirmed,
+      uploadPurpose: m.uploadPurpose,
+    }))
+  );
+
+  if (!reviewReport.reviewComplete) {
+    const blockers: string[] = [];
+    if (!reviewReport.cognitiveAnalysis.passed) {
+      blockers.push("Cognitive analysis validation failed (requires 40% Low / 40% Middle / 20% High)");
+    }
+    if (!reviewReport.frameworkCompliance.passed) {
+      blockers.push("Framework compliance checks failed");
+    }
+    throw new AiBuilderError(
+      `Review workspace incomplete — ${blockers.join("; ") || "complete all review tabs before approving"}`,
       400
     );
   }
@@ -1460,6 +1546,22 @@ export async function serializeBuilderRequest(request: LoadedRequest) {
     })),
   });
 
+  const blueprint =
+    generationReadiness.blueprint ??
+    (qualityChecks as { blueprint?: PaperBlueprint } | null)?.blueprint ??
+    (frameworkTextResolved ? buildBlueprintFromFramework(frameworkTextResolved) : null);
+
+  const reviewReport = draft
+    ? buildReviewReport(
+        draft,
+        blueprint,
+        request.materials.map((m) => ({
+          reviewConfirmed: m.reviewConfirmed,
+          uploadPurpose: m.uploadPurpose,
+        }))
+      )
+    : null;
+
   return {
     id: request.id,
     workspaceId: request.workspaceId,
@@ -1479,6 +1581,7 @@ export async function serializeBuilderRequest(request: LoadedRequest) {
     instructions: request.instructions,
     draft,
     qualityChecks,
+    reviewReport,
     sourceMode: request.sourceMode,
     selectedQuestionBankIds: (request.selectedQuestionBankIds as string[] | null) ?? [],
     frameworkText: request.frameworkText,

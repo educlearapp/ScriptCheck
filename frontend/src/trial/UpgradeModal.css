@@ -1,0 +1,53 @@
+.sc-upgrade-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: rgba(28, 28, 30, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.sc-upgrade-modal {
+  width: min(100%, 480px);
+  padding: 2rem;
+  text-align: center;
+}
+
+.sc-upgrade-badge {
+  display: inline-block;
+  margin-bottom: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-gold-dark);
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid var(--sc-border-gold);
+}
+
+.sc-upgrade-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+  color: var(--sc-text);
+}
+
+.sc-upgrade-message {
+  margin: 0 0 1.5rem;
+  color: var(--sc-text-muted);
+  line-height: 1.55;
+}
+
+.sc-upgrade-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.sc-upgrade-actions .sc-btn {
+  width: 100%;
+}

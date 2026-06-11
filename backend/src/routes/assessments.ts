@@ -2,6 +2,7 @@ import { Router, type Response } from "express";
 import { AssessmentStatus, AssessmentType, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requirePaidPlan } from "../middleware/requirePaidPlan";
 import { requirePermission } from "../middleware/requirePermission";
 import { hasPermission, PERMISSIONS } from "../services/permissions";
 import {
@@ -48,6 +49,12 @@ import {
 } from "../services/examPrepReport";
 import assessmentQuestionsRoutes from "./assessmentQuestions";
 import paperVaultRoutes from "./paperVault";
+import {
+  completeAssessmentSetup,
+  getAssessmentSetupStatus,
+  updateAssessmentSetup,
+} from "../services/assessmentSetup";
+import { listAssessmentFiles } from "../services/assessmentFiles";
 
 const router = Router();
 
@@ -93,6 +100,12 @@ function serializeAssessment(
     markingDeadline: assessment.markingDeadline?.toISOString() ?? null,
     moderationDeadline: assessment.moderationDeadline?.toISOString() ?? null,
     rubricTemplateId: assessment.rubricTemplateId ?? null,
+    questionCount: assessment.questionCount ?? null,
+    pagesPerScript: assessment.pagesPerScript ?? null,
+    memorandumAvailable: assessment.memorandumAvailable ?? false,
+    rubricAvailable: assessment.rubricAvailable ?? false,
+    setupComplete: assessment.setupComplete ?? false,
+    setupCompletedAt: assessment.setupCompletedAt?.toISOString() ?? null,
     status: assessment.status,
     creatorTeacher: assessment.creatorTeacher,
     assignedUser: assessment.assignedUser,
@@ -228,6 +241,7 @@ function handleResultsError(res: Response, err: unknown) {
 router.get(
   "/:id/reports/assessment.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     const id = String(req.params.id);
@@ -272,6 +286,7 @@ router.get(
 router.get(
   "/:id/reports/exam-prep.pdf",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     const id = String(req.params.id);
@@ -307,6 +322,7 @@ router.get(
 router.get(
   "/:id/reports/exam-prep.csv",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.REPORTS_GENERATE),
   async (req: AuthenticatedRequest, res) => {
     const id = String(req.params.id);
@@ -342,6 +358,7 @@ router.get(
 router.get(
   "/:id/results.csv",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.RESULTS_EXPORT),
   async (req: AuthenticatedRequest, res) => {
     const id = String(req.params.id);
@@ -397,6 +414,7 @@ router.get(
 router.post(
   "/:id/request-publish",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.RESULTS_VIEW),
   async (req: AuthenticatedRequest, res) => {
     const id = String(req.params.id);
@@ -426,6 +444,7 @@ router.post(
 router.post(
   "/:id/publish-results",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.RESULTS_PUBLISH),
   async (req: AuthenticatedRequest, res) => {
     const id = String(req.params.id);
@@ -926,6 +945,85 @@ router.patch(
     } catch (err) {
       console.error("[assessments/patch]", err);
       return res.status(500).json({ error: "Failed to update assessment" });
+    }
+  }
+);
+
+router.get(
+  "/:id/setup",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const status = await getAssessmentSetupStatus(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(status);
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to load setup status" });
+    }
+  }
+);
+
+router.put(
+  "/:id/setup",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_EDIT_OWN),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      await updateAssessmentSetup(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.body ?? {}
+      );
+      const assessment = await prisma.assessment.findFirst({
+        where: { id: String(req.params.id), workspaceId: req.auth!.workspaceId },
+        include: assessmentInclude,
+      });
+      if (!assessment) return res.status(404).json({ error: "Assessment not found" });
+      return res.json(serializeAssessment(assessment));
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to update setup" });
+    }
+  }
+);
+
+router.post(
+  "/:id/setup/complete",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_EDIT_OWN),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      await completeAssessmentSetup(String(req.params.id), req.auth!.workspaceId);
+      const status = await getAssessmentSetupStatus(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(status);
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to complete setup" });
+    }
+  }
+);
+
+router.get(
+  "/:id/files",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const files = await listAssessmentFiles(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(files);
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to list files" });
     }
   }
 );

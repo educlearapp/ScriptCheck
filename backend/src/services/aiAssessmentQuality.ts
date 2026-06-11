@@ -3,7 +3,7 @@ import {
   AiQuestionType,
 } from "@prisma/client";
 import type { AiGeneratedDraft, AiGeneratedQuestion } from "./aiAssessmentEngine";
-import { containsOcrGarbage } from "./contentSanitizer";
+import { containsOcrGarbage, validateQuestionConceptQuality } from "./contentSanitizer";
 import type { PaperBlueprint } from "./frameworkEngine";
 
 export type QualityIssue = {
@@ -114,6 +114,25 @@ export function runQualityChecks(
         code: "OCR_GARBAGE_IN_QUESTION",
         severity: "error",
         message: `Question ${q.questionNumber} contains OCR garbage text`,
+        questionNumber: q.questionNumber,
+      });
+    }
+
+    const conceptQuality = validateQuestionConceptQuality(q.questionText);
+    if (!conceptQuality.valid) {
+      issues.push({
+        code: "CONCEPT_QUALITY_FAILED",
+        severity: "error",
+        message: `Question ${q.questionNumber}: ${conceptQuality.reason ?? "Invalid concept quality"}`,
+        questionNumber: q.questionNumber,
+      });
+    }
+
+    if (/^what (?:is|are) \w+\?$/i.test(q.questionText.trim())) {
+      issues.push({
+        code: "WEAK_DEFINITION_STEM",
+        severity: "error",
+        message: `Question ${q.questionNumber} uses weak "What is/are …?" stem — use "Explain the term …" instead`,
         questionNumber: q.questionNumber,
       });
     }

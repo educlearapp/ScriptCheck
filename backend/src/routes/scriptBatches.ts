@@ -1,5 +1,7 @@
 import { Router, type Response } from "express";
+import multer from "multer";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requirePaidPlan } from "../middleware/requirePaidPlan";
 import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
 import { auditRequestMeta, logAudit } from "../services/auditLog";
@@ -19,8 +21,19 @@ import {
   getHodModerationDashboard,
   getMarkerPerformanceAnalytics,
 } from "../services/scriptModerationAnalytics";
+import { bulkUploadScripts } from "../services/bulkScriptUpload";
+import {
+  confirmScriptVerification,
+  getScriptVerification,
+} from "../services/scriptVerification";
+import { MAX_BULK_SCRIPT_FILE_SIZE, MAX_UPLOAD_FILES } from "../config/uploadLimits";
 
 const router = Router();
+
+const bulkUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_BULK_SCRIPT_FILE_SIZE, files: MAX_UPLOAD_FILES },
+});
 
 function handleError(res: Response, err: unknown) {
   if (err instanceof ScriptError) {
@@ -95,6 +108,7 @@ router.get(
 router.get(
   "/:id/export.csv",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.RESULTS_EXPORT),
   async (req: AuthenticatedRequest, res) => {
     try {
@@ -160,6 +174,85 @@ router.post(
       });
 
       return res.status(201).json(script);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/:id/bulk-upload",
+  requireAuth,
+  requirePermission(PERMISSIONS.SCRIPTS_CREATE),
+  bulkUpload.array("files", MAX_UPLOAD_FILES),
+  async (req: AuthenticatedRequest, res) => {
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    try {
+      const result = await bulkUploadScripts(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.auth!.userId,
+        files.map((f) => ({
+          originalname: f.originalname,
+          mimetype: f.mimetype,
+          size: f.size,
+          buffer: f.buffer,
+        }))
+      );
+
+      await logAudit({
+        action: "SCRIPT_PAGE_UPLOADED",
+        actorId: req.auth!.userId,
+        workspaceId: req.auth!.workspaceId,
+        metadata: {
+          batchId: String(req.params.id),
+          bulkUpload: true,
+          scriptsCreated: result.scriptsCreated,
+          totalPages: result.totalPagesUploaded,
+        },
+        ...auditRequestMeta(req),
+      });
+
+      const verification = await getScriptVerification(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+
+      return res.status(201).json({ ...result, verification });
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/:id/verification",
+  requireAuth,
+  requirePermission(PERMISSIONS.SCRIPTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const verification = await getScriptVerification(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(verification);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/:id/verification/confirm",
+  requireAuth,
+  requirePermission(PERMISSIONS.SCRIPTS_CREATE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const verification = await confirmScriptVerification(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(verification);
     } catch (err) {
       return handleError(res, err);
     }

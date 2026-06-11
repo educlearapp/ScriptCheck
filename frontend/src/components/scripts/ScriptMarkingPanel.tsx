@@ -74,7 +74,7 @@ export default function ScriptMarkingPanel({
           ) : null}
         </div>
         <div className="sc-mark-total-card">
-          <div className="sc-detail-label">HOD</div>
+          <div className="sc-detail-label">DH</div>
           <div className="sc-mark-total-value">{script.hodTotal ?? "—"}</div>
           {script.hodPercentage != null ? (
             <div className="sc-mark-total-pct">{script.hodPercentage}%</div>
@@ -108,7 +108,7 @@ export default function ScriptMarkingPanel({
             <tr>
               <th>Q</th>
               <th>Max</th>
-              <th>{hodMode ? "HOD" : teacherMode ? "Awarded" : "Final"}</th>
+              <th>{hodMode ? "DH" : teacherMode ? "Awarded" : "Final"}</th>
               <th>Comment</th>
             </tr>
           </thead>

@@ -96,7 +96,7 @@ export default function ModerationCentrePage() {
       ) : null}
 
       <div className="sc-card" style={{ marginTop: "1.5rem", padding: "1.5rem" }}>
-        <Link to="/moderation/queue" className="sc-btn sc-btn-ghost">Open HOD moderation queue</Link>
+        <Link to="/moderation/queue" className="sc-btn sc-btn-ghost">Open DH moderation queue</Link>
       </div>
     </div>
   );

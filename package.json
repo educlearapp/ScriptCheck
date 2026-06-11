@@ -5,12 +5,18 @@
   "description": "ScriptCheck — AI-assisted assessment, moderation and marking platform",
   "scripts": {
     "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "build:beta": "npm run build --workspace=backend && npm run build:beta --workspace=frontend",
     "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
     "dev:backend": "npm run dev --workspace=backend",
-    "dev:frontend": "npm run dev --workspace=frontend"
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "deploy:beta": "node scripts/deploy-beta-render.mjs",
+    "db:seed:beta": "npm run seed --workspace=backend"
   },
   "workspaces": [
     "backend",
     "frontend"
-  ]
+  ],
+  "devDependencies": {
+    "basic-ftp": "^6.0.1"
+  }
 }

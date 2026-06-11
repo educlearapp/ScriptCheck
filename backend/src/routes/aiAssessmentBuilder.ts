@@ -6,6 +6,7 @@ import {
   AiQuestionType,
 } from "@prisma/client";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { requirePaidPlan } from "../middleware/requirePaidPlan";
 import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
 import { auditRequestMeta, logAudit } from "../services/auditLog";
@@ -13,6 +14,7 @@ import { AiUploadPurpose } from "@prisma/client";
 import {
   AiBuilderError,
   approveBuilderRequest,
+  completeExtractionReview,
   confirmMaterialReview,
   createBuilderRequest,
   deleteStudyMaterial,
@@ -280,16 +282,38 @@ router.patch(
 );
 
 router.post(
+  "/:id/complete-extraction-review",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_CREATE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const request = await completeExtractionReview(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.auth!.userId
+      );
+      return res.json(await serializeBuilderRequest(request));
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.post(
   "/:id/materials/:materialId/confirm-review",
   requireAuth,
   requirePermission(PERMISSIONS.ASSESSMENTS_CREATE),
   async (req: AuthenticatedRequest, res) => {
+    const body = req.body ?? {};
     try {
       const material = await confirmMaterialReview(
         String(req.params.id),
         String(req.params.materialId),
         req.auth!.workspaceId,
-        req.auth!.userId
+        req.auth!.userId,
+        body.manualText !== undefined
+          ? { manualText: String(body.manualText) }
+          : undefined
       );
       return res.json(material);
     } catch (err) {
@@ -636,12 +660,13 @@ router.post(
 router.get(
   "/:id/export/:type",
   requireAuth,
+  requirePaidPlan,
   requirePermission(PERMISSIONS.ASSESSMENTS_CREATE),
   async (req: AuthenticatedRequest, res) => {
     const meta = auditRequestMeta(req);
     const exportType = String(req.params.type) as ExportType;
 
-    if (!["question-paper", "memorandum", "rubric"].includes(exportType)) {
+    if (!["question-paper", "memorandum", "rubric", "complete-pack"].includes(exportType)) {
       return res.status(400).json({ error: "Invalid export type" });
     }
 

@@ -1,8 +1,23 @@
+import fs from "fs";
+import path from "path";
 import PDFDocument from "pdfkit";
 
 export const PDF_GOLD = "#d4af37";
-export const PDF_DARK = "#1a1a1a";
+export const PDF_DARK = "#1c1c1e";
 export const PDF_MUTED = "#666666";
+
+const LOGO_CANDIDATES = [
+  path.join(__dirname, "../../assets/scriptcheck-logo.png"),
+  path.join(process.cwd(), "assets/scriptcheck-logo.png"),
+  path.join(process.cwd(), "backend/assets/scriptcheck-logo.png"),
+];
+
+function resolveLogoPath(): string | null {
+  for (const candidate of LOGO_CANDIDATES) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 
 export function pdfBuffer(build: (doc: PDFKit.PDFDocument) => void): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -17,17 +32,42 @@ export function pdfBuffer(build: (doc: PDFKit.PDFDocument) => void): Promise<Buf
 }
 
 export function drawPdfHeader(doc: PDFKit.PDFDocument, title: string, subtitle?: string) {
-  doc.rect(0, 0, doc.page.width, 80).fill(PDF_DARK);
-  doc.fillColor(PDF_GOLD).fontSize(22).font("Helvetica-Bold");
-  doc.text("ScriptCheck", 50, 24);
-  doc.fillColor("#ffffff").fontSize(14).font("Helvetica-Bold");
-  doc.text(title, 50, 48);
+  const headerHeight = 88;
+  doc.rect(0, 0, doc.page.width, headerHeight).fill(PDF_DARK);
+
+  const logoPath = resolveLogoPath();
+  const textX = logoPath ? 108 : 50;
+
+  if (logoPath) {
+    try {
+      doc.image(logoPath, 42, 10, { width: 56 });
+    } catch {
+      doc.fillColor(PDF_GOLD).fontSize(22).font("Helvetica-Bold");
+      doc.text("ScriptCheck", 50, 24);
+    }
+  } else {
+    doc.fillColor(PDF_GOLD).fontSize(22).font("Helvetica-Bold");
+    doc.text("ScriptCheck", 50, 24);
+  }
+
+  doc.fillColor(PDF_GOLD).fontSize(10).font("Helvetica");
+  doc.text("Assessment Intelligence", textX, 22, { lineBreak: false });
+  doc.fillColor("#ffffff").fontSize(13).font("Helvetica-Bold");
+  doc.text(title, textX, 40, { width: doc.page.width - textX - 50 });
   if (subtitle) {
     doc.fillColor("#cccccc").fontSize(9).font("Helvetica");
-    doc.text(subtitle, 50, 66);
+    doc.text(subtitle, textX, 58, { width: doc.page.width - textX - 50 });
   }
+
+  doc
+    .strokeColor(PDF_GOLD)
+    .lineWidth(1)
+    .moveTo(42, headerHeight - 4)
+    .lineTo(doc.page.width - 42, headerHeight - 4)
+    .stroke();
+
   doc.fillColor("#000000");
-  doc.y = 100;
+  doc.y = headerHeight + 16;
 }
 
 export function drawSectionTitle(doc: PDFKit.PDFDocument, title: string) {

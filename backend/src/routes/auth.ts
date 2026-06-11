@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { WorkspaceType } from "@prisma/client";
+import { getSubscriptionInfo, parseRegistrationPlan } from "../services/subscription";
+import { SubscriptionStatus } from "@prisma/client";
 import { prisma } from "../prisma";
 import {
   compareAuthPassword,
@@ -61,6 +63,8 @@ async function buildAuthResponse(userId: string, workspaceId: string) {
     email: user.email,
   });
 
+  const subscription = await getSubscriptionInfo(workspaceId);
+
   return {
     token,
     user: {
@@ -70,6 +74,12 @@ async function buildAuthResponse(userId: string, workspaceId: string) {
       workspaceId: activeMembership.workspaceId,
       workspaceName: activeMembership.workspace.name,
       workspaceType: activeMembership.workspace.type,
+      subscriptionPlan: activeMembership.workspace.subscriptionPlan,
+      subscriptionStatus: subscription.status,
+      trialExpiresAt: subscription.trialExpiresAt,
+      isTrial: subscription.isTrial,
+      isExpired: subscription.isExpired,
+      daysRemaining: subscription.daysRemaining,
       roles: activeMembership.roles.map((r) => r.role),
       permissions,
     },
@@ -78,6 +88,7 @@ async function buildAuthResponse(userId: string, workspaceId: string) {
       name: m.workspace.name,
       slug: m.workspace.slug,
       type: m.workspace.type,
+      subscriptionPlan: m.workspace.subscriptionPlan,
       roles: m.roles.map((r) => r.role),
     })),
   };
@@ -91,6 +102,7 @@ router.post("/register", async (req, res) => {
   const workspaceType = String(
     req.body?.workspaceType || WorkspaceType.INDIVIDUAL_EDUCATOR
   ) as WorkspaceType;
+  const subscriptionPlan = parseRegistrationPlan(req.body?.plan);
 
   if (!email || !password || !fullName) {
     return res.status(400).json({ error: "Email, password, and full name required" });
@@ -128,11 +140,22 @@ router.post("/register", async (req, res) => {
         slug = `${baseSlug}-${attempt}`;
       }
 
+      const trialExpiresAt =
+        subscriptionPlan === "TRIAL"
+          ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          : null;
+
       const workspace = await tx.workspace.create({
         data: {
           name,
           slug,
           type: workspaceType,
+          subscriptionPlan,
+          subscriptionStatus:
+            subscriptionPlan === "TRIAL"
+              ? SubscriptionStatus.TRIAL
+              : SubscriptionStatus.ACTIVE,
+          trialExpiresAt,
           email,
         },
       });
@@ -147,9 +170,9 @@ router.post("/register", async (req, res) => {
 
       const initialRole =
         workspaceType === WorkspaceType.EXAMINATION_BODY
-          ? "EXAM_BODY_ADMIN"
+          ? "EXAMINATION_BODY"
           : workspaceType === WorkspaceType.SCHOOL
-            ? "SCHOOL_ADMIN"
+            ? "SCHOOL_OWNER"
             : "TEACHER";
 
       await tx.membershipRole.create({
@@ -175,7 +198,7 @@ router.post("/register", async (req, res) => {
           action: "WORKSPACE_CREATED",
           actorId: user.id,
           workspaceId: workspace.id,
-          metadata: { name, type: workspaceType, slug },
+          metadata: { name, type: workspaceType, slug, subscriptionPlan },
           ipAddress: meta.ipAddress,
           userAgent: meta.userAgent,
         },
