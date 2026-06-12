@@ -1,0 +1,344 @@
+.sc-marking-hub {
+  min-width: 0;
+}
+
+/* Workflow step indicator */
+.sc-marking-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sc-marking-step {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 140px;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid var(--sc-border);
+  background: var(--sc-bg);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--sc-text-muted);
+}
+
+.sc-marking-step.is-active {
+  border-color: var(--sc-border-gold);
+  background: rgba(212, 175, 55, 0.06);
+  color: var(--sc-text);
+}
+
+.sc-marking-step.is-done {
+  border-color: rgba(22, 163, 74, 0.3);
+  background: var(--sc-success-bg);
+  color: var(--sc-success);
+}
+
+.sc-marking-step-num {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--sc-bg-elevated);
+  border: 1px solid var(--sc-border);
+  flex-shrink: 0;
+}
+
+.sc-marking-step.is-active .sc-marking-step-num {
+  background: var(--sc-gold);
+  border-color: var(--sc-gold-dark);
+  color: #1a1a1a;
+}
+
+.sc-marking-step.is-done .sc-marking-step-num {
+  background: var(--sc-success);
+  border-color: var(--sc-success);
+  color: #fff;
+}
+
+.sc-marking-step-label {
+  line-height: 1.2;
+}
+
+/* Two-panel workflow */
+.sc-marking-workflow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.sc-marking-workflow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.sc-marking-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.sc-marking-panel-step {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--sc-gold);
+  color: #1a1a1a;
+  flex-shrink: 0;
+}
+
+.sc-marking-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--sc-text-muted);
+  line-height: 1.4;
+}
+
+.sc-marking-warning {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--sc-radius-sm);
+  font-size: 0.8rem;
+  color: var(--sc-warning);
+  background: var(--sc-warning-bg);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.sc-marking-select-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.sc-marking-field {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.sc-marking-field-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.sc-marking-readonly {
+  display: flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid var(--sc-border);
+  background: var(--sc-bg);
+  font-size: 0.9rem;
+}
+
+.sc-marking-setup-link {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--sc-gold-dark);
+  text-decoration: none;
+}
+
+.sc-marking-setup-link:hover {
+  text-decoration: underline;
+}
+
+.sc-marking-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.sc-marking-stat {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid var(--sc-border);
+  background: var(--sc-bg);
+  min-width: 0;
+}
+
+.sc-marking-stat-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sc-text-muted);
+}
+
+.sc-marking-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--sc-gold-dark);
+}
+
+.sc-marking-stat-text {
+  font-size: 0.95rem;
+}
+
+.sc-marking-dropzone {
+  border: 2px dashed var(--sc-border-gold);
+  border-radius: var(--sc-radius-sm);
+  padding: 1.25rem;
+  text-align: center;
+  background: rgba(212, 175, 55, 0.04);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sc-marking-dropzone:hover:not(.is-disabled),
+.sc-marking-dropzone.is-dragover {
+  border-color: var(--sc-gold);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.sc-marking-dropzone.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: var(--sc-border);
+  background: var(--sc-bg);
+}
+
+.sc-marking-dropzone p {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: var(--sc-text-muted);
+}
+
+.sc-marking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sc-marking-next-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sc-marking-queue {
+  padding: 0;
+  overflow: hidden;
+}
+
+.sc-marking-queue-header {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--sc-border);
+}
+
+.sc-marking-queue .sc-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sc-marking-queue tr.is-selected {
+  background: rgba(212, 175, 55, 0.06);
+}
+
+.sc-marking-table-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.sc-marking-table-btn {
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.8rem !important;
+  white-space: nowrap;
+}
+
+.sc-marking-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* Tablet: iPad landscape */
+@media (max-width: 1100px) {
+  .sc-marking-workflow {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-marking-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Tablet: iPad portrait */
+@media (max-width: 900px) {
+  .sc-marking-step {
+    min-width: calc(50% - 0.2rem);
+    flex: 1 1 calc(50% - 0.2rem);
+  }
+
+  .sc-marking-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sc-marking-stats .sc-marking-stat:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .sc-marking-step {
+    min-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .sc-marking-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-marking-stats .sc-marking-stat:last-child {
+    grid-column: auto;
+  }
+
+  .sc-marking-select-row {
+    flex-direction: column;
+  }
+
+  .sc-marking-field {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .sc-marking-actions .sc-btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .sc-marking-table-actions {
+    flex-direction: column;
+  }
+
+  .sc-marking-table-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
