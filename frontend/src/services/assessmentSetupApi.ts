@@ -76,6 +76,7 @@ export type MarkingOverviewItem = {
   setupComplete: boolean;
   pagesPerScript: number | null;
   batchId: string | null;
+  batchStatus: string | null;
 };
 
 export type DhModerationItem = {

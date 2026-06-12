@@ -15,6 +15,7 @@ export type MarkingOverviewItem = {
   setupComplete: boolean;
   pagesPerScript: number | null;
   batchId: string | null;
+  batchStatus: string | null;
 };
 
 export async function getMarkingOverview(
@@ -57,6 +58,7 @@ export async function getMarkingOverview(
         select: {
           id: true,
           totalScripts: true,
+          status: true,
         },
       },
       _count: { select: { learnerScripts: true } },
@@ -77,6 +79,7 @@ export async function getMarkingOverview(
       setupComplete: a.setupComplete,
       pagesPerScript: a.pagesPerScript,
       batchId: activeBatch?.id ?? null,
+      batchStatus: activeBatch?.status ?? null,
     };
   });
 

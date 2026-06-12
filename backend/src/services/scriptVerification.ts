@@ -1,3 +1,4 @@
+import { ScriptBatchStatus } from "@prisma/client";
 import { prisma } from "../prisma";
 import { ScriptError } from "./scriptMarking";
 
@@ -104,5 +105,22 @@ export async function confirmScriptVerification(
   if (!verification.canProceed) {
     throw new ScriptError("No scripts to process", 400);
   }
+
+  const batch = await prisma.scriptBatch.findFirst({
+    where: { id: batchId, workspaceId },
+    select: { status: true },
+  });
+  if (!batch) throw new ScriptError("Script batch not found", 404);
+
+  await prisma.scriptBatch.update({
+    where: { id: batchId },
+    data: {
+      status:
+        batch.status === ScriptBatchStatus.DRAFT
+          ? ScriptBatchStatus.MARKING
+          : batch.status,
+    },
+  });
+
   return verification;
 }

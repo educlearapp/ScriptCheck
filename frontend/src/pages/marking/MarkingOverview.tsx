@@ -9,6 +9,8 @@ import {
   bulkUploadScripts,
   getMarkingOverview,
   getSetupStatus,
+  updateSetup,
+  type AssessmentSetupStatus,
   type MarkingOverviewItem,
 } from "../../services/assessmentSetupApi";
 import type { Assessment } from "../../types";
@@ -23,6 +25,7 @@ type SelectedMeta = {
   pagesPerScript: number | null;
   scriptCount: number;
   batchId: string | null;
+  batchStatus: string | null;
 };
 
 function resolveSelectedMeta(
@@ -39,6 +42,7 @@ function resolveSelectedMeta(
       pagesPerScript: item.pagesPerScript,
       scriptCount: item.scriptCount,
       batchId: item.batchId,
+      batchStatus: item.batchStatus,
     };
   }
   const assessment = assessments.find((a) => a.id === selectedId);
@@ -50,6 +54,7 @@ function resolveSelectedMeta(
     pagesPerScript: assessment.pagesPerScript ?? null,
     scriptCount: 0,
     batchId: null,
+    batchStatus: null,
   };
 }
 
@@ -61,6 +66,9 @@ export default function MarkingOverview() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [pagesPerScript, setPagesPerScript] = useState<number | null>(null);
+  const [pagesPerScriptInput, setPagesPerScriptInput] = useState("");
+  const [setupStatus, setSetupStatus] = useState<AssessmentSetupStatus | null>(null);
+  const [savingPages, setSavingPages] = useState(false);
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -99,15 +107,25 @@ export default function MarkingOverview() {
   useEffect(() => {
     if (!selectedId) {
       setPagesPerScript(null);
-      return;
-    }
-    if (selected?.pagesPerScript != null) {
-      setPagesPerScript(selected.pagesPerScript);
+      setSetupStatus(null);
+      setPagesPerScriptInput("");
       return;
     }
     getSetupStatus(selectedId)
-      .then((s) => setPagesPerScript(s.pagesPerScript))
-      .catch(() => setPagesPerScript(null));
+      .then((s) => {
+        setSetupStatus(s);
+        setPagesPerScript(s.pagesPerScript);
+        setPagesPerScriptInput(
+          s.pagesPerScript != null ? String(s.pagesPerScript) : ""
+        );
+      })
+      .catch(() => {
+        setSetupStatus(null);
+        setPagesPerScript(selected?.pagesPerScript ?? null);
+        setPagesPerScriptInput(
+          selected?.pagesPerScript != null ? String(selected.pagesPerScript) : ""
+        );
+      });
   }, [selectedId, selected?.pagesPerScript]);
 
   const setupPath = selectedId
@@ -119,15 +137,26 @@ export default function MarkingOverview() {
   const hasPagesPerScript = pagesPerScript != null && pagesPerScript >= 1;
   const hasScripts = (selected?.scriptCount ?? 0) > 0;
   const hasBatch = !!selected?.batchId;
+  const scriptsVerified =
+    hasScripts &&
+    !!selected?.batchStatus &&
+    selected.batchStatus !== "DRAFT";
+  const setupComplete = setupStatus?.setupComplete ?? selected?.setupComplete ?? false;
+
+  const parsedPagesInput = Number(pagesPerScriptInput);
+  const pagesInputValid =
+    pagesPerScriptInput.trim() !== "" &&
+    Number.isInteger(parsedPagesInput) &&
+    parsedPagesInput > 0;
 
   const flowSteps = useMemo(
     () => [
       { n: 1, label: "Select assessment", done: !!selectedId },
       { n: 2, label: "Upload scripts", done: hasBatch || hasScripts || bulkFiles.length > 0 },
-      { n: 3, label: "Verify scripts", done: hasScripts },
-      { n: 4, label: "Start marking", done: hasScripts && hasPagesPerScript },
+      { n: 3, label: "Verify scripts", done: scriptsVerified },
+      { n: 4, label: "Start marking", done: scriptsVerified && hasPagesPerScript },
     ],
-    [selectedId, hasBatch, hasScripts, bulkFiles.length, hasPagesPerScript]
+    [selectedId, hasBatch, hasScripts, bulkFiles.length, scriptsVerified, hasPagesPerScript]
   );
 
   const activeStep = flowSteps.find((s) => !s.done)?.n ?? 4;
@@ -151,8 +180,7 @@ export default function MarkingOverview() {
       return;
     }
     if (!hasPagesPerScript) {
-      setError("Set Pages Per Script in Assessment Setup before bulk upload.");
-      navigate(`/assessments/${selectedId}/setup`);
+      setError("Save pages per script before uploading scanned scripts.");
       return;
     }
     setUploading(true);
@@ -168,6 +196,41 @@ export default function MarkingOverview() {
     } finally {
       setUploading(false);
       setUploadProgress(0);
+    }
+  };
+
+  const handleSavePagesPerScript = async () => {
+    if (!selectedId) return;
+    if (!pagesInputValid) {
+      setError("Enter a whole number greater than 0 for pages per script.");
+      return;
+    }
+    setSavingPages(true);
+    setError("");
+    try {
+      await updateSetup(selectedId, { pagesPerScript: parsedPagesInput });
+      const status = await getSetupStatus(selectedId);
+      setSetupStatus(status);
+      setPagesPerScript(status.pagesPerScript);
+      setPagesPerScriptInput(
+        status.pagesPerScript != null ? String(status.pagesPerScript) : ""
+      );
+      setAssessments((prev) =>
+        prev.map((a) =>
+          a.id === selectedId ? { ...a, pagesPerScript: status.pagesPerScript } : a
+        )
+      );
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === selectedId
+            ? { ...item, pagesPerScript: status.pagesPerScript }
+            : item
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save pages per script");
+    } finally {
+      setSavingPages(false);
     }
   };
 
@@ -220,10 +283,10 @@ export default function MarkingOverview() {
             Select Assessment
           </h2>
           <div className="sc-marking-select-row">
-            <label className="sc-marking-field">
+            <label className="sc-marking-field sc-marking-field-assessment">
               Assessment
               <select
-                className="sc-input"
+                className="sc-input sc-marking-assessment-select"
                 value={selectedId}
                 onChange={(e) => {
                   setSelectedId(e.target.value);
@@ -239,23 +302,50 @@ export default function MarkingOverview() {
                 ))}
               </select>
             </label>
-            <div className="sc-marking-field">
-              <span className="sc-marking-field-label">Pages Per Script</span>
-              <div className="sc-marking-readonly">
-                {hasPagesPerScript ? (
-                  <strong>{pagesPerScript}</strong>
-                ) : (
-                  <span className="sc-muted">Not set</span>
-                )}
-              </div>
-              {selectedId ? (
-                <Link
-                  to={`/assessments/${selectedId}/setup`}
-                  className="sc-marking-setup-link"
-                >
-                  {hasPagesPerScript ? "Change in Setup" : "Set in Assessment Setup"}
-                </Link>
-              ) : null}
+            <div className="sc-marking-field sc-marking-field-pages">
+              {hasPagesPerScript ? (
+                <>
+                  <span className="sc-marking-field-label">Pages per script</span>
+                  <div className="sc-marking-readonly">
+                    <strong>{pagesPerScript}</strong>
+                  </div>
+                </>
+              ) : selectedId ? (
+                <>
+                  <label className="sc-marking-field-label" htmlFor="marking-pages-per-script">
+                    Pages per script
+                  </label>
+                  <input
+                    id="marking-pages-per-script"
+                    className="sc-input"
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder="e.g. 8"
+                    value={pagesPerScriptInput}
+                    onChange={(e) => setPagesPerScriptInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="sc-btn sc-btn-secondary sc-marking-save-pages-btn"
+                    disabled={savingPages || !pagesInputValid}
+                    onClick={() => void handleSavePagesPerScript()}
+                  >
+                    {savingPages ? "Saving…" : "Save pages per script"}
+                  </button>
+                  <p className="sc-marking-pages-hint">
+                    Set pages per script once, then upload scanned scripts.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <span className="sc-marking-field-label">Pages per script</span>
+                  <div className="sc-marking-readonly">
+                    <span className="sc-muted">Select an assessment first</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -267,7 +357,7 @@ export default function MarkingOverview() {
             <div className="sc-marking-stat">
               <div className="sc-marking-stat-label">Setup Status</div>
               <div className="sc-marking-stat-value sc-marking-stat-text">
-                {selected?.setupComplete ? "Complete" : "Incomplete"}
+                {setupComplete ? "Complete" : "Incomplete"}
               </div>
             </div>
             <div className="sc-marking-stat">
@@ -284,7 +374,7 @@ export default function MarkingOverview() {
             </Link>
             {selectedId ? (
               <Link to={setupPath} className="sc-btn sc-btn-ghost">
-                Assessment Setup
+                Assessment Setup (advanced)
               </Link>
             ) : null}
           </div>
@@ -301,7 +391,7 @@ export default function MarkingOverview() {
           </p>
           {!hasPagesPerScript && selectedId ? (
             <p className="sc-marking-warning">
-              Set Pages Per Script in Assessment Setup before uploading.
+              Set pages per script once, then upload scanned scripts.
             </p>
           ) : null}
           <div
@@ -355,12 +445,24 @@ export default function MarkingOverview() {
           ) : null}
           <button
             type="button"
-            className="sc-btn sc-btn-primary"
+            className={`sc-btn sc-btn-primary${!hasPagesPerScript || !bulkFiles.length ? " is-disabled-hint" : ""}`}
             disabled={uploading || !selectedId || !bulkFiles.length || !hasPagesPerScript}
+            title={
+              !hasPagesPerScript
+                ? "Save pages per script before uploading"
+                : !bulkFiles.length
+                  ? "Add scanned files to upload"
+                  : undefined
+            }
             onClick={() => void handleBulkUpload()}
           >
             {uploading ? "Uploading…" : "Upload & Verify"}
           </button>
+          {!hasPagesPerScript && selectedId ? (
+            <p className="sc-marking-upload-hint sc-muted">
+              Upload &amp; Verify unlocks after pages per script is saved.
+            </p>
+          ) : null}
         </section>
       </div>
 
@@ -375,7 +477,7 @@ export default function MarkingOverview() {
             workspace.
           </p>
           <div className="sc-marking-actions">
-            {hasBatch ? (
+            {hasBatch && hasScripts ? (
               <Link
                 to={`/assessments/${selectedId}/scripts/verify/${selected.batchId}`}
                 className="sc-btn sc-btn-ghost"
@@ -383,11 +485,16 @@ export default function MarkingOverview() {
                 Verify Scripts
               </Link>
             ) : (
-              <button type="button" className="sc-btn sc-btn-ghost" disabled>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                disabled
+                title={!hasScripts ? "Upload scripts first" : "Create a script batch first"}
+              >
                 Verify Scripts
               </button>
             )}
-            {hasScripts ? (
+            {scriptsVerified ? (
               <Link
                 to={`/assessments/${selectedId}/scripts`}
                 className="sc-btn sc-btn-primary"
@@ -395,7 +502,16 @@ export default function MarkingOverview() {
                 Start Marking
               </Link>
             ) : (
-              <button type="button" className="sc-btn sc-btn-primary" disabled>
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary is-disabled-hint"
+                disabled
+                title={
+                  !hasScripts
+                    ? "Upload and verify scripts first"
+                    : "Complete script verification before starting marking"
+                }
+              >
                 Start Marking
               </button>
             )}

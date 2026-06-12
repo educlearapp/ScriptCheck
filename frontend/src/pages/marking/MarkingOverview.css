@@ -138,6 +138,46 @@
   font-weight: 600;
 }
 
+.sc-marking-field-assessment {
+  flex: 1.4;
+  min-width: 220px;
+}
+
+.sc-marking-assessment-select {
+  width: 100%;
+  min-height: 2.5rem;
+  font-size: 0.9rem;
+}
+
+.sc-marking-field-pages {
+  min-width: 200px;
+}
+
+.sc-marking-save-pages-btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 2.5rem;
+}
+
+.sc-marking-pages-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--sc-text-muted);
+  line-height: 1.35;
+}
+
+.sc-marking-upload-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.sc-btn.is-disabled-hint:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .sc-marking-field-label {
   font-size: 0.85rem;
   font-weight: 600;

@@ -231,10 +231,6 @@ export async function bulkUploadScripts(
       totalScripts,
       totalPages: totalPages._sum.pageCount ?? 0,
       totalLearners: totalScripts,
-      status:
-        batch.status === ScriptBatchStatus.DRAFT
-          ? ScriptBatchStatus.MARKING
-          : batch.status,
     },
   });
 
