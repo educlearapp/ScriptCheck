@@ -89,7 +89,9 @@ export type Permission =
   | "paperVault.archive"
   | "concessions.view"
   | "concessions.manage"
-  | "marks.import";
+  | "marks.import"
+  | "timetable.view"
+  | "timetable.manage";
 
 export type AuthUser = {
   id: string;
@@ -2138,4 +2140,88 @@ export type InvigilatorAssignment = {
   session: { id: string; title: string; scheduledStart: string; scheduledEnd: string };
   venue: { id: string; name: string } | null;
   isLead: boolean;
+};
+
+export type TimetableRoomType =
+  | "CLASSROOM"
+  | "LAB"
+  | "COMPUTER_LAB"
+  | "HALL"
+  | "SPORTS"
+  | "OTHER";
+
+export type PeriodType = "TEACHING" | "BREAK";
+
+export type SchoolClass = {
+  id: string;
+  name: string;
+  code: string;
+  grade: string;
+  learnerCount: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TimetableRoom = {
+  id: string;
+  name: string;
+  code: string;
+  roomType: TimetableRoomType;
+  capacity: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PeriodDefinition = {
+  id: string;
+  dayTemplateId: string;
+  periodOrder: number;
+  label: string;
+  startTime: string;
+  endTime: string;
+  periodType: PeriodType;
+  doublePeriodCapable: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SchoolDayTemplate = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  active: boolean;
+  periods: PeriodDefinition[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TeacherAssignment = {
+  id: string;
+  teacher: { id: string; fullName: string; email: string };
+  class: { id: string; name: string; code: string; grade: string };
+  subject: { id: string; name: string; code: string };
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SubjectRequirement = {
+  id: string;
+  class: { id: string; name: string; code: string; grade: string };
+  subject: { id: string; name: string; code: string };
+  periodsPerWeek: number;
+  doublePeriodsRequired: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceUser = {
+  id: string;
+  email: string;
+  fullName: string;
+  isActive: boolean;
+  roles: WorkspaceRole[];
+  membershipActive: boolean;
 };

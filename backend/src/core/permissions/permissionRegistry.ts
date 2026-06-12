@@ -78,6 +78,8 @@ export const PERMISSION_DEFINITIONS = {
   "concessions.manage": { category: "concessions", label: "Manage concessions" },
   "marks.import": { category: "marks", label: "Import marks" },
   "marks.audit": { category: "marks", label: "View mark audit trail" },
+  "timetable.view": { category: "timetable", label: "View school timetable setup" },
+  "timetable.manage": { category: "timetable", label: "Manage school timetable setup" },
 } as const;
 
 export type Permission = keyof typeof PERMISSION_DEFINITIONS;
@@ -164,6 +166,8 @@ export const P = {
   CONCESSIONS_MANAGE: "concessions.manage",
   MARKS_IMPORT: "marks.import",
   MARKS_AUDIT: "marks.audit",
+  TIMETABLE_VIEW: "timetable.view",
+  TIMETABLE_MANAGE: "timetable.manage",
 } as const satisfies Record<string, Permission>;
 
 const teacherPermissions: Permission[] = [
@@ -175,7 +179,7 @@ const teacherPermissions: Permission[] = [
   P.FEEDBACK_CREATE, P.FEEDBACK_VIEW, P.BETA_FEEDBACK_CREATE, P.REPORTS_GENERATE,
   P.EXAM_SESSION_VIEW, P.SUBJECTS_VIEW, P.RUBRICS_VIEW, P.RUBRICS_CREATE, P.SCHEDULE_VIEW,
   P.PAPER_VAULT_VIEW, P.PAPER_VAULT_UPLOAD, P.CONCESSIONS_VIEW, P.MARKS_IMPORT,
-  P.MODERATION_COMMENT, P.INTELLIGENCE_VIEW,
+  P.MODERATION_COMMENT, P.INTELLIGENCE_VIEW, P.TIMETABLE_VIEW,
 ];
 
 const hodPermissions: Permission[] = [
@@ -188,6 +192,7 @@ const hodPermissions: Permission[] = [
   P.PAPER_VAULT_LOCK, P.CONCESSIONS_MANAGE, P.WORKFLOW_TRANSITION,
   P.MODERATION_REQUEST_APPROVAL, P.MARKS_AUDIT, P.INTELLIGENCE_GENERATE,
   P.BETA_FEEDBACK_VIEW, P.BETA_FEEDBACK_MANAGE,
+  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE,
 ];
 
 const moderatorPermissions: Permission[] = [
@@ -209,6 +214,7 @@ const examinationOfficerPermissions: Permission[] = [
   P.DASHBOARD_ACADEMIC_VIEW, P.FEEDBACK_VIEW, P.REPORTS_GENERATE,
   P.EXAM_SESSION_VIEW, P.EXAM_SESSION_MANAGE, P.SCHEDULE_VIEW,
   P.PAPER_VAULT_VIEW, P.CONCESSIONS_VIEW, P.MARKS_IMPORT, P.INTELLIGENCE_VIEW,
+  P.TIMETABLE_VIEW,
 ];
 
 const principalPermissions: Permission[] = [
@@ -218,6 +224,7 @@ const principalPermissions: Permission[] = [
   P.EXAMINATIONS_MANAGE, P.EXAM_SESSION_MANAGE,
   P.PAPER_VAULT_RELEASE, P.PAPER_VAULT_ARCHIVE, P.EXPORT_ASSESSMENT_PACK,
   P.WORKFLOW_CONFIGURE, P.BETA_FEEDBACK_VIEW, P.BETA_FEEDBACK_MANAGE,
+  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE,
 ];
 
 const schoolAdminPermissions: Permission[] = [
@@ -238,6 +245,7 @@ const schoolAdminPermissions: Permission[] = [
   P.SUBSCRIPTION_MANAGE, P.WORKFLOW_CONFIGURE, P.EXPORT_ASSESSMENT_PACK,
   P.INTELLIGENCE_VIEW, P.INTELLIGENCE_GENERATE,
   P.BETA_FEEDBACK_VIEW, P.BETA_FEEDBACK_MANAGE,
+  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE,
 ];
 
 const examBodyPermissions: Permission[] = [

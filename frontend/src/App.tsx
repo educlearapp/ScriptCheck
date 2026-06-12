@@ -61,6 +61,11 @@ import ExaminationInvigilatorsPage from "./pages/examinations/ExaminationInvigil
 import ExaminationSeatingPage from "./pages/examinations/ExaminationSeating";
 import ExaminationPacksPage from "./pages/examinations/ExaminationPacks";
 import ExaminationIncidentsPage from "./pages/examinations/ExaminationIncidents";
+import ClassesManagement from "./pages/timetable/ClassesManagement";
+import RoomsManagement from "./pages/timetable/RoomsManagement";
+import TimetableSetup from "./pages/timetable/TimetableSetup";
+import TeacherAssignmentsPage from "./pages/timetable/TeacherAssignments";
+import SubjectRequirementsPage from "./pages/timetable/SubjectRequirements";
 import ModerationEntry from "./pages/moderation/ModerationEntry";
 import SuperAdminPage from "./pages/superAdmin/SuperAdminPage";
 import { PortalAuthProvider } from "./portal/PortalAuthContext";
@@ -193,6 +198,14 @@ function AppRoutes() {
 
             <Route element={<RequirePermission permission="schedule.view" />}>
               <Route path="/schedule" element={<AssessmentSchedule />} />
+            </Route>
+
+            <Route element={<RequirePermission permission="timetable.view" />}>
+              <Route path="/timetable/classes" element={<ClassesManagement />} />
+              <Route path="/timetable/rooms" element={<RoomsManagement />} />
+              <Route path="/timetable/setup" element={<TimetableSetup />} />
+              <Route path="/timetable/teacher-assignments" element={<TeacherAssignmentsPage />} />
+              <Route path="/timetable/subject-requirements" element={<SubjectRequirementsPage />} />
             </Route>
 
             <Route element={<RequirePermission permission="marks.import" />}>

@@ -15,6 +15,11 @@ const ADMIN_LINKS = [
   { to: "/schedule", label: "Assessment Schedule", permission: "schedule.view" as const },
   { to: "/dashboard/examinations", label: "Examination Dashboard", permission: "examinations.view" as const },
   { to: "/examinations/timetable", label: "Exam Timetable", permission: "examinations.view" as const },
+  { to: "/timetable/classes", label: "Classes", permission: "timetable.view" as const },
+  { to: "/timetable/rooms", label: "Rooms", permission: "timetable.view" as const },
+  { to: "/timetable/setup", label: "Timetable Setup", permission: "timetable.view" as const },
+  { to: "/timetable/teacher-assignments", label: "Teacher Assignments", permission: "timetable.view" as const },
+  { to: "/timetable/subject-requirements", label: "Subject Requirements", permission: "timetable.view" as const },
 ];
 
 export default function SettingsPage() {

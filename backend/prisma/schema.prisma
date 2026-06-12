@@ -502,6 +502,12 @@ model Workspace {
   aiAssessmentBuilderRequests  AiAssessmentBuilderRequest[]
   markAdjustments              MarkAdjustmentAudit[]
   betaFeedback                 BetaFeedback[]
+  schoolClasses                SchoolClass[]
+  timetableRooms               TimetableRoom[]
+  schoolDayTemplates           SchoolDayTemplate[]
+  periodDefinitions            PeriodDefinition[]
+  teacherAssignments           TeacherAssignment[]
+  subjectRequirements          SubjectRequirement[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -559,6 +565,7 @@ model User {
   markAdjustmentsMade             MarkAdjustmentAudit[]           @relation("MarkAdjustmentAuthor")
   intelligenceReportsGenerated    AssessmentIntelligenceReport[] @relation("IntelligenceGenerator")
   betaFeedbackSubmitted         BetaFeedback[]                 @relation("BetaFeedbackAuthor")
+  teacherAssignments            TeacherAssignment[]            @relation("TimetableTeacher")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -1234,8 +1241,10 @@ model WorkspaceSubject {
   curriculum     Curriculum  @relation(fields: [curriculumId], references: [id])
   phase          Phase       @relation(fields: [phaseId], references: [id])
   grade          Grade       @relation(fields: [gradeId], references: [id])
-  catalogSubject Subject?    @relation(fields: [catalogSubjectId], references: [id], onDelete: SetNull)
-  createdBy      User        @relation("WorkspaceSubjectCreator", fields: [createdById], references: [id])
+  catalogSubject        Subject?              @relation(fields: [catalogSubjectId], references: [id], onDelete: SetNull)
+  createdBy             User                  @relation("WorkspaceSubjectCreator", fields: [createdById], references: [id])
+  teacherAssignments    TeacherAssignment[]
+  subjectRequirements   SubjectRequirement[]
 
   @@unique([workspaceId, code])
   @@index([workspaceId, active])
@@ -1936,4 +1945,133 @@ model BetaFeedback {
   @@index([workspaceId, createdAt])
   @@index([workspaceId, status])
   @@index([userId])
+}
+
+// ─── School timetable foundation (Phase 1) ────────────────────────────────────
+
+enum TimetableRoomType {
+  CLASSROOM
+  LAB
+  COMPUTER_LAB
+  HALL
+  SPORTS
+  OTHER
+}
+
+enum PeriodType {
+  TEACHING
+  BREAK
+}
+
+model SchoolClass {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  name         String
+  code         String
+  grade        String
+  learnerCount Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teacherAssignments  TeacherAssignment[]
+  subjectRequirements SubjectRequirement[]
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId, active])
+  @@index([workspaceId, grade])
+}
+
+model TimetableRoom {
+  id          String            @id @default(cuid())
+  workspaceId String
+  name        String
+  code        String
+  roomType    TimetableRoomType @default(CLASSROOM)
+  capacity    Int
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, code])
+  @@index([workspaceId, active])
+  @@index([workspaceId, roomType])
+}
+
+model SchoolDayTemplate {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  isDefault   Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  periods   PeriodDefinition[]
+
+  @@index([workspaceId, active])
+  @@index([workspaceId, isDefault])
+}
+
+model PeriodDefinition {
+  id                   String     @id @default(cuid())
+  workspaceId          String
+  dayTemplateId        String
+  periodOrder          Int
+  label                String
+  startTime            String
+  endTime              String
+  periodType           PeriodType @default(TEACHING)
+  doublePeriodCapable  Boolean    @default(false)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dayTemplate SchoolDayTemplate @relation(fields: [dayTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([dayTemplateId, periodOrder])
+  @@index([workspaceId, dayTemplateId])
+}
+
+model TeacherAssignment {
+  id          String   @id @default(cuid())
+  workspaceId String
+  teacherId   String
+  classId     String
+  subjectId   String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  teacher   User             @relation("TimetableTeacher", fields: [teacherId], references: [id])
+  class     SchoolClass      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject   WorkspaceSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, teacherId, classId, subjectId])
+  @@index([workspaceId, active])
+  @@index([workspaceId, classId])
+  @@index([workspaceId, teacherId])
+}
+
+model SubjectRequirement {
+  id                    String   @id @default(cuid())
+  workspaceId           String
+  classId               String
+  subjectId             String
+  periodsPerWeek        Int
+  doublePeriodsRequired Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  class     SchoolClass      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject   WorkspaceSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, classId, subjectId])
+  @@index([workspaceId, classId])
 }
