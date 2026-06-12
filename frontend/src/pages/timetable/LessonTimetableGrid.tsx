@@ -7,6 +7,7 @@ import {
   sortPeriods,
 } from "./timetableUtils";
 import { isRoomIssueClashType } from "./roomIntelligence";
+import { isTeacherWorkloadClashType } from "./teacherWorkload";
 import "./timetable-grid.css";
 
 type Props = {
@@ -74,6 +75,9 @@ export default function LessonTimetableGrid({
                   const hasRoomIssue = cellClashes.some(
                     (c) => c.severity === "WARNING" && isRoomIssueClashType(c.type)
                   );
+                  const hasWorkloadIssue = cellClashes.some(
+                    (c) => c.severity === "WARNING" && isTeacherWorkloadClashType(c.type)
+                  );
 
                   return (
                     <td
@@ -101,6 +105,11 @@ export default function LessonTimetableGrid({
                                 ⚠
                               </span>
                             ) : null}
+                            {hasWorkloadIssue ? (
+                              <span className="tt-workload-warning-badge" title="Teacher workload issue">
+                                W
+                              </span>
+                            ) : null}
                           </div>
                           {showClass ? (
                             <div className="tt-lesson-meta">{entry.schoolClass.code}</div>
@@ -110,6 +119,9 @@ export default function LessonTimetableGrid({
                             {entry.room ? entry.room.code : "No room"}
                             {hasRoomIssue ? (
                               <span className="tt-room-warning-label"> room issue</span>
+                            ) : null}
+                            {hasWorkloadIssue ? (
+                              <span className="tt-workload-warning-label"> workload</span>
                             ) : null}
                           </div>
                           {entry.locked ? (

@@ -4,6 +4,7 @@ import { TimetableError } from "./timetableFoundation";
 import {
   TIMETABLE_INTELLIGENCE_CONFIG,
   checkTeacherAssignmentForEntry,
+  checkWorkloadForLessonEntry,
   evaluateTimetableReadiness,
   type TimetableReadinessResult,
 } from "./timetableReadiness";
@@ -22,7 +23,15 @@ export type TimetableClash = {
     | "OVER_SCHEDULED"
     | "MISSING_ROOM"
     | "ROOM_CAPACITY"
-    | "ROOM_TYPE_MISMATCH";
+    | "ROOM_TYPE_MISMATCH"
+    | "TEACHER_DAILY_OVERLOAD"
+    | "TEACHER_WEEKLY_OVERLOAD"
+    | "TEACHER_CONSECUTIVE"
+    | "TEACHER_HEAVY_DAY"
+    | "TEACHER_UNEVEN_LOAD"
+    | "TEACHER_FIRST_PERIOD"
+    | "TEACHER_LAST_PERIOD"
+    | "TEACHER_UNDERLOAD";
   dayOfWeek: DayOfWeek;
   periodId: string;
   periodLabel: string;
@@ -649,6 +658,13 @@ export async function createLessonEntry(
     throw new TimetableError(assignmentViolation.message, 409);
   }
 
+  const workloadWarnings = await checkWorkloadForLessonEntry(workspaceId, timetableId, {
+    dayOfWeek: input.dayOfWeek,
+    periodId: input.periodId,
+    teacherUserId: input.teacherUserId,
+    isDoublePeriod: input.isDoublePeriod ?? false,
+  });
+
   const row = await prisma.lessonEntry.create({
     data: {
       workspaceId,
@@ -668,6 +684,7 @@ export async function createLessonEntry(
   return {
     ...serializeLessonEntry(row),
     teacherAssignmentWarning: assignmentViolation?.message ?? null,
+    workloadWarnings,
   };
 }
 
@@ -726,6 +743,14 @@ export async function updateLessonEntry(
     throw new TimetableError(assignmentViolation.message, 409);
   }
 
+  const workloadWarnings = await checkWorkloadForLessonEntry(workspaceId, timetableId, {
+    dayOfWeek: input.dayOfWeek ?? existing.dayOfWeek,
+    periodId: input.periodId ?? existing.periodId,
+    teacherUserId: nextTeacherId,
+    isDoublePeriod: input.isDoublePeriod ?? existing.isDoublePeriod,
+    excludeEntryId: id,
+  });
+
   const row = await prisma.lessonEntry.update({
     where: { id },
     data: {
@@ -744,6 +769,7 @@ export async function updateLessonEntry(
   return {
     ...serializeLessonEntry(row),
     teacherAssignmentWarning: assignmentViolation?.message ?? null,
+    workloadWarnings,
   };
 }
 

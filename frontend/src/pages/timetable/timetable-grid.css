@@ -100,6 +100,21 @@
   font-size: 0.7rem;
 }
 
+.tt-workload-warning-badge {
+  margin-left: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  border-radius: 3px;
+  padding: 0 0.2rem;
+}
+
+.tt-workload-warning-label {
+  color: #a78bfa;
+  font-size: 0.7rem;
+}
+
 .tt-room-hint {
   font-size: 0.75rem;
   color: var(--sc-text-muted, #9ca3af);

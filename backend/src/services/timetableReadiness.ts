@@ -8,6 +8,13 @@ import {
   type RoomIntelligenceSummary,
   type RoomUtilisationItem,
 } from "./roomIntelligence";
+import {
+  analyzeTeacherWorkload,
+  buildTeacherWorkloadWarnings,
+  checkEntryWorkloadImpact,
+  type TeacherWorkloadResult,
+  type TeacherWorkloadSummary,
+} from "./teacherWorkload";
 
 export const lessonEntryInclude = {
   period: {
@@ -37,6 +44,10 @@ export const TIMETABLE_INTELLIGENCE_CONFIG = {
     publishMode: "warn" as "warn" | "block",
   },
   roomType: {
+    draftMode: "warn" as "warn" | "block",
+    publishMode: "warn" as "warn" | "block",
+  },
+  teacherWorkload: {
     draftMode: "warn" as "warn" | "block",
     publishMode: "warn" as "warn" | "block",
   },
@@ -88,12 +99,16 @@ export type ReadinessSummary = {
   roomTypeMismatchCount: number;
   teacherAssignmentViolationCount: number;
   incompleteSubjectCount: number;
+  teacherWorkloadWarningCount: number;
+  overloadedTeacherCount: number;
 };
 
 export type RoomIntelligenceResult = {
   summary: RoomIntelligenceSummary;
   utilisation: RoomUtilisationItem[];
 };
+
+export type { TeacherWorkloadResult, TeacherWorkloadSummary };
 
 export type TimetableReadinessResult = {
   canPublish: boolean;
@@ -105,6 +120,7 @@ export type TimetableReadinessResult = {
   teacherAssignmentViolations: TeacherAssignmentViolation[];
   readinessSummary: ReadinessSummary;
   roomIntelligence: RoomIntelligenceResult;
+  teacherWorkload: TeacherWorkloadResult;
   blockingReasons: string[];
 };
 
@@ -323,11 +339,14 @@ export async function evaluateTimetableReadiness(
     classLearnerCounts,
     roomsById
   );
+  const teacherWorkloadWarnings = buildTeacherWorkloadWarnings(entries, periods);
+  const teacherWorkload = analyzeTeacherWorkload(entries, periods);
   const warnings = [
     ...clashResult.warnings,
     ...coverageWarnings,
     ...missingRoomWarnings,
     ...roomIntelligenceWarnings,
+    ...teacherWorkloadWarnings,
   ];
 
   const roomIntelligenceSummary = summarizeRoomIntelligence(entries, [
@@ -418,6 +437,8 @@ export async function evaluateTimetableReadiness(
     roomTypeMismatchCount: roomIntelligenceSummary.roomTypeMismatchCount,
     teacherAssignmentViolationCount: teacherAssignmentViolations.length,
     incompleteSubjectCount,
+    teacherWorkloadWarningCount: teacherWorkloadWarnings.length,
+    overloadedTeacherCount: teacherWorkload.summary.overloadedTeacherCount,
   };
 
   return {
@@ -433,8 +454,34 @@ export async function evaluateTimetableReadiness(
       summary: roomIntelligenceSummary,
       utilisation: roomUtilisation,
     },
+    teacherWorkload,
     blockingReasons,
   };
+}
+
+export async function checkWorkloadForLessonEntry(
+  workspaceId: string,
+  timetableId: string,
+  proposed: {
+    dayOfWeek: DayOfWeek;
+    periodId: string;
+    teacherUserId: string;
+    isDoublePeriod: boolean;
+    excludeEntryId?: string;
+  }
+): Promise<string[]> {
+  const ctx = await loadTimetableIntelligenceContext(workspaceId, timetableId);
+  if (!ctx) return [];
+
+  const periods = ctx.timetable.template.periods.map((p) => ({
+    id: p.id,
+    periodOrder: p.periodOrder,
+    label: p.label,
+    periodType: p.periodType,
+    doublePeriodCapable: p.doublePeriodCapable,
+  }));
+
+  return checkEntryWorkloadImpact(ctx.entries, periods, proposed);
 }
 
 export async function checkTeacherAssignmentForEntry(

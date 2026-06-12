@@ -2287,7 +2287,15 @@ export type TimetableClash = {
     | "OVER_SCHEDULED"
     | "MISSING_ROOM"
     | "ROOM_CAPACITY"
-    | "ROOM_TYPE_MISMATCH";
+    | "ROOM_TYPE_MISMATCH"
+    | "TEACHER_DAILY_OVERLOAD"
+    | "TEACHER_WEEKLY_OVERLOAD"
+    | "TEACHER_CONSECUTIVE"
+    | "TEACHER_HEAVY_DAY"
+    | "TEACHER_UNEVEN_LOAD"
+    | "TEACHER_FIRST_PERIOD"
+    | "TEACHER_LAST_PERIOD"
+    | "TEACHER_UNDERLOAD";
   dayOfWeek: DayOfWeek;
   periodId: string;
   periodLabel: string;
@@ -2347,6 +2355,45 @@ export type RoomIntelligenceResult = {
   utilisation: RoomUtilisationItem[];
 };
 
+export type TeacherDayLoad = {
+  dayOfWeek: DayOfWeek;
+  periods: number;
+  maxConsecutive: number;
+  freePeriods: number;
+};
+
+export type TeacherWorkloadItem = {
+  teacherUserId: string;
+  teacherName: string;
+  totalPeriodsPerWeek: number;
+  periodsPerDay: Record<DayOfWeek, number>;
+  maxConsecutivePeriods: number;
+  maxConsecutiveByDay: Partial<Record<DayOfWeek, number>>;
+  freePeriodsPerDay: Record<DayOfWeek, number>;
+  averagePeriodsPerDay: number;
+  isOverloadedWeekly: boolean;
+  isUnderloaded: boolean;
+  hasUnevenLoad: boolean;
+  overloadedDays: DayOfWeek[];
+  heavyDays: DayOfWeek[];
+  warningCount: number;
+};
+
+export type TeacherWorkloadSummary = {
+  overloadedTeacherCount: number;
+  consecutiveWarningCount: number;
+  heavyDayWarningCount: number;
+  unevenLoadCount: number;
+  weeklyOverloadCount: number;
+  underloadCount: number;
+  totalWarnings: number;
+};
+
+export type TeacherWorkloadResult = {
+  summary: TeacherWorkloadSummary;
+  teachers: TeacherWorkloadItem[];
+};
+
 export type TimetableReadinessSummary = {
   totalClasses: number;
   classesWithCompleteRequirements: number;
@@ -2362,6 +2409,8 @@ export type TimetableReadinessSummary = {
   roomTypeMismatchCount: number;
   teacherAssignmentViolationCount: number;
   incompleteSubjectCount: number;
+  teacherWorkloadWarningCount?: number;
+  overloadedTeacherCount?: number;
 };
 
 export type TimetableReadiness = {
@@ -2374,6 +2423,7 @@ export type TimetableReadiness = {
   teacherAssignmentViolations: TeacherAssignmentViolation[];
   readinessSummary: TimetableReadinessSummary;
   roomIntelligence?: RoomIntelligenceResult;
+  teacherWorkload?: TeacherWorkloadResult;
   blockingReasons: string[];
 };
 

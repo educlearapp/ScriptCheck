@@ -10,6 +10,7 @@ import {
   type TimetableReadinessResult,
 } from "./timetableReadiness";
 import { scoreRoomPlacement, type RoomInfo } from "./roomIntelligence";
+import { scoreTeacherWorkloadPlacement } from "./teacherWorkload";
 
 export type UnplacedRequirement = {
   classId: string;
@@ -86,12 +87,23 @@ class OccupancyTracker {
   private roomSlots = new Set<string>();
   private classSubjectBySlot = new Map<string, string>();
   private teacherDayCount = new Map<string, number>();
+  private teacherWeekCount = new Map<string, number>();
+  private teacherDayPeriodIds = new Map<string, Set<string>>();
   private subjectDayCount = new Map<string, number>();
+  private teachingPeriods: PeriodInfo[] = [];
+  private firstTeachingId: string | null = null;
+  private lastTeachingId: string | null = null;
 
   constructor(
     existingEntries: EntryRow[],
-    nextById: Map<string, PeriodInfo | null>
+    nextById: Map<string, PeriodInfo | null>,
+    teachingPeriods: PeriodInfo[]
   ) {
+    this.teachingPeriods = teachingPeriods;
+    if (teachingPeriods.length > 0) {
+      this.firstTeachingId = teachingPeriods[0].id;
+      this.lastTeachingId = teachingPeriods[teachingPeriods.length - 1].id;
+    }
     for (const entry of existingEntries) {
       this.occupyEntry(entry, nextById);
     }
@@ -124,7 +136,20 @@ class OccupancyTracker {
       );
     }
     const dayKey = `${entry.dayOfWeek}:${entry.teacherUserId}`;
-    this.teacherDayCount.set(dayKey, (this.teacherDayCount.get(dayKey) ?? 0) + 1);
+    this.teacherDayCount.set(
+      dayKey,
+      (this.teacherDayCount.get(dayKey) ?? 0) + slots.length
+    );
+    this.teacherWeekCount.set(
+      entry.teacherUserId,
+      (this.teacherWeekCount.get(entry.teacherUserId) ?? 0) + slots.length
+    );
+    const dayPeriodKey = dayKey;
+    const periodSet = this.teacherDayPeriodIds.get(dayPeriodKey) ?? new Set<string>();
+    for (const slot of slots) {
+      periodSet.add(slot.periodId);
+    }
+    this.teacherDayPeriodIds.set(dayPeriodKey, periodSet);
     const subjectDayKey = `${entry.dayOfWeek}:${entry.schoolClassId}:${entry.subjectId}`;
     this.subjectDayCount.set(
       subjectDayKey,
@@ -206,8 +231,23 @@ class OccupancyTracker {
     let score = roomScore;
 
     const teacherDayKey = `${day}:${teacherId}`;
-    const teacherLoad = this.teacherDayCount.get(teacherDayKey) ?? 0;
-    score -= teacherLoad * 10;
+    const teacherDayLoad = this.teacherDayCount.get(teacherDayKey) ?? 0;
+    const teacherWeekLoad = this.teacherWeekCount.get(teacherId) ?? 0;
+    const dayOccupied = this.teacherDayPeriodIds.get(teacherDayKey) ?? new Set<string>();
+
+    score += scoreTeacherWorkloadPlacement({
+      day,
+      periodId,
+      teacherId,
+      isDouble,
+      teacherDayCount: teacherDayLoad,
+      teacherWeekCount: teacherWeekLoad,
+      dayOccupiedPeriodIds: dayOccupied,
+      teachingPeriods: this.teachingPeriods,
+      nextById,
+      firstTeachingId: this.firstTeachingId,
+      lastTeachingId: this.lastTeachingId,
+    });
 
     const subjectDayKey = `${day}:${classId}:${subjectId}`;
     const subjectOnDay = this.subjectDayCount.get(subjectDayKey) ?? 0;
@@ -235,9 +275,6 @@ class OccupancyTracker {
         if (nextSubject === subjectId) score -= 15;
       }
     }
-
-    const dayIndex = DAY_ORDER.indexOf(day);
-    score -= dayIndex;
 
     return score;
   }
@@ -536,7 +573,7 @@ export async function generateLessonTimetable(
   });
   const roomIds = rooms.map((r) => r.id);
 
-  const occupancy = new OccupancyTracker(entries, nextById);
+  const occupancy = new OccupancyTracker(entries, nextById, teachingPeriods);
   const initialCoverage = computeRequirementCoverage(requirements, entries);
   const { tasks, warnings: preWarnings } = buildPlacementTasks(
     initialCoverage,

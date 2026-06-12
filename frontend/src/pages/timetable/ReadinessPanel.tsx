@@ -1,6 +1,7 @@
 import type { RequirementCoverageItem, TimetableClash, TimetableReadiness } from "../../types";
 import { ClashPanel } from "./LessonTimetableGrid";
 import { isRoomIssueClashType } from "./roomIntelligence";
+import { formatDayLoads, isTeacherWorkloadClashType, TEACHER_WORKLOAD_CONFIG } from "./teacherWorkload";
 import "./timetable-grid.css";
 
 function statusClass(status: RequirementCoverageItem["status"]) {
@@ -33,6 +34,8 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
 
   const roomWarnings = readiness.warnings.filter((w) => isRoomIssueClashType(w.type));
   const roomIntel = readiness.roomIntelligence;
+  const teacherWorkload = readiness.teacherWorkload;
+  const workloadWarnings = readiness.warnings.filter((w) => isTeacherWorkloadClashType(w.type));
 
   return (
     <div style={{ marginTop: "1rem" }}>
@@ -97,6 +100,16 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
             warn={s.teacherAssignmentViolationCount > 0}
           />
           <Metric label="Incomplete subjects" value={s.incompleteSubjectCount} warn={s.incompleteSubjectCount > 0} />
+          <Metric
+            label="Workload warnings"
+            value={s.teacherWorkloadWarningCount ?? 0}
+            warn={(s.teacherWorkloadWarningCount ?? 0) > 0}
+          />
+          <Metric
+            label="Overloaded teachers"
+            value={s.overloadedTeacherCount ?? 0}
+            warn={(s.overloadedTeacherCount ?? 0) > 0}
+          />
         </div>
       </div>
 
@@ -172,6 +185,130 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
         </div>
       ) : null}
 
+      {teacherWorkload || workloadWarnings.length > 0 ? (
+        <div className="sc-card" style={{ marginTop: "1rem", padding: "1.25rem" }}>
+          <h3 style={{ marginTop: 0 }}>Teacher workload</h3>
+          {teacherWorkload ? (
+            <div
+              className="sc-form-grid"
+              style={{
+                marginBottom: "1rem",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: "0.75rem",
+              }}
+            >
+              <Metric
+                label="Overloaded"
+                value={teacherWorkload.summary.overloadedTeacherCount}
+                warn={teacherWorkload.summary.overloadedTeacherCount > 0}
+              />
+              <Metric
+                label="Consecutive issues"
+                value={teacherWorkload.summary.consecutiveWarningCount}
+                warn={teacherWorkload.summary.consecutiveWarningCount > 0}
+              />
+              <Metric
+                label="Heavy days"
+                value={teacherWorkload.summary.heavyDayWarningCount}
+                warn={teacherWorkload.summary.heavyDayWarningCount > 0}
+              />
+              <Metric
+                label="Uneven load"
+                value={teacherWorkload.summary.unevenLoadCount}
+                warn={teacherWorkload.summary.unevenLoadCount > 0}
+              />
+              <Metric
+                label="Weekly overload"
+                value={teacherWorkload.summary.weeklyOverloadCount}
+                warn={teacherWorkload.summary.weeklyOverloadCount > 0}
+              />
+              <Metric
+                label="Underloaded"
+                value={teacherWorkload.summary.underloadCount}
+                warn={false}
+              />
+            </div>
+          ) : null}
+
+          {workloadWarnings.length > 0 ? (
+            <div className="tt-clash-panel" style={{ padding: 0, margin: "0 0 1rem" }}>
+              {workloadWarnings.slice(0, 12).map((w, i) => (
+                <WorkloadWarningItem key={`${w.entryId}-${w.type}-${i}`} warning={w} />
+              ))}
+              {workloadWarnings.length > 12 ? (
+                <p style={{ margin: "0.5rem 0 0", fontSize: "0.85rem", color: "var(--sc-text-muted)" }}>
+                  + {workloadWarnings.length - 12} more workload warning(s)
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p style={{ margin: "0 0 1rem", color: "var(--sc-text-muted)", fontSize: "0.9rem" }}>
+              No teacher workload issues detected.
+            </p>
+          )}
+
+          {teacherWorkload && teacherWorkload.teachers.length > 0 ? (
+            <details>
+              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: "0.9rem" }}>
+                Teacher workload summary
+              </summary>
+              <div className="tt-table-wrap" style={{ marginTop: "0.75rem", overflowX: "auto" }}>
+                <table className="sc-table">
+                  <thead>
+                    <tr>
+                      <th>Teacher</th>
+                      <th>Week</th>
+                      <th>Max consec.</th>
+                      <th>Daily load</th>
+                      <th>Flags</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teacherWorkload.teachers.map((t) => (
+                      <tr
+                        key={t.teacherUserId}
+                        style={t.warningCount > 0 ? { background: "rgba(245, 158, 11, 0.06)" } : undefined}
+                      >
+                        <td>{t.teacherName}</td>
+                        <td>{t.totalPeriodsPerWeek}</td>
+                        <td>{t.maxConsecutivePeriods}</td>
+                        <td style={{ fontSize: "0.8rem" }}>{formatDayLoads(t.periodsPerDay)}</td>
+                        <td>
+                          {t.isOverloadedWeekly ? (
+                            <span className="sc-badge sc-badge-warning" style={{ marginRight: "0.25rem" }}>
+                              weekly
+                            </span>
+                          ) : null}
+                          {t.overloadedDays.length > 0 ? (
+                            <span className="sc-badge sc-badge-danger" style={{ marginRight: "0.25rem" }}>
+                              daily
+                            </span>
+                          ) : null}
+                          {t.maxConsecutivePeriods > TEACHER_WORKLOAD_CONFIG.maxConsecutivePeriods ? (
+                            <span className="sc-badge sc-badge-warning" style={{ marginRight: "0.25rem" }}>
+                              consecutive
+                            </span>
+                          ) : null}
+                          {t.hasUnevenLoad ? (
+                            <span className="sc-badge sc-badge-warning" style={{ marginRight: "0.25rem" }}>
+                              uneven
+                            </span>
+                          ) : null}
+                          {t.isUnderloaded ? (
+                            <span className="sc-badge sc-badge-muted">under</span>
+                          ) : null}
+                          {t.warningCount === 0 ? "—" : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ) : null}
+        </div>
+      ) : null}
+
       {readiness.teacherAssignmentViolations.length > 0 ? (
         <div className="sc-card tt-clash-panel">
           <h3 style={{ marginTop: 0 }}>Teacher assignment violations</h3>
@@ -186,10 +323,14 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
       <ClashPanel
         validation={{
           ...readiness,
-          warnings: readiness.warnings.filter((w) => !isRoomIssueClashType(w.type)),
+          warnings: readiness.warnings.filter(
+            (w) => !isRoomIssueClashType(w.type) && !isTeacherWorkloadClashType(w.type)
+          ),
           valid:
             readiness.valid &&
-            readiness.warnings.filter((w) => !isRoomIssueClashType(w.type)).length === 0 &&
+            readiness.warnings.filter(
+              (w) => !isRoomIssueClashType(w.type) && !isTeacherWorkloadClashType(w.type)
+            ).length === 0 &&
             readiness.hardClashes.length === 0,
         }}
       />
@@ -244,6 +385,14 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function WorkloadWarningItem({ warning }: { warning: TimetableClash }) {
+  return (
+    <div className="tt-clash-item" style={{ color: "#f59e0b" }}>
+      <strong>Workload — {warning.type.replace(/_/g, " ")}:</strong> {warning.message}
     </div>
   );
 }

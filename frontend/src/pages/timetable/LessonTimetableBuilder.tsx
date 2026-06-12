@@ -19,6 +19,7 @@ import type {
 import LessonTimetableGrid from "./LessonTimetableGrid";
 import ReadinessPanel from "./ReadinessPanel";
 import { formatRoomType, getPreferredRoomType, getRoomSelectionWarnings } from "./roomIntelligence";
+import { getTeacherSelectionWorkloadWarnings } from "./teacherWorkload";
 import "./timetable-grid.css";
 
 type CellSelection = {
@@ -49,6 +50,7 @@ export default function LessonTimetableBuilder() {
   const [generating, setGenerating] = useState(false);
   const [generateResult, setGenerateResult] = useState<TimetableGenerateResult | null>(null);
   const [cell, setCell] = useState<CellSelection | null>(null);
+  const [teacherEntriesForWorkload, setTeacherEntriesForWorkload] = useState<LessonEntry[]>([]);
   const [form, setForm] = useState({
     subjectId: "",
     teacherUserId: "",
@@ -123,6 +125,18 @@ export default function LessonTimetableBuilder() {
     loadReadiness();
   }, [loadReadiness, entries.length]);
 
+  useEffect(() => {
+    if (!id || !cell || !form.teacherUserId) {
+      setTeacherEntriesForWorkload([]);
+      return;
+    }
+    apiFetch<LessonEntry[]>(
+      `/timetable/lessons/${id}/entries?teacherUserId=${form.teacherUserId}`
+    )
+      .then(setTeacherEntriesForWorkload)
+      .catch(() => setTeacherEntriesForWorkload([]));
+  }, [id, cell, form.teacherUserId]);
+
   const openCell = (day: DayOfWeek, period: PeriodDefinition, entry?: LessonEntry) => {
     if (readonly) return;
     setCell({ day, period, entry });
@@ -178,6 +192,19 @@ export default function LessonTimetableBuilder() {
 
   const preferredRoomType = selectedSubject ? getPreferredRoomType(selectedSubject) : null;
 
+  const teacherWorkloadWarnings =
+    cell && form.teacherUserId && timetable
+      ? getTeacherSelectionWorkloadWarnings({
+          periods: timetable.template.periods,
+          teacherEntries: teacherEntriesForWorkload,
+          dayOfWeek: cell.day,
+          periodId: cell.period.id,
+          teacherUserId: form.teacherUserId,
+          isDoublePeriod: form.isDoublePeriod,
+          excludeEntryId: cell.entry?.id,
+        })
+      : [];
+
   const teacherAssignmentWarning = (() => {
     if (!form.teacherUserId || !form.subjectId || !selectedClassId) return "";
     const key = `${form.teacherUserId}:${selectedClassId}:${form.subjectId}`;
@@ -209,7 +236,10 @@ export default function LessonTimetableBuilder() {
         notes: form.notes || null,
       };
 
-      type SaveResult = { teacherAssignmentWarning?: string | null };
+      type SaveResult = {
+        teacherAssignmentWarning?: string | null;
+        workloadWarnings?: string[];
+      };
       let result: SaveResult;
       if (cell.entry) {
         result = await apiFetch<SaveResult>(`/timetable/lessons/${id}/entries/${cell.entry.id}`, {
@@ -222,8 +252,12 @@ export default function LessonTimetableBuilder() {
           body: JSON.stringify(payload),
         });
       }
-      if (result.teacherAssignmentWarning) {
-        setSaveWarning(result.teacherAssignmentWarning);
+      const warnings = [
+        result.teacherAssignmentWarning,
+        ...(result.workloadWarnings ?? []),
+      ].filter(Boolean) as string[];
+      if (warnings.length > 0) {
+        setSaveWarning(warnings.join(" "));
       } else {
         setCell(null);
       }
@@ -559,6 +593,17 @@ export default function LessonTimetableBuilder() {
             {teacherAssignmentWarning ? (
               <div className="sc-alert sc-alert-warning" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
                 {teacherAssignmentWarning}
+              </div>
+            ) : null}
+
+            {teacherWorkloadWarnings.length > 0 ? (
+              <div className="sc-alert sc-alert-warning" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
+                {teacherWorkloadWarnings.map((warning) => (
+                  <div key={warning}>{warning}</div>
+                ))}
+                <div style={{ marginTop: "0.35rem", fontSize: "0.8rem" }}>
+                  Workload issues are warnings only — you can still save in draft.
+                </div>
               </div>
             ) : null}
 
