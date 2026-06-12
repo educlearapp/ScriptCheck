@@ -80,6 +80,7 @@ export const PERMISSION_DEFINITIONS = {
   "marks.audit": { category: "marks", label: "View mark audit trail" },
   "timetable.view": { category: "timetable", label: "View school timetable setup" },
   "timetable.manage": { category: "timetable", label: "Manage school timetable setup" },
+  "timetable.publish": { category: "timetable", label: "Publish school timetables" },
 } as const;
 
 export type Permission = keyof typeof PERMISSION_DEFINITIONS;
@@ -168,6 +169,7 @@ export const P = {
   MARKS_AUDIT: "marks.audit",
   TIMETABLE_VIEW: "timetable.view",
   TIMETABLE_MANAGE: "timetable.manage",
+  TIMETABLE_PUBLISH: "timetable.publish",
 } as const satisfies Record<string, Permission>;
 
 const teacherPermissions: Permission[] = [
@@ -192,7 +194,7 @@ const hodPermissions: Permission[] = [
   P.PAPER_VAULT_LOCK, P.CONCESSIONS_MANAGE, P.WORKFLOW_TRANSITION,
   P.MODERATION_REQUEST_APPROVAL, P.MARKS_AUDIT, P.INTELLIGENCE_GENERATE,
   P.BETA_FEEDBACK_VIEW, P.BETA_FEEDBACK_MANAGE,
-  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE,
+  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE, P.TIMETABLE_PUBLISH,
 ];
 
 const moderatorPermissions: Permission[] = [
@@ -224,7 +226,7 @@ const principalPermissions: Permission[] = [
   P.EXAMINATIONS_MANAGE, P.EXAM_SESSION_MANAGE,
   P.PAPER_VAULT_RELEASE, P.PAPER_VAULT_ARCHIVE, P.EXPORT_ASSESSMENT_PACK,
   P.WORKFLOW_CONFIGURE, P.BETA_FEEDBACK_VIEW, P.BETA_FEEDBACK_MANAGE,
-  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE,
+  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE, P.TIMETABLE_PUBLISH,
 ];
 
 const schoolAdminPermissions: Permission[] = [
@@ -245,7 +247,7 @@ const schoolAdminPermissions: Permission[] = [
   P.SUBSCRIPTION_MANAGE, P.WORKFLOW_CONFIGURE, P.EXPORT_ASSESSMENT_PACK,
   P.INTELLIGENCE_VIEW, P.INTELLIGENCE_GENERATE,
   P.BETA_FEEDBACK_VIEW, P.BETA_FEEDBACK_MANAGE,
-  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE,
+  P.TIMETABLE_VIEW, P.TIMETABLE_MANAGE, P.TIMETABLE_PUBLISH,
 ];
 
 const examBodyPermissions: Permission[] = [

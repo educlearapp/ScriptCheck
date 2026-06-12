@@ -508,6 +508,8 @@ model Workspace {
   periodDefinitions            PeriodDefinition[]
   teacherAssignments           TeacherAssignment[]
   subjectRequirements          SubjectRequirement[]
+  lessonTimetables             LessonTimetable[]
+  lessonEntries                LessonEntry[]
 }
 
 // ─── User (global identity — no workspace or role on the record itself) ───────
@@ -566,6 +568,8 @@ model User {
   intelligenceReportsGenerated    AssessmentIntelligenceReport[] @relation("IntelligenceGenerator")
   betaFeedbackSubmitted         BetaFeedback[]                 @relation("BetaFeedbackAuthor")
   teacherAssignments            TeacherAssignment[]            @relation("TimetableTeacher")
+  lessonTimetablesPublished     LessonTimetable[]              @relation("LessonTimetablePublisher")
+  lessonEntriesTaught           LessonEntry[]                  @relation("LessonEntryTeacher")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
@@ -1245,6 +1249,7 @@ model WorkspaceSubject {
   createdBy             User                  @relation("WorkspaceSubjectCreator", fields: [createdById], references: [id])
   teacherAssignments    TeacherAssignment[]
   subjectRequirements   SubjectRequirement[]
+  lessonEntries         LessonEntry[]
 
   @@unique([workspaceId, code])
   @@index([workspaceId, active])
@@ -1977,6 +1982,7 @@ model SchoolClass {
   workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   teacherAssignments  TeacherAssignment[]
   subjectRequirements SubjectRequirement[]
+  lessonEntries       LessonEntry[]
 
   @@unique([workspaceId, code])
   @@index([workspaceId, active])
@@ -1994,7 +2000,8 @@ model TimetableRoom {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lessonEntries LessonEntry[]
 
   @@unique([workspaceId, code])
   @@index([workspaceId, active])
@@ -2010,8 +2017,9 @@ model SchoolDayTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  periods   PeriodDefinition[]
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  periods          PeriodDefinition[]
+  lessonTimetables LessonTimetable[]
 
   @@index([workspaceId, active])
   @@index([workspaceId, isDefault])
@@ -2030,8 +2038,9 @@ model PeriodDefinition {
   createdAt            DateTime   @default(now())
   updatedAt            DateTime   @updatedAt
 
-  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  dayTemplate SchoolDayTemplate @relation(fields: [dayTemplateId], references: [id], onDelete: Cascade)
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dayTemplate   SchoolDayTemplate @relation(fields: [dayTemplateId], references: [id], onDelete: Cascade)
+  lessonEntries LessonEntry[]
 
   @@unique([dayTemplateId, periodOrder])
   @@index([workspaceId, dayTemplateId])
@@ -2074,4 +2083,74 @@ model SubjectRequirement {
 
   @@unique([workspaceId, classId, subjectId])
   @@index([workspaceId, classId])
+}
+
+// ─── School lesson timetable builder (Phase 2) ────────────────────────────────
+
+enum LessonTimetableStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+}
+
+model LessonTimetable {
+  id            String                @id @default(cuid())
+  workspaceId   String
+  title         String
+  academicYear  String
+  term          String
+  status        LessonTimetableStatus @default(DRAFT)
+  templateId    String
+  publishedAt   DateTime?
+  publishedById String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  template    SchoolDayTemplate @relation(fields: [templateId], references: [id])
+  publishedBy User?             @relation("LessonTimetablePublisher", fields: [publishedById], references: [id])
+  entries     LessonEntry[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, academicYear, term])
+}
+
+model LessonEntry {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  timetableId    String
+  dayOfWeek      DayOfWeek
+  periodId       String
+  schoolClassId  String
+  subjectId      String
+  teacherUserId  String
+  roomId         String?
+  isDoublePeriod Boolean   @default(false)
+  locked         Boolean   @default(false)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  timetable   LessonTimetable  @relation(fields: [timetableId], references: [id], onDelete: Cascade)
+  period      PeriodDefinition @relation(fields: [periodId], references: [id])
+  schoolClass SchoolClass      @relation(fields: [schoolClassId], references: [id], onDelete: Cascade)
+  subject     WorkspaceSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher     User             @relation("LessonEntryTeacher", fields: [teacherUserId], references: [id])
+  room        TimetableRoom?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@unique([timetableId, dayOfWeek, periodId, schoolClassId])
+  @@index([workspaceId, timetableId])
+  @@index([timetableId, dayOfWeek, periodId])
+  @@index([timetableId, teacherUserId])
+  @@index([timetableId, roomId])
+  @@index([timetableId, schoolClassId])
 }

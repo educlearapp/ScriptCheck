@@ -66,6 +66,11 @@ import RoomsManagement from "./pages/timetable/RoomsManagement";
 import TimetableSetup from "./pages/timetable/TimetableSetup";
 import TeacherAssignmentsPage from "./pages/timetable/TeacherAssignments";
 import SubjectRequirementsPage from "./pages/timetable/SubjectRequirements";
+import LessonTimetableList from "./pages/timetable/LessonTimetableList";
+import LessonTimetableBuilder from "./pages/timetable/LessonTimetableBuilder";
+import ClassTimetableView from "./pages/timetable/ClassTimetableView";
+import TeacherTimetableView from "./pages/timetable/TeacherTimetableView";
+import RoomTimetableView from "./pages/timetable/RoomTimetableView";
 import ModerationEntry from "./pages/moderation/ModerationEntry";
 import SuperAdminPage from "./pages/superAdmin/SuperAdminPage";
 import { PortalAuthProvider } from "./portal/PortalAuthContext";
@@ -206,6 +211,11 @@ function AppRoutes() {
               <Route path="/timetable/setup" element={<TimetableSetup />} />
               <Route path="/timetable/teacher-assignments" element={<TeacherAssignmentsPage />} />
               <Route path="/timetable/subject-requirements" element={<SubjectRequirementsPage />} />
+              <Route path="/timetable/lessons" element={<LessonTimetableList />} />
+              <Route path="/timetable/lessons/:id/builder" element={<LessonTimetableBuilder />} />
+              <Route path="/timetable/lessons/:id/view/class/:classId" element={<ClassTimetableView />} />
+              <Route path="/timetable/lessons/:id/view/teacher/:teacherId" element={<TeacherTimetableView />} />
+              <Route path="/timetable/lessons/:id/view/room/:roomId" element={<RoomTimetableView />} />
             </Route>
 
             <Route element={<RequirePermission permission="marks.import" />}>

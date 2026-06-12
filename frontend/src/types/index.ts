@@ -91,7 +91,8 @@ export type Permission =
   | "concessions.manage"
   | "marks.import"
   | "timetable.view"
-  | "timetable.manage";
+  | "timetable.manage"
+  | "timetable.publish";
 
 export type AuthUser = {
   id: string;
@@ -2224,4 +2225,72 @@ export type WorkspaceUser = {
   isActive: boolean;
   roles: WorkspaceRole[];
   membershipActive: boolean;
+};
+
+export type LessonTimetableStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export type DayOfWeek =
+  | "MONDAY"
+  | "TUESDAY"
+  | "WEDNESDAY"
+  | "THURSDAY"
+  | "FRIDAY";
+
+export type LessonTimetable = {
+  id: string;
+  title: string;
+  academicYear: string;
+  term: string;
+  status: LessonTimetableStatus;
+  templateId: string;
+  template: {
+    id: string;
+    name: string;
+    isDefault: boolean;
+    periods: PeriodDefinition[];
+  };
+  publishedAt: string | null;
+  publishedBy: { id: string; fullName: string } | null;
+  entryCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LessonEntry = {
+  id: string;
+  timetableId: string;
+  dayOfWeek: DayOfWeek;
+  periodId: string;
+  period: PeriodDefinition;
+  schoolClassId: string;
+  schoolClass: { id: string; name: string; code: string; grade: string };
+  subjectId: string;
+  subject: { id: string; name: string; code: string };
+  teacherUserId: string;
+  teacher: { id: string; fullName: string; email: string };
+  roomId: string | null;
+  room: { id: string; name: string; code: string } | null;
+  isDoublePeriod: boolean;
+  locked: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TimetableClash = {
+  severity: "HARD" | "WARNING";
+  type: "TEACHER" | "ROOM" | "CLASS" | "DOUBLE_PERIOD";
+  dayOfWeek: DayOfWeek;
+  periodId: string;
+  periodLabel: string;
+  entryId: string;
+  conflictingEntryId: string;
+  message: string;
+};
+
+export type TimetableValidation = {
+  valid: boolean;
+  hardClashes: TimetableClash[];
+  warnings: TimetableClash[];
+  clashCount: number;
 };

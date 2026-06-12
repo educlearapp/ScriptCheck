@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { TimetableRoomType } from "@prisma/client";
+import { LessonTimetableStatus, TimetableRoomType } from "@prisma/client";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
 import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
@@ -26,6 +26,20 @@ import {
   updateTeacherAssignment,
   updateTimetableRoom,
 } from "../services/timetableFoundation";
+import {
+  archiveLessonTimetable,
+  createLessonEntry,
+  createLessonTimetable,
+  deleteLessonEntry,
+  getLessonTimetable,
+  listLessonEntries,
+  listLessonTimetables,
+  parseDayOfWeek,
+  publishLessonTimetable,
+  updateLessonEntry,
+  updateLessonTimetable,
+  validateLessonTimetable,
+} from "../services/lessonTimetable";
 
 const router = Router();
 
@@ -456,6 +470,248 @@ router.patch(
         }
       );
       return res.json(requirement);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+// ─── Lesson timetables (Phase 2) ──────────────────────────────────────────────
+
+router.get(
+  "/lessons",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const status = req.query.status
+        ? (String(req.query.status).toUpperCase() as LessonTimetableStatus)
+        : undefined;
+      const timetables = await listLessonTimetables(req.auth!.workspaceId, { status });
+      return res.json(timetables);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/lessons",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_MANAGE),
+  async (req: AuthenticatedRequest, res) => {
+    const body = req.body ?? {};
+    if (!body.title || !body.academicYear || !body.term || !body.templateId) {
+      return res.status(400).json({
+        error: "title, academicYear, term, and templateId are required",
+      });
+    }
+    try {
+      const timetable = await createLessonTimetable(req.auth!.workspaceId, {
+        title: String(body.title),
+        academicYear: String(body.academicYear),
+        term: String(body.term),
+        templateId: String(body.templateId),
+      });
+      return res.status(201).json(timetable);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/lessons/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const timetable = await getLessonTimetable(req.auth!.workspaceId, String(req.params.id));
+      return res.json(timetable);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.patch(
+  "/lessons/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_MANAGE),
+  async (req: AuthenticatedRequest, res) => {
+    const body = req.body ?? {};
+    try {
+      const timetable = await updateLessonTimetable(
+        req.auth!.workspaceId,
+        String(req.params.id),
+        {
+          title: body.title != null ? String(body.title) : undefined,
+          academicYear: body.academicYear != null ? String(body.academicYear) : undefined,
+          term: body.term != null ? String(body.term) : undefined,
+          templateId: body.templateId != null ? String(body.templateId) : undefined,
+        }
+      );
+      return res.json(timetable);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/lessons/:id/validate",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const validation = await validateLessonTimetable(
+        req.auth!.workspaceId,
+        String(req.params.id)
+      );
+      return res.json(validation);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/lessons/:id/publish",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_PUBLISH),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await publishLessonTimetable(
+        req.auth!.workspaceId,
+        String(req.params.id),
+        req.auth!.userId
+      );
+      return res.json(result);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/lessons/:id/archive",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_MANAGE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const timetable = await archiveLessonTimetable(
+        req.auth!.workspaceId,
+        String(req.params.id)
+      );
+      return res.json(timetable);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/lessons/:id/entries",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const entries = await listLessonEntries(
+        req.auth!.workspaceId,
+        String(req.params.id),
+        {
+          schoolClassId: req.query.schoolClassId ? String(req.query.schoolClassId) : undefined,
+          teacherUserId: req.query.teacherUserId ? String(req.query.teacherUserId) : undefined,
+          roomId: req.query.roomId ? String(req.query.roomId) : undefined,
+          dayOfWeek: req.query.dayOfWeek ? parseDayOfWeek(req.query.dayOfWeek) : undefined,
+        }
+      );
+      return res.json(entries);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/lessons/:id/entries",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_MANAGE),
+  async (req: AuthenticatedRequest, res) => {
+    const body = req.body ?? {};
+    if (
+      !body.dayOfWeek ||
+      !body.periodId ||
+      !body.schoolClassId ||
+      !body.subjectId ||
+      !body.teacherUserId
+    ) {
+      return res.status(400).json({
+        error: "dayOfWeek, periodId, schoolClassId, subjectId, and teacherUserId are required",
+      });
+    }
+    try {
+      const entry = await createLessonEntry(req.auth!.workspaceId, String(req.params.id), {
+        dayOfWeek: parseDayOfWeek(body.dayOfWeek),
+        periodId: String(body.periodId),
+        schoolClassId: String(body.schoolClassId),
+        subjectId: String(body.subjectId),
+        teacherUserId: String(body.teacherUserId),
+        roomId: body.roomId != null ? String(body.roomId) : null,
+        isDoublePeriod: body.isDoublePeriod != null ? Boolean(body.isDoublePeriod) : undefined,
+        locked: body.locked != null ? Boolean(body.locked) : undefined,
+        notes: body.notes != null ? String(body.notes) : null,
+      });
+      return res.status(201).json(entry);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.patch(
+  "/lessons/:timetableId/entries/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_MANAGE),
+  async (req: AuthenticatedRequest, res) => {
+    const body = req.body ?? {};
+    try {
+      const entry = await updateLessonEntry(
+        req.auth!.workspaceId,
+        String(req.params.timetableId),
+        String(req.params.id),
+        {
+          dayOfWeek: body.dayOfWeek != null ? parseDayOfWeek(body.dayOfWeek) : undefined,
+          periodId: body.periodId != null ? String(body.periodId) : undefined,
+          schoolClassId: body.schoolClassId != null ? String(body.schoolClassId) : undefined,
+          subjectId: body.subjectId != null ? String(body.subjectId) : undefined,
+          teacherUserId: body.teacherUserId != null ? String(body.teacherUserId) : undefined,
+          roomId: body.roomId !== undefined ? (body.roomId ? String(body.roomId) : null) : undefined,
+          isDoublePeriod:
+            body.isDoublePeriod != null ? Boolean(body.isDoublePeriod) : undefined,
+          locked: body.locked != null ? Boolean(body.locked) : undefined,
+          notes: body.notes !== undefined ? (body.notes ? String(body.notes) : null) : undefined,
+        }
+      );
+      return res.json(entry);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.delete(
+  "/lessons/:timetableId/entries/:id",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_MANAGE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await deleteLessonEntry(
+        req.auth!.workspaceId,
+        String(req.params.timetableId),
+        String(req.params.id)
+      );
+      return res.json(result);
     } catch (err) {
       return handleTimetableError(res, err);
     }

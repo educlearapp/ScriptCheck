@@ -20,6 +20,7 @@ const ADMIN_LINKS = [
   { to: "/timetable/setup", label: "Timetable Setup", permission: "timetable.view" as const },
   { to: "/timetable/teacher-assignments", label: "Teacher Assignments", permission: "timetable.view" as const },
   { to: "/timetable/subject-requirements", label: "Subject Requirements", permission: "timetable.view" as const },
+  { to: "/timetable/lessons", label: "Lesson Timetables", permission: "timetable.view" as const },
 ];
 
 export default function SettingsPage() {

@@ -1,0 +1,135 @@
+.tt-grid-wrap {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.tt-grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.tt-grid th,
+.tt-grid td {
+  border: 1px solid var(--sc-border, rgba(255, 255, 255, 0.12));
+  padding: 0.5rem;
+  vertical-align: top;
+  min-width: 110px;
+}
+
+.tt-grid th {
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.tt-period-label {
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 90px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tt-period-time {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--sc-text-muted, #9ca3af);
+  font-weight: 400;
+}
+
+.tt-cell {
+  min-height: 64px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tt-cell:hover:not(.is-break):not(.is-readonly) {
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.tt-cell.is-break {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--sc-text-muted, #9ca3af);
+  cursor: default;
+  text-align: center;
+  font-style: italic;
+}
+
+.tt-cell.is-readonly {
+  cursor: default;
+}
+
+.tt-cell.is-clash {
+  box-shadow: inset 0 0 0 2px #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.tt-cell.is-warning {
+  box-shadow: inset 0 0 0 2px #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.tt-lesson {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.tt-lesson-subject {
+  font-weight: 600;
+  color: var(--sc-gold-light, #e8d5a3);
+}
+
+.tt-lesson-meta {
+  color: var(--sc-text-muted, #9ca3af);
+  font-size: 0.75rem;
+}
+
+.tt-lesson-locked {
+  font-size: 0.7rem;
+  color: #f59e0b;
+}
+
+.tt-clash-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.tt-clash-item {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.85rem;
+}
+
+.tt-clash-item:last-child {
+  border-bottom: none;
+}
+
+.tt-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.tt-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.tt-modal {
+  background: var(--sc-surface, #1a1f2e);
+  border: 1px solid var(--sc-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
