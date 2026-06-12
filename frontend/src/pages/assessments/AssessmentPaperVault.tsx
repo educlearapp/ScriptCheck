@@ -7,6 +7,8 @@ import { useTrialGate } from "../../trial/TrialGateContext";
 import { hasPermission } from "../../auth/permissions";
 import AssessmentIntelligenceHeader from "../../components/assessment/AssessmentIntelligenceHeader";
 import PaperAuditTimeline from "../../components/paperVault/PaperAuditTimeline";
+import ModerationReturnModal from "../moderation/shared/ModerationReturnModal";
+import "../moderation/ModerationWorkflow.css";
 import "../../components/intelligence/AssessmentHealthReport.css";
 import type {
   AssessmentDetail,
@@ -69,6 +71,12 @@ export default function AssessmentPaperVault() {
   const [releaseAt, setReleaseAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [commentModal, setCommentModal] = useState<{
+    docId: string;
+    action: "return" | "approve";
+    title: string;
+  } | null>(null);
+  const [commentText, setCommentText] = useState("");
 
   const canUpload = hasPermission(user, "paperVault.upload");
   const canViewArchived = hasPermission(user, "paperVault.archive");
@@ -371,10 +379,12 @@ export default function AssessmentPaperVault() {
                             className="sc-btn sc-btn-ghost sc-btn-sm"
                             disabled={actionLoading === `${doc.id}-return`}
                             onClick={() => {
-                              const comment = window.prompt("Return comment (optional):");
-                              if (comment !== null) {
-                                runAction(doc.id, "return", { comment });
-                              }
+                              setCommentText("");
+                              setCommentModal({
+                                docId: doc.id,
+                                action: "return",
+                                title: doc.fileName,
+                              });
                             }}
                           >
                             Return
@@ -386,10 +396,12 @@ export default function AssessmentPaperVault() {
                             className="sc-btn sc-btn-ghost sc-btn-sm"
                             disabled={actionLoading === `${doc.id}-approve`}
                             onClick={() => {
-                              const comment = window.prompt("Approval comment (optional):");
-                              if (comment !== null) {
-                                runAction(doc.id, "approve", { comment });
-                              }
+                              setCommentText("");
+                              setCommentModal({
+                                docId: doc.id,
+                                action: "approve",
+                                title: doc.fileName,
+                              });
                             }}
                           >
                             Approve
@@ -511,6 +523,31 @@ export default function AssessmentPaperVault() {
         <h2>Audit timeline</h2>
         <PaperAuditTimeline entries={auditEntries} />
       </section>
+
+      <ModerationReturnModal
+        open={!!commentModal}
+        itemName={commentModal?.title ?? ""}
+        comment={commentText}
+        onCommentChange={setCommentText}
+        requireComment={false}
+        busy={commentModal ? actionLoading === `${commentModal.docId}-${commentModal.action}` : false}
+        title={commentModal?.action === "approve" ? "Approve document" : "Return document"}
+        confirmLabel={commentModal?.action === "approve" ? "Confirm approval" : "Return document"}
+        placeholder="Optional comment…"
+        onConfirm={() => {
+          if (!commentModal) return;
+          void runAction(commentModal.docId, commentModal.action, {
+            comment: commentText.trim() || undefined,
+          }).then(() => {
+            setCommentModal(null);
+            setCommentText("");
+          });
+        }}
+        onCancel={() => {
+          setCommentModal(null);
+          setCommentText("");
+        }}
+      />
     </div>
   );
 }

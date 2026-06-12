@@ -17,6 +17,7 @@ import {
   renderStroke,
   uid,
 } from "./annotationUtils";
+import "../../pages/moderation/shared/workflow.css";
 
 const ZOOM_LEVELS = [0.5, 0.75, 1, 1.5, 2] as const;
 
@@ -60,6 +61,8 @@ export default function ScriptViewer({
   const [drawing, setDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<number[][]>([]);
   const [highlightStart, setHighlightStart] = useState<[number, number] | null>(null);
+  const [commentDraft, setCommentDraft] = useState<{ x: number; y: number } | null>(null);
+  const [commentText, setCommentText] = useState("");
 
   const activeLayerType = canAnnotateHod
     ? "HOD_GREEN"
@@ -228,18 +231,8 @@ export default function ScriptViewer({
     }
 
     if (activeTool === "comment") {
-      const text = window.prompt("Enter comment:");
-      if (text?.trim()) {
-        addStroke({
-          id: uid(),
-          type: "comment",
-          pageNumber,
-          x,
-          y,
-          text: text.trim(),
-          color: strokeColor,
-        });
-      }
+      setCommentDraft({ x, y });
+      setCommentText("");
       return;
     }
 
@@ -264,6 +257,21 @@ export default function ScriptViewer({
     } else if (activeTool === "highlight" && highlightStart) {
       setCurrentPoints([highlightStart, [x, y]]);
     }
+  };
+
+  const confirmComment = () => {
+    if (!commentDraft || !commentText.trim()) return;
+    addStroke({
+      id: uid(),
+      type: "comment",
+      pageNumber,
+      x: commentDraft.x,
+      y: commentDraft.y,
+      text: commentText.trim(),
+      color: strokeColor,
+    });
+    setCommentDraft(null);
+    setCommentText("");
   };
 
   const handleMouseUp = () => {
@@ -509,6 +517,51 @@ export default function ScriptViewer({
           </div>
         )}
       </div>
+
+      {commentDraft ? (
+        <div
+          className="sc-mod-modal-overlay"
+          onClick={() => setCommentDraft(null)}
+          style={{ zIndex: 300 }}
+        >
+          <div
+            className="sc-mod-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h2>Add comment</h2>
+            <label className="sc-mod-field">
+              Comment
+              <textarea
+                className="sc-input"
+                rows={3}
+                placeholder="Enter your comment…"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                autoFocus
+              />
+            </label>
+            <div className="sc-mod-modal-actions">
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary"
+                disabled={!commentText.trim()}
+                onClick={confirmComment}
+              >
+                Add comment
+              </button>
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                onClick={() => setCommentDraft(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

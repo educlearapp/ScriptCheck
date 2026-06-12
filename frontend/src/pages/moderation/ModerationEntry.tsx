@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../api";
-import { hasPermission } from "../../auth/permissions";
+import { canSubmitAssessment, hasPermission } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
 import type { Assessment, TeacherDashboardData } from "../../types";
 import { getSetupStatus } from "../../services/assessmentSetupApi";
@@ -14,21 +14,29 @@ import "../dashboard/Dashboard.css";
 import "./ModerationWorkflow.css";
 
 function TeacherModerationOverview() {
+  const { user } = useAuth();
   const [data, setData] = useState<TeacherDashboardData | null>(null);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [setupComplete, setSetupComplete] = useState(false);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
 
-  useEffect(() => {
-    Promise.all([
+  const reload = useCallback(async () => {
+    const [teacher, all] = await Promise.all([
       apiFetch<TeacherDashboardData>("/dashboard/teacher").catch(() => null),
       apiFetch<Assessment[]>("/assessments").catch(() => []),
-    ]).then(([teacher, all]) => {
-      setData(teacher);
-      setAssessments(all);
+    ]);
+    setData(teacher);
+    setAssessments(all);
+    return all;
+  }, []);
+
+  useEffect(() => {
+    void reload().then((all) => {
       if (all[0]) setSelectedId(all[0].id);
     });
-  }, []);
+  }, [reload]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -42,17 +50,54 @@ function TeacherModerationOverview() {
 
   const setupBase = selectedId ? `/assessments/${selectedId}/setup` : "/assessments/new";
   const hasSubmissions = (data?.submittedToHod.length ?? 0) > 0;
+  const submittedIds = useMemo(
+    () => new Set((data?.submittedToHod ?? []).map((item) => item.id)),
+    [data?.submittedToHod]
+  );
+
+  const readyToSubmit = useMemo(
+    () =>
+      assessments.filter(
+        (item) => canSubmitAssessment(user, item.creatorTeacher.id, item.status) && !submittedIds.has(item.id)
+      ),
+    [assessments, user, submittedIds]
+  );
+
+  const selectedAssessment = assessments.find((a) => a.id === selectedId);
+  const selectedSubmitted = selectedId ? submittedIds.has(selectedId) : false;
+  const canSubmitSelected =
+    selectedAssessment &&
+    setupComplete &&
+    canSubmitAssessment(user, selectedAssessment.creatorTeacher.id, selectedAssessment.status) &&
+    !selectedSubmitted;
+
+  const handleSubmitToHod = async (assessmentId: string) => {
+    setActionError("");
+    setSubmittingId(assessmentId);
+    try {
+      await apiFetch(`/assessments/${assessmentId}/submit-to-hod`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      reload();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Submit failed");
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   const flowSteps = useMemo(
     () => [
       { n: 1, label: "Select assessment", done: !!selectedId },
       { n: 2, label: "Upload moderation sample", done: setupComplete },
-      { n: 3, label: "Review moderation data", done: hasSubmissions },
+      { n: 3, label: "Submit to DH", done: selectedSubmitted || hasSubmissions },
+      { n: 4, label: "Track moderation status", done: hasSubmissions },
     ],
-    [selectedId, setupComplete, hasSubmissions]
+    [selectedId, setupComplete, selectedSubmitted, hasSubmissions]
   );
 
-  const activeStep = flowSteps.find((s) => !s.done)?.n ?? 3;
+  const activeStep = flowSteps.find((s) => !s.done)?.n ?? 4;
 
   return (
     <div className="sc-dash sc-mod-hub">
@@ -64,11 +109,13 @@ function TeacherModerationOverview() {
         {hasSubmissions ? (
           <div className="sc-dash-meta">
             <span className="sc-dash-meta-pill">
-              In moderation: <strong>{data?.submittedToHod.length}</strong>
+              With DH: <strong>{data?.submittedToHod.length}</strong>
             </span>
           </div>
         ) : null}
       </header>
+
+      {actionError ? <p className="sc-error">{actionError}</p> : null}
 
       <ModerationSteps steps={flowSteps} activeStep={activeStep} />
 
@@ -119,7 +166,87 @@ function TeacherModerationOverview() {
       <section>
         <h2 className="sc-mod-panel-title">
           <span className="sc-mod-panel-step">3</span>
-          Review Moderation Data
+          Submit to DH
+        </h2>
+
+        {canSubmitSelected ? (
+          <div className="sc-card sc-card-padded sc-mod-workflow-card">
+            <p className="sc-mod-hint" style={{ marginTop: 0 }}>
+              Setup is complete for <strong>{selectedAssessment?.title}</strong>. Submit to your
+              department head for moderation review.
+            </p>
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary"
+              disabled={submittingId === selectedId}
+              onClick={() => void handleSubmitToHod(selectedId)}
+            >
+              {submittingId === selectedId ? "Submitting…" : "Submit to DH"}
+            </button>
+          </div>
+        ) : selectedId && setupComplete && selectedSubmitted ? (
+          <div className="sc-card sc-card-padded sc-mod-workflow-card">
+            <p className="sc-mod-hint" style={{ marginTop: 0 }}>
+              <strong>{selectedAssessment?.title}</strong> has been submitted to your DH and is
+              awaiting review.
+            </p>
+          </div>
+        ) : selectedId && !setupComplete ? (
+          <div className="sc-card sc-card-padded sc-mod-workflow-card">
+            <p className="sc-dash-empty" style={{ margin: 0 }}>
+              Complete assessment setup before submitting to DH.
+            </p>
+            <Link to={setupBase} className="sc-btn sc-btn-primary" style={{ marginTop: "0.75rem" }}>
+              Continue Setup
+            </Link>
+          </div>
+        ) : readyToSubmit.length > 0 ? (
+          <div className="sc-card sc-mod-queue">
+            <div className="sc-table-wrap">
+              <table className="sc-table">
+                <thead>
+                  <tr>
+                    <th>Assessment</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {readyToSubmit.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.title}</td>
+                      <td>
+                        <span className={`sc-mod-status ${moderationStatusClass(item.status)}`}>
+                          {formatStatusLabel(item.status)}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="sc-btn sc-btn-primary sc-mod-table-btn"
+                          disabled={submittingId === item.id}
+                          onClick={() => void handleSubmitToHod(item.id)}
+                        >
+                          {submittingId === item.id ? "Submitting…" : "Submit to DH"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="sc-card sc-card-padded">
+            <p className="sc-dash-empty">No assessments ready to submit to DH.</p>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="sc-mod-panel-title">
+          <span className="sc-mod-panel-step">4</span>
+          Track Moderation Status
         </h2>
 
         {hasSubmissions ? (
@@ -158,7 +285,7 @@ function TeacherModerationOverview() {
           </div>
         ) : (
           <div className="sc-card sc-card-padded">
-            <p className="sc-dash-empty">No assessments currently in moderation.</p>
+            <p className="sc-dash-empty">No assessments currently with DH.</p>
             <div className="sc-mod-empty-actions">
               <Link to={setupBase} className="sc-btn sc-btn-primary">
                 Upload Assessment for Moderation

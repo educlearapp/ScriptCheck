@@ -496,17 +496,6 @@ export default function HodModerationQueue() {
         }}
       />
 
-      <div className="sc-card" style={{ marginTop: "1.5rem", padding: "1.25rem" }}>
-        <h3 style={{ marginTop: 0, color: "var(--sc-gold-light)" }}>
-          Future script marking layers
-        </h3>
-        <p style={{ margin: 0, color: "var(--sc-text-muted)", fontSize: "0.9rem" }}>
-          When script marking is built, annotations will use layered overlays on a single
-          scan: original script (base), teacher marks in <strong style={{ color: "#ff6b6b" }}>red</strong>,
-          and DH moderation in <strong style={{ color: "#3ecf8e" }}>green</strong> — no rescanning required.
-          See <code>docs/SCRIPT_MARKING_LAYERS.md</code>.
-        </p>
-      </div>
     </div>
   );
 }

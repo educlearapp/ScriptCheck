@@ -9,6 +9,7 @@ type Props = {
   title?: string;
   confirmLabel?: string;
   placeholder?: string;
+  requireComment?: boolean;
 };
 
 export default function ModerationReturnModal({
@@ -22,6 +23,7 @@ export default function ModerationReturnModal({
   title = "Return to Teacher",
   confirmLabel = "Return with Comments",
   placeholder = "Comments for teacher…",
+  requireComment = true,
 }: Props) {
   if (!open) return null;
 
@@ -31,7 +33,7 @@ export default function ModerationReturnModal({
         <h2>{title}</h2>
         <p className="sc-mod-hint sc-mod-modal-subtitle">{itemName}</p>
         <label className="sc-mod-field">
-          Comment (required)
+          Comment ({requireComment ? "required" : "optional"})
           <textarea
             className="sc-input"
             rows={4}
@@ -45,7 +47,7 @@ export default function ModerationReturnModal({
           <button
             type="button"
             className="sc-btn sc-btn-primary"
-            disabled={!comment.trim() || busy}
+            disabled={(requireComment && !comment.trim()) || busy}
             onClick={onConfirm}
           >
             {confirmLabel}

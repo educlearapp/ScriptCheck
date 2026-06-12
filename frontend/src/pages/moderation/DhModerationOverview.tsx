@@ -36,6 +36,8 @@ export default function DhModerationOverview() {
   const [escalateRole, setEscalateRole] = useState<WorkspaceRole>("MODERATOR");
   const [escalateComment, setEscalateComment] = useState("");
   const [actionError, setActionError] = useState("");
+  const [approveTarget, setApproveTarget] = useState<DhModerationItem | null>(null);
+  const [saveToBank, setSaveToBank] = useState(true);
 
   const load = () => {
     setLoading(true);
@@ -67,18 +69,19 @@ export default function DhModerationOverview() {
       .catch(() => setSetupComplete(false));
   }, [selectedId]);
 
-  const handleApprove = async (item: DhModerationItem) => {
+  const handleApprove = async (item: DhModerationItem, saveQuestionsToBank: boolean) => {
     setBusyId(item.id);
     setActionError("");
     try {
       if (item.type === "assessment") {
         await apiFetch(`/assessments/${item.id}/approve`, {
           method: "POST",
-          body: JSON.stringify({ saveToQuestionBank: false }),
+          body: JSON.stringify({ saveToQuestionBank: saveQuestionsToBank }),
         });
       } else if (item.batchId) {
         await apiFetch(`/script-batches/${item.batchId}/approve`, { method: "POST" });
       }
+      setApproveTarget(null);
       load();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Approve failed");
@@ -298,7 +301,10 @@ export default function DhModerationOverview() {
                             type="button"
                             className="sc-btn sc-btn-primary sc-mod-table-btn"
                             disabled={busyId === item.id}
-                            onClick={() => void handleApprove(item)}
+                            onClick={() => {
+                              setSaveToBank(true);
+                              setApproveTarget(item);
+                            }}
                           >
                             Approve
                           </button>
@@ -346,6 +352,44 @@ export default function DhModerationOverview() {
           </div>
         )}
       </section>
+
+      {approveTarget ? (
+        <div
+          className="sc-card sc-card-gold sc-form-grid"
+          style={{ marginTop: "1.5rem", padding: "1.5rem", maxWidth: 560 }}
+        >
+          <h3 style={{ margin: 0, color: "var(--sc-gold-light)" }}>
+            Approve — {approveTarget.assessmentName}
+          </h3>
+          {approveTarget.type === "assessment" ? (
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={saveToBank}
+                onChange={(e) => setSaveToBank(e.target.checked)}
+              />
+              Save approved questions to Question Bank (DH Approved)
+            </label>
+          ) : null}
+          <div className="sc-form-actions">
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary"
+              disabled={busyId === approveTarget.id}
+              onClick={() => void handleApprove(approveTarget, saveToBank)}
+            >
+              Confirm approval
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              onClick={() => setApproveTarget(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <ModerationReturnModal
         open={!!returnTarget}
