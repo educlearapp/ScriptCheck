@@ -14,6 +14,7 @@ import {
 } from "../../components/dashboard/dashboardUtils";
 import DashboardIntelligenceAlerts from "../../components/dashboard/DashboardIntelligenceAlerts";
 import BetaBanner from "../../components/beta/BetaBanner";
+import { getModerationReviewPath } from "../moderation/shared/moderationReviewLink";
 import type { AtRiskLearner, HodDashboardData } from "../../types";
 import "./Dashboard.css";
 import "../../components/dashboard/DashboardHero.css";
@@ -210,11 +211,15 @@ export default function HodDashboard() {
                   <span className="sc-dash-activity-dot" />
                   <span className="sc-dash-activity-text">{batch.title}</span>
                   <Link
-                    to={`/assessments/${batch.assessment.id}/scripts`}
+                    to={getModerationReviewPath({
+                      assessmentId: batch.assessment.id,
+                      batchId: batch.id,
+                      type: "script_batch",
+                    })}
                     className="sc-btn sc-btn-ghost"
                     style={{ padding: "0.2rem 0.45rem", fontSize: "0.68rem", marginLeft: "auto", flexShrink: 0 }}
                   >
-                    Moderate
+                    Review
                   </Link>
                 </li>
               ))}
@@ -262,10 +267,10 @@ export default function HodDashboard() {
             Interventions
           </Link>
           <Link to="/results" className="sc-dash-quick-btn is-secondary">
-            Department Results
+            Results &amp; Analytics
           </Link>
           <Link to="/reports" className="sc-dash-quick-btn is-secondary">
-            Reports & Analytics
+            Operational Reports
           </Link>
         </div>
       </section>
