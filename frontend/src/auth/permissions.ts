@@ -23,6 +23,10 @@ export function hasPermission(
   return user?.permissions.includes(permission) ?? false;
 }
 
+export function isSuperAdmin(user: AuthUser | null | undefined): boolean {
+  return user?.isSuperAdmin === true;
+}
+
 export function getEffectivePermissions(
   user: AuthUser | null | undefined
 ): Permission[] {

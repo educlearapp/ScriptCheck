@@ -40,6 +40,7 @@ import subscriptionRoutes from "./routes/subscription";
 import exportRoutes from "./routes/export";
 import moderationTrailRoutes from "./routes/moderationTrail";
 import betaFeedbackRoutes from "./routes/betaFeedback";
+import superAdminRoutes from "./routes/superAdmin";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -114,6 +115,7 @@ app.use("/intelligence", intelligenceRoutes);
 app.use("/subscription", subscriptionRoutes);
 app.use("/export", exportRoutes);
 app.use("/beta-feedback", betaFeedbackRoutes);
+app.use("/super-admin", superAdminRoutes);
 
 app.use(
   (

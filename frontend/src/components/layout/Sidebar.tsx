@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import BrandLogo from "../brand/BrandLogo";
-import { formatRoles, hasPermission } from "../../auth/permissions";
+import { formatRoles, hasPermission, isSuperAdmin } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
 import type { NavItem, NavSection } from "../../types";
 import { NAV_SECTION_LABELS } from "../../types";
@@ -55,6 +55,13 @@ const MAIN_NAV: NavItem[] = [
     icon: "⚙",
     section: "admin",
   },
+  {
+    to: "/super-admin",
+    label: "Super Admin",
+    icon: "⬡",
+    superAdminOnly: true,
+    section: "admin",
+  },
 ];
 
 const SECTION_ORDER: NavSection[] = ["assessment", "ai", "admin"];
@@ -62,9 +69,11 @@ const SECTION_ORDER: NavSection[] = ["assessment", "ai", "admin"];
 export default function Sidebar() {
   const { user } = useAuth();
 
-  const navItems = MAIN_NAV.filter(
-    (item) => !item.permission || hasPermission(user, item.permission)
-  );
+  const navItems = MAIN_NAV.filter((item) => {
+    if (item.superAdminOnly && !isSuperAdmin(user)) return false;
+    if (item.permission && !hasPermission(user, item.permission)) return false;
+    return true;
+  });
 
   const grouped = SECTION_ORDER.map((section) => ({
     section,

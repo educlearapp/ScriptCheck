@@ -4,6 +4,7 @@ import AuthGuard from "./auth/AuthGuard";
 import GuestGuard from "./auth/GuestGuard";
 import PublicHomeRoute from "./auth/PublicHomeRoute";
 import RequirePermission from "./auth/RequirePermission";
+import RequireSuperAdmin from "./auth/RequireSuperAdmin";
 import AppLayout from "./components/layout/AppLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -61,6 +62,7 @@ import ExaminationSeatingPage from "./pages/examinations/ExaminationSeating";
 import ExaminationPacksPage from "./pages/examinations/ExaminationPacks";
 import ExaminationIncidentsPage from "./pages/examinations/ExaminationIncidents";
 import ModerationEntry from "./pages/moderation/ModerationEntry";
+import SuperAdminPage from "./pages/superAdmin/SuperAdminPage";
 import { PortalAuthProvider } from "./portal/PortalAuthContext";
 import PortalGuard, { PortalGuestGuard } from "./portal/PortalGuard";
 import PortalLayout from "./portal/PortalLayout";
@@ -200,6 +202,10 @@ function AppRoutes() {
 
             <Route element={<RequirePermission permission="concessions.view" />}>
               <Route path="/concessions" element={<ConcessionsRegister />} />
+            </Route>
+
+            <Route element={<RequireSuperAdmin />}>
+              <Route path="/super-admin" element={<SuperAdminPage />} />
             </Route>
           </Route>
         </Route>

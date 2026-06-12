@@ -19,6 +19,7 @@ import {
   getEffectivePermissions,
   WORKSPACE_ROLE_LABELS,
 } from "../services/permissions";
+import { resolveIsSuperAdmin } from "../services/superAdminAccess";
 
 const router = Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -71,6 +72,7 @@ async function buildAuthResponse(userId: string, workspaceId: string) {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
+      isSuperAdmin: resolveIsSuperAdmin(user),
       workspaceId: activeMembership.workspaceId,
       workspaceName: activeMembership.workspace.name,
       workspaceType: activeMembership.workspace.type,
@@ -273,6 +275,11 @@ router.post("/login", async (req, res) => {
     if (!valid) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
     if (user.memberships.length === 0) {
       return res.status(403).json({ error: "No workspace memberships found" });

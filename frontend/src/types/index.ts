@@ -95,6 +95,7 @@ export type AuthUser = {
   id: string;
   email: string;
   fullName: string;
+  isSuperAdmin?: boolean;
   workspaceId: string;
   workspaceName: string;
   workspaceType: WorkspaceType;
@@ -1697,6 +1698,7 @@ export type NavItem = {
   label: string;
   icon: string;
   permission?: Permission;
+  superAdminOnly?: boolean;
   section: NavSection;
 };
 
