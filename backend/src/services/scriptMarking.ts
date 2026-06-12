@@ -456,7 +456,7 @@ function serializeScriptDetail(
         l.layerType === "TEACHER_RED"
           ? "Teacher Marking"
           : l.layerType === "HOD_GREEN"
-            ? "HOD Moderation"
+            ? "DH Moderation"
             : l.layerType.replaceAll("_", " "),
     })),
     pages: (() => {
@@ -621,7 +621,7 @@ export async function saveScriptMarks(
         const val = entry.hodMark;
         if (val != null && (val < 0 || val > existing.maxMarks)) {
           throw new ScriptError(
-            `HOD mark for Q${existing.questionNumber} must be between 0 and ${existing.maxMarks}`,
+            `DH mark for Q${existing.questionNumber} must be between 0 and ${existing.maxMarks}`,
             400
           );
         }

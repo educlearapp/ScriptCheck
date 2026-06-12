@@ -100,7 +100,7 @@ router.get(
     try {
       const workspaceId = req.auth!.workspaceId;
       if (!canViewHodDashboard(req.access!, workspaceId)) {
-        return res.status(403).json({ error: "HOD dashboard access required" });
+        return res.status(403).json({ error: "DH dashboard access required" });
       }
 
       const data = await getHodDashboard(workspaceId, req.access!);
@@ -113,7 +113,7 @@ router.get(
       return res.json(data);
     } catch (err) {
       console.error("[dashboard/hod]", err);
-      return res.status(500).json({ error: "Failed to load HOD dashboard" });
+      return res.status(500).json({ error: "Failed to load DH dashboard" });
     }
   }
 );

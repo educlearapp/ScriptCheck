@@ -268,7 +268,7 @@ export async function saveRubricMarks(
         const val = entry.hodMark;
         if (val != null && (val < 0 || val > criterion.maxMarks)) {
           throw new ScriptError(
-            `HOD mark for "${criterion.name}" must be between 0 and ${criterion.maxMarks}`,
+            `DH mark for "${criterion.name}" must be between 0 and ${criterion.maxMarks}`,
             400
           );
         }

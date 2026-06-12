@@ -169,7 +169,7 @@ export async function generateAssessmentSummaryPdf(
     drawLabelValue(doc, "Subject", assessment.subject.name, 50 + colW, y, colW);
     y += 36;
     drawLabelValue(doc, "Teacher", assessment.creatorTeacher.fullName, 50, y, colW);
-    drawLabelValue(doc, "HOD", hodName, 50 + colW, y, colW);
+    drawLabelValue(doc, "DH", hodName, 50 + colW, y, colW);
     y += 36;
     drawLabelValue(
       doc,
@@ -421,7 +421,7 @@ export async function generateLearnerResultPdf(
       width: doc.page.width - 100,
     });
     doc.moveDown(0.8);
-    doc.font("Helvetica-Bold").fontSize(10).text("HOD Comment");
+    doc.font("Helvetica-Bold").fontSize(10).text("DH Comment");
     doc.font("Helvetica").fontSize(9).text(hodComment, 50, doc.y + 4, {
       width: doc.page.width - 100,
     });

@@ -1,4 +1,5 @@
 import type { AuthUser, Permission, WorkspaceRole } from "../types";
+import { getRoleLabel } from "../utils/roleLabels";
 
 export function hasRole(
   user: AuthUser | null | undefined,
@@ -30,7 +31,7 @@ export function getEffectivePermissions(
 
 export function formatRoles(roles: WorkspaceRole[]): string {
   if (roles.length === 0) return "No roles";
-  return roles.map((r) => r.replaceAll("_", " ")).join(" · ");
+  return roles.map((r) => getRoleLabel(r)).join(" · ");
 }
 
 export function isExamBodyDashboard(user: AuthUser | null | undefined): boolean {

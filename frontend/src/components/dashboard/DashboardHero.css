@@ -22,6 +22,42 @@
   padding: 1.75rem 2rem 1.5rem;
 }
 
+.sc-dash-compact .sc-dash-hero-accent {
+  height: 2px;
+}
+
+.sc-dash-compact .sc-dash-hero-body {
+  padding: 0.65rem 1rem 0.55rem;
+}
+
+.sc-dash-compact .sc-dash-hero-greeting {
+  font-size: 1.1rem;
+}
+
+.sc-dash-compact .sc-dash-hero-title {
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
+.sc-dash-compact .sc-dash-hero-term {
+  font-size: 0.68rem;
+  margin-top: 0.2rem;
+}
+
+.sc-dash-compact .sc-dash-hero-metrics {
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+}
+
+.sc-dash-compact .sc-dash-hero-metric-value {
+  font-size: 1rem;
+}
+
+.sc-dash-compact .sc-dash-hero-metric-label {
+  font-size: 0.62rem;
+}
+
 .sc-dash-hero-greeting {
   margin: 0;
   font-size: 1.65rem;

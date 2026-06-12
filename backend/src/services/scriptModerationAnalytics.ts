@@ -314,7 +314,7 @@ export async function exportBatchMarksCsv(batchId: string, workspaceId: string) 
     "Learner Name",
     "Script Number",
     "Teacher Mark",
-    "HOD Mark",
+    "DH Mark",
     "Final Mark",
     "Difference",
     "Variance %",

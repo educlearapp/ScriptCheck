@@ -84,7 +84,7 @@ export async function submitAssessmentToHod(ctx: TransitionContext) {
     !hasPermission(ctx.access, ctx.workspaceId, PERMISSIONS.ASSESSMENTS_SUBMIT)
   ) {
     throw new ModerationError(
-      "Only teaching staff can submit assessments to HOD",
+      "Only teaching staff can submit assessments to DH",
       403
     );
   }
@@ -140,7 +140,7 @@ export async function approveAssessment(ctx: TransitionContext) {
     !hasPermission(ctx.access, ctx.workspaceId, PERMISSIONS.MODERATION_APPROVE)
   ) {
     throw new ModerationError(
-      "Only HOD or management roles can approve assessments",
+      "Only DH or management roles can approve assessments",
       403
     );
   }
@@ -185,7 +185,7 @@ export async function returnAssessmentToTeacher(ctx: TransitionContext) {
     !hasPermission(ctx.access, ctx.workspaceId, PERMISSIONS.MODERATION_RETURN)
   ) {
     throw new ModerationError(
-      "Only HOD or management roles can return assessments",
+      "Only DH or management roles can return assessments",
       403
     );
   }

@@ -102,7 +102,7 @@ export async function getScriptLayers(scriptId: string, workspaceId: string) {
       layer.layerType === "TEACHER_RED"
         ? "Teacher Marking"
         : layer.layerType === "HOD_GREEN"
-          ? "HOD Moderation"
+          ? "DH Moderation"
           : layer.layerType.replaceAll("_", " "),
   }));
 }
