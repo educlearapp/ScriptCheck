@@ -2,7 +2,9 @@
 
 const STATUS_OVERRIDES: Record<string, string> = {
   SUBMITTED_TO_HOD: "Submitted to DH",
-  HOD_REVIEW: "DH Review",
+  HOD_REVIEW: "Submitted to DH",
+  RETURNED_TO_TEACHER: "Returned",
+  APPROVED: "Approved",
   HOD_GREEN: "DH Layer",
   HOD_APPROVED: "DH Approved",
 };

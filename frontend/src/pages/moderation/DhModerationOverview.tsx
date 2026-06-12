@@ -3,14 +3,17 @@ import { Link } from "react-router-dom";
 import { apiFetch } from "../../api";
 import { hasPermission } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
-import { getDhModerationOverview, getSetupStatus, type DhModerationItem } from "../../services/assessmentSetupApi";
-import { UPLOAD_FILES_HINT } from "../../config/uploadLimits";
-import type { Assessment, ModerationCentreData, WorkspaceRole } from "../../types";
+import { getDhModerationOverview, type DhModerationItem } from "../../services/assessmentSetupApi";
+import type { ModerationCentreData, WorkspaceRole } from "../../types";
 import ModerationEscalateModal from "./shared/ModerationEscalateModal";
 import ModerationReturnModal from "./shared/ModerationReturnModal";
+import ModerationRowActions from "./shared/ModerationRowActions";
 import ModerationSteps from "./shared/ModerationSteps";
 import { getModerationReviewPath } from "./shared/moderationReviewLink";
-import { moderationStatusClass } from "./shared/moderationStatus";
+import {
+  getModerationJourneyStatus,
+  moderationJourneyStatusClass,
+} from "./shared/moderationJourneyStatus";
 import "../dashboard/Dashboard.css";
 import "./ModerationWorkflow.css";
 
@@ -25,9 +28,6 @@ export default function DhModerationOverview() {
 
   const [centreData, setCentreData] = useState<ModerationCentreData | null>(null);
   const [dhItems, setDhItems] = useState<DhModerationItem[]>([]);
-  const [assessments, setAssessments] = useState<Assessment[]>([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [setupComplete, setSetupComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [returnComment, setReturnComment] = useState("");
@@ -38,19 +38,17 @@ export default function DhModerationOverview() {
   const [actionError, setActionError] = useState("");
   const [approveTarget, setApproveTarget] = useState<DhModerationItem | null>(null);
   const [saveToBank, setSaveToBank] = useState(true);
+  const [escalatedIds, setEscalatedIds] = useState<Set<string>>(new Set());
 
   const load = () => {
     setLoading(true);
     Promise.all([
       apiFetch<ModerationCentreData>("/moderation").catch(() => null),
       getDhModerationOverview().catch(() => ({ items: [] })),
-      apiFetch<Assessment[]>("/assessments").catch(() => []),
     ])
-      .then(([centre, dh, all]) => {
+      .then(([centre, dh]) => {
         setCentreData(centre);
         setDhItems(dh.items);
-        setAssessments(all);
-        if (!selectedId && all[0]) setSelectedId(all[0].id);
       })
       .finally(() => setLoading(false));
   };
@@ -60,14 +58,35 @@ export default function DhModerationOverview() {
   }, []);
 
   useEffect(() => {
-    if (!selectedId) {
-      setSetupComplete(false);
+    if (!dhItems.length) {
+      setEscalatedIds(new Set());
       return;
     }
-    getSetupStatus(selectedId)
-      .then((s) => setSetupComplete(s.setupComplete))
-      .catch(() => setSetupComplete(false));
-  }, [selectedId]);
+
+    let cancelled = false;
+    Promise.all(
+      dhItems.map(async (item) => {
+        try {
+          const trail = await apiFetch<{ approvalRequests: { status: string }[] }>(
+            `/moderation-trail/assessments/${item.assessmentId}/trail`
+          );
+          return trail.approvalRequests.some((r) => r.status === "PENDING")
+            ? item.assessmentId
+            : null;
+        } catch {
+          return null;
+        }
+      })
+    ).then((ids) => {
+      if (!cancelled) {
+        setEscalatedIds(new Set(ids.filter((id): id is string => Boolean(id))));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dhItems]);
 
   const handleApprove = async (item: DhModerationItem, saveQuestionsToBank: boolean) => {
     setBusyId(item.id);
@@ -139,20 +158,18 @@ export default function DhModerationOverview() {
   };
 
   const stats = centreData?.stats;
-  const setupBase = selectedId ? `/assessments/${selectedId}/setup` : "/assessments/new";
   const hasQueue = dhItems.length > 0;
 
   const flowSteps = useMemo(
     () => [
-      { n: 1, label: "Select assessment", done: !!selectedId },
-      { n: 2, label: "Upload moderation sample", done: setupComplete },
-      { n: 3, label: "Review moderation data", done: hasQueue },
-      { n: 4, label: "Approve / Return / Escalate", done: false },
+      { n: 1, label: "See submitted items", done: hasQueue },
+      { n: 2, label: "Review submission", done: false },
+      { n: 3, label: "Approve / Return / Escalate", done: false },
     ],
-    [selectedId, setupComplete, hasQueue]
+    [hasQueue]
   );
 
-  const activeStep = hasQueue ? 4 : flowSteps.find((s) => !s.done)?.n ?? 4;
+  const activeStep = hasQueue ? 2 : 1;
 
   if (loading) return <p>Loading moderation…</p>;
 
@@ -160,76 +177,26 @@ export default function DhModerationOverview() {
     <div className="sc-dash sc-mod-hub">
       <header className="sc-dash-header">
         <div>
-          <h1 className="sc-page-title">Moderation</h1>
+          <h1 className="sc-page-title">DH Moderation</h1>
           <p className="sc-page-subtitle">
-            Upload moderation documents, review the queue, approve, return or escalate.
+            Review teacher submissions, then approve, return with feedback, or escalate.
           </p>
         </div>
         <div className="sc-dash-meta">
           <span className="sc-dash-meta-pill">
-            Awaiting DH review: <strong>{dhItems.length}</strong>
+            Awaiting review: <strong>{dhItems.length}</strong>
           </span>
         </div>
       </header>
 
       {actionError ? <p className="sc-error">{actionError}</p> : null}
 
-      <ModerationSteps steps={flowSteps} activeStep={activeStep} />
-
-      <div className="sc-card sc-card-padded sc-mod-workflow-card">
-        <h2 className="sc-mod-panel-title">
-          <span className="sc-mod-panel-step">1</span>
-          Select Assessment &amp; Upload
-        </h2>
-        <div className="sc-mod-select-row">
-          <label className="sc-mod-field">
-            Select Assessment
-            <select
-              className="sc-input"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-            >
-              <option value="">— Select assessment —</option>
-              {assessments.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.title} ({a.grade.name} · {a.subject.name})
-                </option>
-              ))}
-            </select>
-          </label>
-          <Link to={setupBase} className="sc-btn sc-btn-primary" style={{ alignSelf: "flex-end" }}>
-            Upload Assessment for Moderation
-          </Link>
-        </div>
-        <p className="sc-mod-hint">
-          Master documents attach via Assessment Setup. {UPLOAD_FILES_HINT}
-        </p>
-        <div className="sc-mod-upload-grid">
-          {["Question Paper", "Memorandum", "Rubric", "Sample Marked Scripts"].map((label) => (
-            <div key={label} className="sc-mod-upload-card">
-              <h3>{label}</h3>
-              <span className="sc-badge sc-badge-muted">Via setup wizard</span>
-              {selectedId ? (
-                <Link
-                  to={`/assessments/${selectedId}/setup`}
-                  className="sc-btn sc-btn-ghost sc-mod-table-btn"
-                >
-                  Upload
-                </Link>
-              ) : (
-                <Link to="/assessments/new" className="sc-btn sc-btn-ghost sc-mod-table-btn">
-                  Create Assessment
-                </Link>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <ModerationSteps steps={flowSteps} activeStep={activeStep} ariaLabel="DH moderation workflow" />
 
       <div className="sc-mod-stats">
         <div className="sc-card sc-card-gold sc-mod-stat-card">
           <div className="sc-mod-stat-value">{dhItems.length}</div>
-          <div className="sc-mod-stat-label">Awaiting DH review</div>
+          <div className="sc-mod-stat-label">Submitted to DH</div>
         </div>
         <div className="sc-card sc-mod-stat-card">
           <div className="sc-mod-stat-value">{stats?.moderationCompleted ?? "—"}</div>
@@ -244,8 +211,8 @@ export default function DhModerationOverview() {
       <section>
         <div className="sc-mod-section-header">
           <h2 className="sc-mod-panel-title" style={{ margin: 0 }}>
-            <span className="sc-mod-panel-step">3</span>
-            Review &amp; Moderate
+            <span className="sc-mod-panel-step">1</span>
+            Submitted Items
           </h2>
           <Link to="/moderation/queue" className="sc-btn sc-btn-ghost sc-mod-table-btn">
             Open Full Queue
@@ -258,7 +225,7 @@ export default function DhModerationOverview() {
               <table className="sc-table">
                 <thead>
                   <tr>
-                    <th>Assessment Name</th>
+                    <th>Assessment</th>
                     <th>Grade</th>
                     <th>Subject</th>
                     <th>Teacher</th>
@@ -267,83 +234,69 @@ export default function DhModerationOverview() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dhItems.map((item) => (
-                    <tr key={`${item.type}-${item.id}`}>
-                      <td>
-                        {item.assessmentName}
-                        {item.scriptCount != null ? (
-                          <span className="sc-badge sc-badge-muted" style={{ marginLeft: "0.5rem" }}>
-                            {item.scriptCount} scripts
+                  {dhItems.map((item) => {
+                    const journey = getModerationJourneyStatus(
+                      item.status,
+                      escalatedIds.has(item.assessmentId)
+                    );
+                    return (
+                      <tr key={`${item.type}-${item.id}`}>
+                        <td>
+                          {item.assessmentName}
+                          {item.scriptCount != null ? (
+                            <span className="sc-badge sc-badge-muted" style={{ marginLeft: "0.5rem" }}>
+                              {item.scriptCount} scripts
+                            </span>
+                          ) : null}
+                        </td>
+                        <td>{item.grade}</td>
+                        <td>{item.subject}</td>
+                        <td>{item.teacher}</td>
+                        <td>
+                          <span
+                            className={`sc-mod-status ${moderationJourneyStatusClass(journey.key)}`}
+                          >
+                            {journey.label}
                           </span>
-                        ) : null}
-                      </td>
-                      <td>{item.grade}</td>
-                      <td>{item.subject}</td>
-                      <td>{item.teacher}</td>
-                      <td>
-                        <span className={`sc-mod-status ${moderationStatusClass(item.status)}`}>
-                          {item.statusLabel}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="sc-mod-table-actions">
-                          <Link
-                            to={getModerationReviewPath({
+                        </td>
+                        <td>
+                          <ModerationRowActions
+                            reviewTo={getModerationReviewPath({
                               assessmentId: item.assessmentId,
                               batchId: item.batchId,
                               type: item.type,
                             })}
-                            className="sc-btn sc-btn-ghost sc-mod-table-btn"
-                          >
-                            Review
-                          </Link>
-                          <button
-                            type="button"
-                            className="sc-btn sc-btn-primary sc-mod-table-btn"
-                            disabled={busyId === item.id}
-                            onClick={() => {
+                            busy={busyId === item.id}
+                            onApprove={() => {
                               setSaveToBank(true);
                               setApproveTarget(item);
                             }}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="sc-btn sc-btn-ghost sc-mod-table-btn"
-                            disabled={busyId === item.id}
-                            onClick={() => setReturnTarget(item)}
-                          >
-                            Return
-                          </button>
-                          {canEscalate ? (
-                            <button
-                              type="button"
-                              className="sc-btn sc-btn-ghost sc-mod-table-btn sc-mod-table-btn-escalate"
-                              disabled={busyId === item.id}
-                              onClick={() => {
-                                setEscalateTarget(item);
-                                setEscalateRole("MODERATOR");
-                                setEscalateComment("");
-                              }}
-                            >
-                              Escalate
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            onReturn={() => setReturnTarget(item)}
+                            onEscalate={
+                              canEscalate
+                                ? () => {
+                                    setEscalateTarget(item);
+                                    setEscalateRole("MODERATOR");
+                                    setEscalateComment("");
+                                  }
+                                : undefined
+                            }
+                            approveLabel={item.type === "script_batch" ? "Approve batch" : "Approve"}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         ) : (
           <div className="sc-card sc-card-padded sc-mod-queue">
-            <p className="sc-dash-empty">No assessments awaiting DH review.</p>
+            <p className="sc-dash-empty">No items awaiting DH review.</p>
             <div className="sc-mod-empty-actions">
-              <Link to={setupBase} className="sc-btn sc-btn-primary">
-                Upload Assessment for Moderation
+              <Link to="/moderation/queue" className="sc-btn sc-btn-ghost">
+                Open Moderation Queue
               </Link>
               <Link to="/assessments" className="sc-btn sc-btn-ghost">
                 View Assessments
@@ -370,7 +323,11 @@ export default function DhModerationOverview() {
               />
               Save approved questions to Question Bank (DH Approved)
             </label>
-          ) : null}
+          ) : (
+            <p className="sc-mod-hint" style={{ margin: 0 }}>
+              Approving this script batch will finalise DH moderation for all scripts in the batch.
+            </p>
+          )}
           <div className="sc-form-actions">
             <button
               type="button"

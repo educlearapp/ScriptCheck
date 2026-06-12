@@ -167,6 +167,12 @@
   border: 1px solid var(--sc-border);
 }
 
+.sc-mod-status-escalated {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c4a5fd;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
 /* Queue table */
 .sc-mod-queue {
   padding: 0;

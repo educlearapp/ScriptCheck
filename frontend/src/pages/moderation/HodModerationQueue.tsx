@@ -12,8 +12,12 @@ import type {
 } from "../../types";
 import ModerationEscalateModal from "./shared/ModerationEscalateModal";
 import ModerationReturnModal from "./shared/ModerationReturnModal";
+import ModerationRowActions from "./shared/ModerationRowActions";
+import {
+  getModerationJourneyStatus,
+  moderationJourneyStatusClass,
+} from "./shared/moderationJourneyStatus";
 import { getModerationReviewPath } from "./shared/moderationReviewLink";
-import { moderationStatusClass } from "./shared/moderationStatus";
 import "../scripts/Scripts.css";
 import "./ModerationWorkflow.css";
 
@@ -42,6 +46,8 @@ export default function HodModerationQueue() {
   const [returnComment, setReturnComment] = useState("");
   const [saveToBank, setSaveToBank] = useState(true);
   const [approveTarget, setApproveTarget] = useState<Assessment | null>(null);
+  const [approveBatchTarget, setApproveBatchTarget] = useState<ScriptQueueItem | null>(null);
+  const [escalatedIds, setEscalatedIds] = useState<Set<string>>(new Set());
   const [escalateTarget, setEscalateTarget] = useState<EscalateTarget | null>(null);
   const [escalateRole, setEscalateRole] = useState<WorkspaceRole>("MODERATOR");
   const [escalateComment, setEscalateComment] = useState("");
@@ -77,6 +83,39 @@ export default function HodModerationQueue() {
   useEffect(() => {
     loadQueue();
   }, [loadQueue]);
+
+  useEffect(() => {
+    const assessmentIds = new Set<string>([
+      ...queue.map((a) => a.id),
+      ...scriptQueue.map((b) => b.assessment.id),
+    ]);
+    if (!assessmentIds.size) {
+      setEscalatedIds(new Set());
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all(
+      [...assessmentIds].map(async (id) => {
+        try {
+          const trail = await apiFetch<{ approvalRequests: { status: string }[] }>(
+            `/moderation-trail/assessments/${id}/trail`
+          );
+          return trail.approvalRequests.some((r) => r.status === "PENDING") ? id : null;
+        } catch {
+          return null;
+        }
+      })
+    ).then((ids) => {
+      if (!cancelled) {
+        setEscalatedIds(new Set(ids.filter((id): id is string => Boolean(id))));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queue, scriptQueue]);
 
   const handleApprove = async (assessment: Assessment, saveQuestionsToBank: boolean) => {
     setActionError("");
@@ -148,12 +187,13 @@ export default function HodModerationQueue() {
     }
   };
 
-  const handleApproveScriptBatch = async (batchId: string) => {
+  const handleApproveScriptBatch = async (batch: ScriptQueueItem) => {
     setActionError("");
-    setBusyId(batchId);
+    setBusyId(batch.id);
     try {
-      await apiFetch(`/script-batches/${batchId}/review`, { method: "POST" });
-      await apiFetch(`/script-batches/${batchId}/approve`, { method: "POST" });
+      await apiFetch(`/script-batches/${batch.id}/review`, { method: "POST" });
+      await apiFetch(`/script-batches/${batch.id}/approve`, { method: "POST" });
+      setApproveBatchTarget(null);
       loadQueue();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Approve batch failed");
@@ -266,62 +306,47 @@ export default function HodModerationQueue() {
                   </tr>
                 </thead>
                 <tbody>
-                  {queue.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <Link to={`/assessments/${item.id}`}>{item.title}</Link>
-                      </td>
-                      <td>{item.creatorTeacher.fullName}</td>
-                      <td>{item.subject.name}</td>
-                      <td>{item.grade.name}</td>
-                      <td>
-                        <span className={`sc-mod-status ${moderationStatusClass(item.status)}`}>
-                          {item.status.replaceAll("_", " ")}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="sc-mod-table-actions">
-                          <Link
-                            to={getModerationReviewPath({ assessmentId: item.id })}
-                            className="sc-btn sc-btn-ghost sc-mod-table-btn"
+                  {queue.map((item) => {
+                    const journey = getModerationJourneyStatus(
+                      item.status,
+                      escalatedIds.has(item.id)
+                    );
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <Link to={`/assessments/${item.id}`}>{item.title}</Link>
+                        </td>
+                        <td>{item.creatorTeacher.fullName}</td>
+                        <td>{item.subject.name}</td>
+                        <td>{item.grade.name}</td>
+                        <td>
+                          <span
+                            className={`sc-mod-status ${moderationJourneyStatusClass(journey.key)}`}
                           >
-                            Review
-                          </Link>
-                          <button
-                            type="button"
-                            className="sc-btn sc-btn-primary sc-mod-table-btn"
-                            disabled={busyId === item.id}
-                            onClick={() => {
+                            {journey.label}
+                          </span>
+                        </td>
+                        <td>
+                          <ModerationRowActions
+                            reviewTo={getModerationReviewPath({ assessmentId: item.id })}
+                            busy={busyId === item.id}
+                            onApprove={() => {
                               setSaveToBank(true);
                               setApproveTarget(item);
                             }}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            className="sc-btn sc-btn-ghost sc-mod-table-btn"
-                            disabled={busyId === item.id}
-                            onClick={() =>
+                            onReturn={() =>
                               setReturnTarget({ kind: "assessment", id: item.id, title: item.title })
                             }
-                          >
-                            Return
-                          </button>
-                          {canEscalate ? (
-                            <button
-                              type="button"
-                              className="sc-btn sc-btn-ghost sc-mod-table-btn sc-mod-table-btn-escalate"
-                              disabled={busyId === item.id}
-                              onClick={() => openEscalate(item.id, item.title, item.id)}
-                            >
-                              Escalate
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            onEscalate={
+                              canEscalate
+                                ? () => openEscalate(item.id, item.title, item.id)
+                                : undefined
+                            }
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -376,63 +401,51 @@ export default function HodModerationQueue() {
               <p>No script batches awaiting review.</p>
             </div>
           ) : (
-            scriptQueue.map((batch) => (
+            scriptQueue.map((batch) => {
+              const journey = getModerationJourneyStatus(
+                batch.status,
+                escalatedIds.has(batch.assessment.id)
+              );
+              return (
               <div key={batch.id} style={{ padding: "1rem", borderTop: "1px solid var(--sc-border)" }}>
                 <div className="sc-mod-section-header" style={{ padding: 0 }}>
                   <div>
                     <strong>{batch.title}</strong>
                     <div style={{ fontSize: "0.85rem", color: "var(--sc-text-muted)" }}>
-                      {batch.assessment?.title} · {batch.learnerScripts.length} scripts · {batch.status}
+                      {batch.assessment?.title} · {batch.learnerScripts.length} scripts ·{" "}
+                      <span
+                        className={`sc-mod-status ${moderationJourneyStatusClass(journey.key)}`}
+                      >
+                        {journey.label}
+                      </span>
                     </div>
                   </div>
-                  <div className="sc-mod-table-actions">
-                    <Link
-                      to={getModerationReviewPath({
-                        assessmentId: batch.assessment.id,
+                  <ModerationRowActions
+                    reviewTo={getModerationReviewPath({
+                      assessmentId: batch.assessment.id,
+                      batchId: batch.id,
+                      type: "script_batch",
+                    })}
+                    busy={busyId === batch.id}
+                    approveLabel="Approve batch"
+                    onApprove={
+                      hasPermission(user, "scripts.approve")
+                        ? () => setApproveBatchTarget(batch)
+                        : undefined
+                    }
+                    onReturn={() =>
+                      setReturnTarget({
+                        kind: "batch",
                         batchId: batch.id,
-                        type: "script_batch",
-                      })}
-                      className="sc-btn sc-btn-ghost sc-mod-table-btn"
-                    >
-                      Review
-                    </Link>
-                    {hasPermission(user, "scripts.approve") ? (
-                      <button
-                        type="button"
-                        className="sc-btn sc-btn-primary sc-mod-table-btn"
-                        disabled={busyId === batch.id}
-                        onClick={() => handleApproveScriptBatch(batch.id)}
-                      >
-                        Approve batch
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="sc-btn sc-btn-ghost sc-mod-table-btn"
-                      disabled={busyId === batch.id}
-                      onClick={() =>
-                        setReturnTarget({
-                          kind: "batch",
-                          batchId: batch.id,
-                          title: batch.title,
-                        })
-                      }
-                    >
-                      Return
-                    </button>
-                    {canEscalate && batch.assessment?.id ? (
-                      <button
-                        type="button"
-                        className="sc-btn sc-btn-ghost sc-mod-table-btn sc-mod-table-btn-escalate"
-                        disabled={busyId === batch.id}
-                        onClick={() =>
-                          openEscalate(batch.assessment.id, batch.title, batch.id)
-                        }
-                      >
-                        Escalate
-                      </button>
-                    ) : null}
-                  </div>
+                        title: batch.title,
+                      })
+                    }
+                    onEscalate={
+                      canEscalate && batch.assessment?.id
+                        ? () => openEscalate(batch.assessment.id, batch.title, batch.id)
+                        : undefined
+                    }
+                  />
                 </div>
                 <div className="sc-table-wrap" style={{ marginTop: "0.75rem" }}>
                   <table className="sc-table">
@@ -463,8 +476,40 @@ export default function HodModerationQueue() {
                   </table>
                 </div>
               </div>
-            ))
+            );
+            })
           )}
+        </div>
+      ) : null}
+
+      {approveBatchTarget ? (
+        <div
+          className="sc-card sc-card-gold sc-form-grid"
+          style={{ marginTop: "1.5rem", padding: "1.5rem", maxWidth: 560 }}
+        >
+          <h3 style={{ margin: 0, color: "var(--sc-gold-light)" }}>
+            Approve batch — {approveBatchTarget.title}
+          </h3>
+          <p className="sc-mod-hint" style={{ margin: 0 }}>
+            This will mark the batch as reviewed and approved for all {approveBatchTarget.learnerScripts.length} scripts.
+          </p>
+          <div className="sc-form-actions">
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary"
+              disabled={busyId === approveBatchTarget.id}
+              onClick={() => void handleApproveScriptBatch(approveBatchTarget)}
+            >
+              Confirm approval
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              onClick={() => setApproveBatchTarget(null)}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       ) : null}
 
