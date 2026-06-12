@@ -6,10 +6,12 @@ import {
   addModerationComment,
   createApprovalRequest,
   getModerationTrail,
+  listApprovalRequests,
   ModerationTrailError,
   respondToApprovalRequest,
   resolveModerationComment,
 } from "../services/moderation/moderationTrail";
+import { ApprovalRequestStatus, WorkspaceRole } from "@prisma/client";
 import { listMarkAdjustments } from "../services/marking/markAudit";
 
 const router = Router();
@@ -77,6 +79,52 @@ router.post(
       }
       console.error("[moderation/resolve]", err);
       return res.status(500).json({ error: "Failed to resolve comment" });
+    }
+  }
+);
+
+router.get(
+  "/approval-requests",
+  requireAuth,
+  requirePermission(PERMISSIONS.MODERATION_QUEUE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const statusParam = req.query.status
+        ? String(req.query.status).toUpperCase()
+        : "all";
+      const status =
+        statusParam === "ALL" || statusParam === ""
+          ? ("all" as const)
+          : (statusParam as ApprovalRequestStatus);
+
+      if (
+        status !== "all" &&
+        !Object.values(ApprovalRequestStatus).includes(status)
+      ) {
+        return res.status(400).json({ error: "Invalid status filter" });
+      }
+
+      const assignedRole = req.query.assignedRole
+        ? (String(req.query.assignedRole).toUpperCase() as WorkspaceRole)
+        : undefined;
+
+      if (
+        assignedRole &&
+        !Object.values(WorkspaceRole).includes(assignedRole)
+      ) {
+        return res.status(400).json({ error: "Invalid assignedRole filter" });
+      }
+
+      const requests = await listApprovalRequests(req.auth!.workspaceId, {
+        status,
+        assignedRole,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+      });
+
+      return res.json({ requests });
+    } catch (err) {
+      console.error("[moderation/approval-requests]", err);
+      return res.status(500).json({ error: "Failed to load approval requests" });
     }
   }
 );

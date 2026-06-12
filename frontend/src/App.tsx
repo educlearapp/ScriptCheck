@@ -40,6 +40,7 @@ import AssessmentTemplates from "./pages/templates/AssessmentTemplates";
 import UsersRolesPlaceholder from "./pages/users/UsersRolesPlaceholder";
 import CurriculumManagement from "./pages/curriculum/CurriculumManagement";
 import HodModerationQueue from "./pages/moderation/HodModerationQueue";
+import EscalationCentre from "./pages/moderation/EscalationCentre";
 import BatchModerationDashboard from "./pages/moderation/BatchModerationDashboard";
 import DepartmentResults from "./pages/results/DepartmentResults";
 import PublishedResults from "./pages/results/PublishedResults";
@@ -124,6 +125,7 @@ function AppRoutes() {
 
             <Route element={<RequirePermission permission="moderation.queue" />}>
               <Route path="/moderation/queue" element={<HodModerationQueue />} />
+              <Route path="/moderation/escalations" element={<EscalationCentre />} />
             </Route>
 
             <Route element={<RequirePermission permission="assessments.view" />}>

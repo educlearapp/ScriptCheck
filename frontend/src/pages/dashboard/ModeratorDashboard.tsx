@@ -16,6 +16,7 @@ import type { ModeratorDashboardData } from "../../types/phase2";
 import "./Dashboard.css";
 import "../../components/dashboard/DashboardHero.css";
 import "../../components/dashboard/IntelligencePanel.css";
+import "../moderation/ModerationWorkflow.css";
 
 export default function ModeratorDashboard() {
   const { user } = useAuth();
@@ -103,7 +104,14 @@ export default function ModeratorDashboard() {
       </div>
 
       <section className="sc-card sc-card-padded">
-        <h2 className="sc-dash-section-title">Pending Approval Requests</h2>
+        <div className="sc-mod-section-header" style={{ marginBottom: "0.75rem" }}>
+          <h2 className="sc-dash-section-title" style={{ margin: 0 }}>
+            Pending Approval Requests
+          </h2>
+          <Link to="/moderation/escalations" className="sc-btn sc-btn-ghost sc-mod-table-btn">
+            Escalation Centre
+          </Link>
+        </div>
         {(data?.pendingApprovals ?? []).length === 0 ? (
           <p className="sc-muted">No pending approval requests.</p>
         ) : (

@@ -191,6 +191,39 @@ export async function respondToApprovalRequest(input: {
   return updated;
 }
 
+export async function listApprovalRequests(
+  workspaceId: string,
+  options?: {
+    status?: ApprovalRequestStatus | "all";
+    assignedRole?: WorkspaceRole;
+    limit?: number;
+  }
+) {
+  const status =
+    options?.status && options.status !== "all" ? options.status : undefined;
+
+  return prisma.moderationApprovalRequest.findMany({
+    where: {
+      assessment: { workspaceId },
+      ...(status ? { status } : {}),
+      ...(options?.assignedRole ? { assignedRole: options.assignedRole } : {}),
+    },
+    include: {
+      assessment: {
+        select: {
+          id: true,
+          title: true,
+          subject: { select: { name: true } },
+        },
+      },
+      requestedBy: { select: { id: true, fullName: true } },
+      respondedBy: { select: { id: true, fullName: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: options?.limit ?? 100,
+  });
+}
+
 export async function getModerationTrail(
   assessmentId: string,
   workspaceId: string

@@ -202,6 +202,51 @@
   color: var(--sc-warning) !important;
 }
 
+/* Tab bar */
+.sc-mod-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sc-mod-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--sc-radius-sm);
+  border: 1px solid var(--sc-border);
+  background: var(--sc-bg);
+  color: var(--sc-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sc-mod-tab.is-active {
+  border-color: var(--sc-border-gold);
+  background: rgba(212, 175, 55, 0.08);
+  color: var(--sc-text);
+}
+
+.sc-mod-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  background: var(--sc-bg-elevated);
+  border: 1px solid var(--sc-border);
+}
+
+.sc-mod-tab.is-active .sc-mod-tab-count {
+  background: var(--sc-gold);
+  border-color: var(--sc-gold-dark);
+  color: #1a1a1a;
+}
+
 /* Stats row */
 .sc-mod-stats {
   display: grid;

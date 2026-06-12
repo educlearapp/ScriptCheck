@@ -214,10 +214,17 @@ export default function HodModerationQueue() {
 
   return (
     <div className="sc-mod-hub">
-      <h1 className="sc-page-title">DH Moderation Queue</h1>
-      <p className="sc-page-subtitle">
-        Review assessments submitted by teachers. Approve, return with feedback, or escalate.
-      </p>
+      <div className="sc-mod-section-header">
+        <div>
+          <h1 className="sc-page-title">DH Moderation Queue</h1>
+          <p className="sc-page-subtitle">
+            Review assessments submitted by teachers. Approve, return with feedback, or escalate.
+          </p>
+        </div>
+        <Link to="/moderation/escalations" className="sc-btn sc-btn-ghost sc-mod-table-btn">
+          Escalation Centre
+        </Link>
+      </div>
 
       {loading ? <p style={{ marginTop: "1.5rem" }}>Loading queue…</p> : null}
       {error ? <p className="sc-error" style={{ marginTop: "1.5rem" }}>{error}</p> : null}

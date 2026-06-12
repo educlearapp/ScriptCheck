@@ -182,10 +182,13 @@ export default function DhModerationOverview() {
             Review teacher submissions, then approve, return with feedback, or escalate.
           </p>
         </div>
-        <div className="sc-dash-meta">
+        <div className="sc-dash-meta" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
           <span className="sc-dash-meta-pill">
             Awaiting review: <strong>{dhItems.length}</strong>
           </span>
+          <Link to="/moderation/escalations" className="sc-btn sc-btn-ghost sc-mod-table-btn">
+            Escalation Centre
+          </Link>
         </div>
       </header>
 
