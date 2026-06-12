@@ -183,6 +183,17 @@ Password for all: `ScriptCheck2026!`
 - `hod.math@scriptcheck-demo.school` — HOD
 - `teacher@scriptcheck-demo.school` — TEACHER
 
+### Beta logins (Render beta environment)
+
+API: `https://scriptcheck-beta-backend.onrender.com`
+
+Password for all beta test users: `ScriptCheckBeta2026!`
+
+- `hod.math@scriptcheck-beta.school` — HOD + TEACHER
+- `hod.english@scriptcheck-beta.school` — HOD + TEACHER
+- `hod.science@scriptcheck-beta.school` — HOD + TEACHER
+- `teacher.beta@scriptcheck-beta.school` — TEACHER
+
 ### Build & typecheck
 
 ```bash

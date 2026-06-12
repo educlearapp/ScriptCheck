@@ -36,7 +36,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://beta.scriptcheck.co.za,https://beta.scriptcheck.educlear.co.za
+        value: https://beta.scriptcheck.co.za,https://beta.scriptcheck.educlear.co.za,https://scriptcheck-beta-frontend.onrender.com
 
   - type: web
     name: scriptcheck-beta-frontend
@@ -46,10 +46,40 @@ services:
     staticPublishPath: dist
     routes:
       - type: rewrite
+        source: /login
+        destination: /index.html
+      - type: rewrite
+        source: /register
+        destination: /index.html
+      - type: rewrite
+        source: /trial
+        destination: /index.html
+      - type: rewrite
+        source: /dashboard
+        destination: /index.html
+      - type: rewrite
+        source: /settings
+        destination: /index.html
+      - type: rewrite
+        source: /assessments
+        destination: /index.html
+      - type: rewrite
+        source: /marking
+        destination: /index.html
+      - type: rewrite
+        source: /moderation
+        destination: /index.html
+      - type: rewrite
+        source: /results
+        destination: /index.html
+      - type: rewrite
+        source: /reports
+        destination: /index.html
+      - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://api.beta.scriptcheck.co.za
+        value: https://scriptcheck-beta-backend.onrender.com
       - key: VITE_APP_ENV
         value: beta

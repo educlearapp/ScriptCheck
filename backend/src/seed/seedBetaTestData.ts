@@ -10,7 +10,7 @@ import { prisma } from "../prisma";
 import { hashAuthPassword } from "../services/authCredentials";
 
 const TEST_PREFIX = "[TEST DATA ONLY]";
-const BETA_PASSWORD = "ScriptCheck2026!";
+const BETA_PASSWORD = "ScriptCheckBeta2026!";
 
 async function createMembershipWithRoles(
   userId: string,
@@ -504,7 +504,7 @@ export async function seedBetaTestData() {
   console.log("Beta test workspace seeded:");
   console.log(`  Workspace: ${betaWorkspace.slug} (TRIAL)`);
   console.log(`  Assessments: 3 (${TEST_PREFIX} prefix)`);
-  console.log("  Beta HOD logins (password: ScriptCheck2026!):");
+  console.log("  Beta HOD logins (password: ScriptCheckBeta2026!):");
   for (const demo of betaUsers) {
     console.log(`    ${demo.email} — ${demo.roles.join(" + ")}`);
   }
