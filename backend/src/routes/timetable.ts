@@ -41,6 +41,7 @@ import {
   validateLessonTimetable,
   getLessonTimetableReadiness,
 } from "../services/lessonTimetable";
+import { generateLessonTimetable } from "../services/timetableGenerator";
 
 const router = Router();
 
@@ -587,6 +588,23 @@ router.post(
         String(req.params.id)
       );
       return res.json(validation);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/lessons/:id/generate",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_MANAGE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await generateLessonTimetable(
+        req.auth!.workspaceId,
+        String(req.params.id)
+      );
+      return res.json(result);
     } catch (err) {
       return handleTimetableError(res, err);
     }

@@ -11,6 +11,7 @@ import type {
   SchoolClass,
   TimetableRoom,
   TimetableReadiness,
+  TimetableGenerateResult,
   TeacherAssignment,
   WorkspaceSubject,
   WorkspaceUser,
@@ -44,6 +45,8 @@ export default function LessonTimetableBuilder() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState<TimetableGenerateResult | null>(null);
   const [cell, setCell] = useState<CellSelection | null>(null);
   const [form, setForm] = useState({
     subjectId: "",
@@ -253,6 +256,34 @@ export default function LessonTimetableBuilder() {
     }
   };
 
+  const handleGenerate = async () => {
+    if (!id) return;
+    if (
+      !confirm(
+        "Auto-fill missing lessons? This adds new entries to empty slots only. Locked and existing entries will not be changed."
+      )
+    ) {
+      return;
+    }
+    setGenerating(true);
+    setError("");
+    setGenerateResult(null);
+    try {
+      const result = await apiFetch<TimetableGenerateResult>(
+        `/timetable/lessons/${id}/generate`,
+        { method: "POST" }
+      );
+      setGenerateResult(result);
+      setReadiness(result.readiness);
+      loadEntries();
+      loadReadiness();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Auto-fill failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   if (loading || !timetable) {
     return <p style={{ padding: "1.25rem" }}>Loading builder…</p>;
   }
@@ -280,6 +311,60 @@ export default function LessonTimetableBuilder() {
         </div>
       ) : null}
 
+      {generateResult ? (
+        <div className="sc-card" style={{ padding: "1rem", marginTop: "0.75rem" }}>
+          <h3 style={{ marginTop: 0 }}>Auto-fill result</h3>
+          <p>
+            Generated <strong>{generateResult.generatedCount}</strong> lesson
+            {generateResult.generatedCount === 1 ? "" : "s"}
+            {generateResult.skippedCount > 0 ? (
+              <> · {generateResult.skippedCount} period slot(s) could not be placed</>
+            ) : null}
+          </p>
+          {generateResult.warnings.length > 0 ? (
+            <ul style={{ margin: "0.5rem 0", paddingLeft: "1.25rem" }}>
+              {generateResult.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          ) : null}
+          {generateResult.unplacedRequirements.length > 0 ? (
+            <>
+              <p style={{ marginBottom: "0.5rem" }}>
+                <strong>{generateResult.unplacedRequirements.length}</strong> requirement
+                {generateResult.unplacedRequirements.length === 1 ? "" : "s"} still incomplete:
+              </p>
+              <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
+                {generateResult.unplacedRequirements.map((u) => (
+                  <li key={`${u.classId}:${u.subjectId}`}>
+                    {u.classCode} {u.subjectCode}: {u.reason}
+                    {u.missingPeriods > 0 ? ` (${u.missingPeriods} period(s) short` : ""}
+                    {u.missingDoublePeriods > 0
+                      ? `, ${u.missingDoublePeriods} double(s) short`
+                      : ""}
+                    {u.missingPeriods > 0 ? ")" : ""}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : generateResult.generatedCount > 0 ? (
+            <p style={{ margin: 0, color: "var(--sc-success, #15803d)" }}>
+              All requirements are now fully scheduled.
+            </p>
+          ) : (
+            <p style={{ margin: 0 }}>No missing lessons to fill.</p>
+          )}
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost"
+            style={{ marginTop: "0.75rem" }}
+            onClick={() => setGenerateResult(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
       <div className="tt-toolbar sc-card" style={{ padding: "1rem" }}>
         <label>
           Class
@@ -299,6 +384,17 @@ export default function LessonTimetableBuilder() {
         <button type="button" className="sc-btn sc-btn-secondary" onClick={runValidate}>
           Validate
         </button>
+
+        {canManage && isDraft ? (
+          <button
+            type="button"
+            className="sc-btn sc-btn-secondary"
+            onClick={handleGenerate}
+            disabled={generating || saving}
+          >
+            {generating ? "Generating…" : "Auto Fill Missing Lessons"}
+          </button>
+        ) : null}
 
         {canPublish && isDraft ? (
           <button

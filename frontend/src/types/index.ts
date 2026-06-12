@@ -2348,3 +2348,23 @@ export type TimetableReadiness = {
 
 /** @deprecated Use TimetableReadiness */
 export type TimetableValidation = TimetableReadiness;
+
+export type UnplacedRequirement = {
+  classId: string;
+  classCode: string;
+  className: string;
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  missingPeriods: number;
+  missingDoublePeriods: number;
+  reason: string;
+};
+
+export type TimetableGenerateResult = {
+  generatedCount: number;
+  skippedCount: number;
+  unplacedRequirements: UnplacedRequirement[];
+  warnings: string[];
+  readiness: TimetableReadiness;
+};
