@@ -1,12 +1,20 @@
 import { DayOfWeek, LessonTimetableStatus, PeriodType, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import { TimetableError } from "./timetableFoundation";
+import {
+  TIMETABLE_INTELLIGENCE_CONFIG,
+  checkTeacherAssignmentForEntry,
+  evaluateTimetableReadiness,
+  type TimetableReadinessResult,
+} from "./timetableReadiness";
+
+export type { TimetableReadinessResult };
 
 export type ClashSeverity = "HARD" | "WARNING";
 
 export type TimetableClash = {
   severity: ClashSeverity;
-  type: "TEACHER" | "ROOM" | "CLASS" | "DOUBLE_PERIOD";
+  type: "TEACHER" | "ROOM" | "CLASS" | "DOUBLE_PERIOD" | "OVER_SCHEDULED" | "MISSING_ROOM";
   dayOfWeek: DayOfWeek;
   periodId: string;
   periodLabel: string;
@@ -22,7 +30,7 @@ export type TimetableValidationResult = {
   clashCount: number;
 };
 
-const lessonEntryInclude = {
+export const lessonEntryInclude = {
   period: {
     select: {
       id: true,
@@ -379,22 +387,19 @@ export function detectLessonTimetableClashes(
 export async function validateLessonTimetable(
   workspaceId: string,
   timetableId: string
-): Promise<TimetableValidationResult> {
-  const timetable = await getLessonTimetableOrThrow(workspaceId, timetableId);
-  const entries = await prisma.lessonEntry.findMany({
-    where: { timetableId, workspaceId },
-    include: lessonEntryInclude,
-  });
-  return detectLessonTimetableClashes(
-    entries,
-    timetable.template.periods.map((p) => ({
-      id: p.id,
-      periodOrder: p.periodOrder,
-      label: p.label,
-      periodType: p.periodType,
-      doublePeriodCapable: p.doublePeriodCapable,
-    }))
-  );
+): Promise<TimetableReadinessResult> {
+  const result = await evaluateTimetableReadiness(workspaceId, timetableId);
+  if (!result) {
+    throw new TimetableError("Lesson timetable not found", 404);
+  }
+  return result;
+}
+
+export async function getLessonTimetableReadiness(
+  workspaceId: string,
+  timetableId: string
+): Promise<TimetableReadinessResult> {
+  return validateLessonTimetable(workspaceId, timetableId);
 }
 
 export async function listLessonTimetables(
@@ -490,9 +495,9 @@ export async function publishLessonTimetable(
   }
 
   const validation = await validateLessonTimetable(workspaceId, id);
-  if (!validation.valid) {
+  if (!validation.canPublish) {
     throw new TimetableError(
-      `Cannot publish: ${validation.hardClashes.length} hard clash(es) must be resolved`,
+      `Cannot publish: ${validation.blockingReasons.join("; ")}`,
       409
     );
   }
@@ -624,6 +629,18 @@ export async function createLessonEntry(
   const { timetable } = await validateEntryReferences(workspaceId, timetableId, input);
   assertDraft(timetable.status);
 
+  const assignmentViolation = await checkTeacherAssignmentForEntry(workspaceId, {
+    teacherUserId: input.teacherUserId,
+    schoolClassId: input.schoolClassId,
+    subjectId: input.subjectId,
+  });
+  if (
+    assignmentViolation &&
+    TIMETABLE_INTELLIGENCE_CONFIG.teacherAssignment.draftMode === "block"
+  ) {
+    throw new TimetableError(assignmentViolation.message, 409);
+  }
+
   const row = await prisma.lessonEntry.create({
     data: {
       workspaceId,
@@ -640,7 +657,10 @@ export async function createLessonEntry(
     },
     include: lessonEntryInclude,
   });
-  return serializeLessonEntry(row);
+  return {
+    ...serializeLessonEntry(row),
+    teacherAssignmentWarning: assignmentViolation?.message ?? null,
+  };
 }
 
 export async function updateLessonEntry(
@@ -674,13 +694,29 @@ export async function updateLessonEntry(
     assertNotLocked(existing);
   }
 
+  const nextTeacherId = input.teacherUserId ?? existing.teacherUserId;
+  const nextClassId = input.schoolClassId ?? existing.schoolClassId;
+  const nextSubjectId = input.subjectId ?? existing.subjectId;
+
   await validateEntryReferences(workspaceId, timetableId, {
     periodId: input.periodId ?? existing.periodId,
-    schoolClassId: input.schoolClassId ?? existing.schoolClassId,
-    subjectId: input.subjectId ?? existing.subjectId,
-    teacherUserId: input.teacherUserId ?? existing.teacherUserId,
+    schoolClassId: nextClassId,
+    subjectId: nextSubjectId,
+    teacherUserId: nextTeacherId,
     roomId: input.roomId !== undefined ? input.roomId : existing.roomId,
   });
+
+  const assignmentViolation = await checkTeacherAssignmentForEntry(workspaceId, {
+    teacherUserId: nextTeacherId,
+    schoolClassId: nextClassId,
+    subjectId: nextSubjectId,
+  });
+  if (
+    assignmentViolation &&
+    TIMETABLE_INTELLIGENCE_CONFIG.teacherAssignment.draftMode === "block"
+  ) {
+    throw new TimetableError(assignmentViolation.message, 409);
+  }
 
   const row = await prisma.lessonEntry.update({
     where: { id },
@@ -697,7 +733,10 @@ export async function updateLessonEntry(
     },
     include: lessonEntryInclude,
   });
-  return serializeLessonEntry(row);
+  return {
+    ...serializeLessonEntry(row),
+    teacherAssignmentWarning: assignmentViolation?.message ?? null,
+  };
 }
 
 export async function deleteLessonEntry(

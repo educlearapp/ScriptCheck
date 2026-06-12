@@ -190,6 +190,12 @@ textarea {
   color: var(--sc-danger);
 }
 
+.sc-alert-warning {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+}
+
 .sc-page-title {
   margin: 0 0 0.35rem;
   font-size: 1.75rem;

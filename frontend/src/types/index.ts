@@ -2279,7 +2279,7 @@ export type LessonEntry = {
 
 export type TimetableClash = {
   severity: "HARD" | "WARNING";
-  type: "TEACHER" | "ROOM" | "CLASS" | "DOUBLE_PERIOD";
+  type: "TEACHER" | "ROOM" | "CLASS" | "DOUBLE_PERIOD" | "OVER_SCHEDULED" | "MISSING_ROOM";
   dayOfWeek: DayOfWeek;
   periodId: string;
   periodLabel: string;
@@ -2288,9 +2288,63 @@ export type TimetableClash = {
   message: string;
 };
 
-export type TimetableValidation = {
+export type RequirementCoverageStatus = "COMPLETE" | "MISSING" | "OVER_SCHEDULED";
+
+export type RequirementCoverageItem = {
+  classId: string;
+  classCode: string;
+  className: string;
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  periodsPerWeek: number;
+  doublePeriodsRequired: number;
+  scheduledPeriods: number;
+  scheduledDoublePeriods: number;
+  missingPeriods: number;
+  extraPeriods: number;
+  missingDoublePeriods: number;
+  extraDoublePeriods: number;
+  status: RequirementCoverageStatus;
+};
+
+export type TeacherAssignmentViolation = {
+  entryId: string;
+  classId: string;
+  classCode: string;
+  subjectId: string;
+  subjectCode: string;
+  teacherUserId: string;
+  teacherName: string;
+  message: string;
+};
+
+export type TimetableReadinessSummary = {
+  totalClasses: number;
+  classesWithCompleteRequirements: number;
+  totalSubjectRequirements: number;
+  subjectsFullyScheduled: number;
+  missingPeriodsTotal: number;
+  extraPeriodsTotal: number;
+  hardClashCount: number;
+  warningCount: number;
+  unassignedTeacherCount: number;
+  unassignedRoomCount: number;
+  teacherAssignmentViolationCount: number;
+  incompleteSubjectCount: number;
+};
+
+export type TimetableReadiness = {
+  canPublish: boolean;
   valid: boolean;
   hardClashes: TimetableClash[];
   warnings: TimetableClash[];
   clashCount: number;
+  requirementCoverage: RequirementCoverageItem[];
+  teacherAssignmentViolations: TeacherAssignmentViolation[];
+  readinessSummary: TimetableReadinessSummary;
+  blockingReasons: string[];
 };
+
+/** @deprecated Use TimetableReadiness */
+export type TimetableValidation = TimetableReadiness;

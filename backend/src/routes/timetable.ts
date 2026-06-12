@@ -39,6 +39,7 @@ import {
   updateLessonEntry,
   updateLessonTimetable,
   validateLessonTimetable,
+  getLessonTimetableReadiness,
 } from "../services/lessonTimetable";
 
 const router = Router();
@@ -552,6 +553,23 @@ router.patch(
         }
       );
       return res.json(timetable);
+    } catch (err) {
+      return handleTimetableError(res, err);
+    }
+  }
+);
+
+router.get(
+  "/lessons/:id/readiness",
+  requireAuth,
+  requirePermission(PERMISSIONS.TIMETABLE_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const readiness = await getLessonTimetableReadiness(
+        req.auth!.workspaceId,
+        String(req.params.id)
+      );
+      return res.json(readiness);
     } catch (err) {
       return handleTimetableError(res, err);
     }

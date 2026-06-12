@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiFetch } from "../../api";
-import type { LessonEntry, LessonTimetable, TimetableValidation } from "../../types";
+import type { LessonEntry, LessonTimetable, TimetableReadiness } from "../../types";
 import LessonTimetableGrid, { ClashPanel } from "./LessonTimetableGrid";
 import "./timetable-grid.css";
 
@@ -23,7 +23,7 @@ export default function TimetableViewShell({
   const { id, [paramKey]: entityId } = useParams<{ id: string; classId?: string; teacherId?: string; roomId?: string }>();
   const [timetable, setTimetable] = useState<LessonTimetable | null>(null);
   const [entries, setEntries] = useState<LessonEntry[]>([]);
-  const [validation, setValidation] = useState<TimetableValidation | null>(null);
+  const [readiness, setReadiness] = useState<TimetableReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -33,12 +33,12 @@ export default function TimetableViewShell({
     Promise.all([
       apiFetch<LessonTimetable>(`/timetable/lessons/${id}`),
       apiFetch<LessonEntry[]>(`/timetable/lessons/${id}/entries?${queryParam}=${entityId}`),
-      apiFetch<TimetableValidation>(`/timetable/lessons/${id}/validate`, { method: "POST" }),
+      apiFetch<TimetableReadiness>(`/timetable/lessons/${id}/readiness`),
     ])
       .then(([tt, ents, val]) => {
         setTimetable(tt);
         setEntries(ents);
-        setValidation(val);
+        setReadiness(val);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load view"))
       .finally(() => setLoading(false));
@@ -52,14 +52,14 @@ export default function TimetableViewShell({
     return <p style={{ padding: "1.25rem" }}>Loading…</p>;
   }
 
-  const relevantClashes = validation
+  const relevantClashes = readiness
     ? {
-        ...validation,
-        hardClashes: validation.hardClashes.filter(
+        ...readiness,
+        hardClashes: readiness.hardClashes.filter(
           (c) =>
             entries.some((e) => e.id === c.entryId || e.id === c.conflictingEntryId)
         ),
-        warnings: validation.warnings.filter(
+        warnings: readiness.warnings.filter(
           (c) =>
             entries.some((e) => e.id === c.entryId || e.id === c.conflictingEntryId)
         ),

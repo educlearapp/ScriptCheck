@@ -10,12 +10,13 @@ import type {
   PeriodDefinition,
   SchoolClass,
   TimetableRoom,
-  TimetableValidation,
+  TimetableReadiness,
   TeacherAssignment,
   WorkspaceSubject,
   WorkspaceUser,
 } from "../../types";
-import LessonTimetableGrid, { ClashPanel } from "./LessonTimetableGrid";
+import LessonTimetableGrid from "./LessonTimetableGrid";
+import ReadinessPanel from "./ReadinessPanel";
 import "./timetable-grid.css";
 
 type CellSelection = {
@@ -34,7 +35,8 @@ export default function LessonTimetableBuilder() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [entries, setEntries] = useState<LessonEntry[]>([]);
-  const [validation, setValidation] = useState<TimetableValidation | null>(null);
+  const [readiness, setReadiness] = useState<TimetableReadiness | null>(null);
+  const [saveWarning, setSaveWarning] = useState("");
   const [subjects, setSubjects] = useState<WorkspaceSubject[]>([]);
   const [rooms, setRooms] = useState<TimetableRoom[]>([]);
   const [teachers, setTeachers] = useState<WorkspaceUser[]>([]);
@@ -69,10 +71,17 @@ export default function LessonTimetableBuilder() {
     ).then(setEntries);
   }, [id, selectedClassId]);
 
+  const loadReadiness = useCallback(() => {
+    if (!id) return;
+    apiFetch<TimetableReadiness>(`/timetable/lessons/${id}/readiness`)
+      .then(setReadiness)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load readiness"));
+  }, [id]);
+
   const runValidate = useCallback(() => {
     if (!id) return;
-    apiFetch<TimetableValidation>(`/timetable/lessons/${id}/validate`, { method: "POST" })
-      .then(setValidation)
+    apiFetch<TimetableReadiness>(`/timetable/lessons/${id}/validate`, { method: "POST" })
+      .then(setReadiness)
       .catch((err) => setError(err instanceof Error ? err.message : "Validation failed"));
   }, [id]);
 
@@ -107,8 +116,8 @@ export default function LessonTimetableBuilder() {
   }, [loadEntries]);
 
   useEffect(() => {
-    runValidate();
-  }, [runValidate, entries.length]);
+    loadReadiness();
+  }, [loadReadiness, entries.length]);
 
   const openCell = (day: DayOfWeek, period: PeriodDefinition, entry?: LessonEntry) => {
     if (readonly) return;
@@ -153,10 +162,24 @@ export default function LessonTimetableBuilder() {
     }));
   };
 
+  const teacherAssignmentWarning = (() => {
+    if (!form.teacherUserId || !form.subjectId || !selectedClassId) return "";
+    const key = `${form.teacherUserId}:${selectedClassId}:${form.subjectId}`;
+    const assigned = assignments.some(
+      (a) => `${a.teacher.id}:${a.class.id}:${a.subject.id}` === key
+    );
+    if (assigned) return "";
+    const teacher = teachers.find((t) => t.id === form.teacherUserId);
+    const subject = subjects.find((s) => s.id === form.subjectId);
+    const schoolClass = classes.find((c) => c.id === selectedClassId);
+    return `${teacher?.fullName ?? "Teacher"} is not assigned to teach ${subject?.code ?? "subject"} for ${schoolClass?.code ?? "class"}. This will block publishing.`;
+  })();
+
   const handleSave = async () => {
     if (!id || !cell || !selectedClassId) return;
     setSaving(true);
     setError("");
+    setSaveWarning("");
     try {
       const payload = {
         dayOfWeek: cell.day,
@@ -170,20 +193,26 @@ export default function LessonTimetableBuilder() {
         notes: form.notes || null,
       };
 
+      type SaveResult = { teacherAssignmentWarning?: string | null };
+      let result: SaveResult;
       if (cell.entry) {
-        await apiFetch(`/timetable/lessons/${id}/entries/${cell.entry.id}`, {
+        result = await apiFetch<SaveResult>(`/timetable/lessons/${id}/entries/${cell.entry.id}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
       } else {
-        await apiFetch(`/timetable/lessons/${id}/entries`, {
+        result = await apiFetch<SaveResult>(`/timetable/lessons/${id}/entries`, {
           method: "POST",
           body: JSON.stringify(payload),
         });
       }
-      setCell(null);
+      if (result.teacherAssignmentWarning) {
+        setSaveWarning(result.teacherAssignmentWarning);
+      } else {
+        setCell(null);
+      }
       loadEntries();
-      runValidate();
+      loadReadiness();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save lesson");
     } finally {
@@ -209,7 +238,7 @@ export default function LessonTimetableBuilder() {
   };
 
   const handlePublish = async () => {
-    if (!id || !confirm("Publish this timetable? Hard clashes will block publishing.")) return;
+    if (!id || !confirm("Publish this timetable? All blocking readiness checks must pass.")) return;
     setSaving(true);
     setError("");
     try {
@@ -245,6 +274,11 @@ export default function LessonTimetableBuilder() {
       </p>
 
       {error ? <div className="sc-alert sc-alert-error">{error}</div> : null}
+      {saveWarning ? (
+        <div className="sc-alert sc-alert-warning" style={{ marginTop: "0.75rem" }}>
+          {saveWarning}
+        </div>
+      ) : null}
 
       <div className="tt-toolbar sc-card" style={{ padding: "1rem" }}>
         <label>
@@ -271,9 +305,10 @@ export default function LessonTimetableBuilder() {
             type="button"
             className="sc-btn sc-btn-primary"
             onClick={handlePublish}
-            disabled={saving || (validation != null && !validation.valid)}
+            disabled={saving || (readiness != null && !readiness.canPublish)}
+            title={readiness && !readiness.canPublish ? readiness.blockingReasons.join("; ") : undefined}
           >
-            Publish
+            {readiness?.canPublish ? "Publish" : "Publish blocked"}
           </button>
         ) : null}
 
@@ -303,12 +338,12 @@ export default function LessonTimetableBuilder() {
         ) : null}
       </div>
 
-      <ClashPanel validation={validation} />
+      <ReadinessPanel readiness={readiness} selectedClassId={selectedClassId} />
 
       <LessonTimetableGrid
         periods={timetable.template.periods}
         entries={entries}
-        clashes={[...(validation?.hardClashes ?? []), ...(validation?.warnings ?? [])]}
+        clashes={[...(readiness?.hardClashes ?? []), ...(readiness?.warnings ?? [])]}
         readonly={readonly}
         onCellClick={openCell}
       />
@@ -395,6 +430,12 @@ export default function LessonTimetableBuilder() {
                 />
               </label>
             </div>
+
+            {teacherAssignmentWarning ? (
+              <div className="sc-alert sc-alert-warning" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
+                {teacherAssignmentWarning}
+              </div>
+            ) : null}
 
             <div className="sc-form-actions" style={{ marginTop: "1rem" }}>
               {!readonly ? (
