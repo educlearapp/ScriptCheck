@@ -17,6 +17,7 @@ import {
 import DashboardIntelligenceAlerts from "../../components/dashboard/DashboardIntelligenceAlerts";
 import BetaBanner from "../../components/beta/BetaBanner";
 import AssessmentIntelligenceBadge from "../../components/intelligence/AssessmentIntelligenceBadge";
+import { fetchIntelligenceReport } from "../../services/intelligenceApi";
 import type { DepartmentResultItem, TeacherDashboardData } from "../../types";
 import "../../components/intelligence/AssessmentHealthReport.css";
 import "./Dashboard.css";
@@ -64,7 +65,7 @@ function buildAssessmentRows(data: TeacherDashboardData | null): AssessmentRow[]
     }
   }
 
-  return Array.from(map.values()).slice(0, 12);
+  return Array.from(map.values()).slice(0, 5);
 }
 
 type ActivityItem = { id: string; text: string; time: string };
@@ -98,7 +99,7 @@ function buildActivity(data: TeacherDashboardData | null): ActivityItem[] {
 
   return items
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-    .slice(0, 6);
+    .slice(0, 3);
 }
 
 function assessmentAction(row: AssessmentRow): { to: string; label: string } {
@@ -153,17 +154,62 @@ function buildRecommendations(
   return recs.slice(0, 4);
 }
 
+function collectAssessmentIds(data: TeacherDashboardData): string[] {
+  const ids = new Set<string>();
+  for (const item of [
+    ...data.awaitingMarking,
+    ...data.submittedToHod,
+    ...data.overdueAssessments,
+    ...data.upcomingDeadlines,
+    ...data.recentlyPublished,
+  ]) {
+    ids.add(item.id);
+  }
+  return [...ids];
+}
+
 export default function TeacherDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState<TeacherDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [missingMemorandumCount, setMissingMemorandumCount] = useState(0);
 
-  useEffect(() => {
+  const loadDashboard = () => {
+    setLoading(true);
+    setLoadError("");
     apiFetch<TeacherDashboardData>("/dashboard/teacher")
       .then(setData)
-      .catch(() => setData(null))
+      .catch((err) => {
+        setData(null);
+        setLoadError(err instanceof Error ? err.message : "Failed to load dashboard");
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadDashboard();
   }, []);
+
+  useEffect(() => {
+    if (!data) {
+      setMissingMemorandumCount(0);
+      return;
+    }
+    const ids = collectAssessmentIds(data);
+    if (ids.length === 0) {
+      setMissingMemorandumCount(0);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(ids.map((id) => fetchIntelligenceReport(id).catch(() => null))).then((reports) => {
+      if (cancelled) return;
+      setMissingMemorandumCount(reports.filter((r) => r?.missingMemorandums).length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [data]);
 
   const stats = data?.stats;
   const assessments = useMemo(() => buildAssessmentRows(data), [data]);
@@ -171,6 +217,21 @@ export default function TeacherDashboard() {
 
   if (loading) {
     return <PageLoader message="Loading your dashboard…" />;
+  }
+
+  if (loadError && !data) {
+    return (
+      <div className="sc-dash sc-dash-compact">
+        <BetaBanner />
+        <div className="sc-card sc-card-padded" style={{ marginTop: "1.5rem" }}>
+          <h2 className="sc-dash-section-title">Dashboard unavailable</h2>
+          <p className="sc-error">{loadError}</p>
+          <button type="button" className="sc-btn sc-btn-primary" onClick={loadDashboard}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const capsIssues = stats?.overdueAssessmentsCount ?? 0;
@@ -202,13 +263,13 @@ export default function TeacherDashboard() {
     },
     {
       label: "Missing Memorandums",
-      value: stats?.submittedToHodCount ?? 0,
-      status: (stats?.submittedToHodCount ?? 0) > 0 ? "warning" : "success",
+      value: missingMemorandumCount,
+      status: missingMemorandumCount > 0 ? "warning" : "success",
     },
   ];
 
   return (
-    <div className="sc-dash">
+    <div className="sc-dash sc-dash-compact">
       <BetaBanner />
       <DashboardHero
         greeting={`${greeting()}, ${user ? firstName(user.fullName) : "there"}`}
@@ -339,39 +400,38 @@ export default function TeacherDashboard() {
         />
       </div>
 
-      <DashboardIntelligenceAlerts
-        title="Compliance Warnings & Assessments Requiring Action"
-        items={assessments.map((row) => ({
-          id: row.id,
-          title: row.title,
-          subtitle: row.displayStatus,
-        }))}
-      />
+      <div className="sc-dash-bottom-row">
+        <DashboardIntelligenceAlerts
+          compact
+          title="Warnings"
+          items={assessments.map((row) => ({
+            id: row.id,
+            title: row.title,
+            subtitle: row.displayStatus,
+          }))}
+        />
 
-      <section>
-        <h2 className="sc-dash-section-title">Recent Activity</h2>
-        <div className="sc-card" style={{ padding: 0 }}>
+        <section className="sc-card sc-card-padded sc-dash-strip">
+          <h2 className="sc-dash-section-title">Recent Activity</h2>
           {activity.length ? (
-            <ul className="sc-dash-activity-list">
+            <ul className="sc-dash-activity-compact">
               {activity.map((item) => (
-                <li key={item.id} className="sc-dash-activity-item">
+                <li key={item.id}>
                   <span className="sc-dash-activity-dot" />
-                  <div>
-                    <div className="sc-dash-activity-text">{item.text}</div>
-                    <div className="sc-dash-activity-time">
-                      {new Date(item.time).toLocaleString()}
-                    </div>
-                  </div>
+                  <span className="sc-dash-activity-text">{item.text}</span>
+                  <span className="sc-dash-activity-time">
+                    {new Date(item.time).toLocaleDateString()}
+                  </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="sc-dash-empty">
-              No recent activity. Your assessment actions will appear here.
+            <p className="sc-muted" style={{ margin: 0, fontSize: "0.72rem" }}>
+              No recent activity.
             </p>
           )}
-        </div>
-      </section>
+        </section>
+      </div>
 
       <section>
         <h2 className="sc-dash-section-title">Quick Actions</h2>
@@ -387,6 +447,9 @@ export default function TeacherDashboard() {
           </Link>
           <Link to="/assessments" className="sc-dash-quick-btn is-secondary">
             View Assessments
+          </Link>
+          <Link to="/results" className="sc-dash-quick-btn is-secondary">
+            Results &amp; Analytics
           </Link>
         </div>
       </section>
