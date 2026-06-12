@@ -1,5 +1,10 @@
 import { useState } from "react";
+import { apiFetch } from "../../../api";
 import { usePermissions } from "../../../hooks/usePermissions";
+import ModerationEscalateModal from "../../../pages/moderation/shared/ModerationEscalateModal";
+import ModerationReturnModal from "../../../pages/moderation/shared/ModerationReturnModal";
+import type { WorkspaceRole } from "../../../types";
+import "../../../pages/moderation/ModerationWorkflow.css";
 
 type Props = {
   availableActions: string[];
@@ -7,6 +12,9 @@ type Props = {
   error?: string;
   onAction: (action: string, comment?: string) => Promise<boolean>;
   onSuccess?: () => void;
+  assessmentId?: string;
+  assessmentTitle?: string;
+  onEscalated?: () => void;
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -31,10 +39,18 @@ export default function WorkflowActions({
   error,
   onAction,
   onSuccess,
+  assessmentId,
+  assessmentTitle,
+  onEscalated,
 }: Props) {
-  const { hasRole, hasAnyRole } = usePermissions();
+  const { hasRole, hasAnyRole, can } = usePermissions();
   const [comment, setComment] = useState("");
-  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalateRole, setEscalateRole] = useState<WorkspaceRole>("MODERATOR");
+  const [escalateComment, setEscalateComment] = useState("");
+  const [escalating, setEscalating] = useState(false);
+  const [escalateError, setEscalateError] = useState("");
 
   const roleFilteredActions = availableActions.filter((action) => {
     if (action === "submit") {
@@ -54,9 +70,14 @@ export default function WorkflowActions({
     return true;
   });
 
+  const showEscalate =
+    !!assessmentId &&
+    can("moderation.request_approval") &&
+    (roleFilteredActions.includes("approve") || roleFilteredActions.includes("return"));
+
   async function handleAction(action: string) {
     if (action === "return") {
-      setShowReturnForm(true);
+      setShowReturnModal(true);
       return;
     }
     const ok = await onAction(ACTION_API_MAP[action]);
@@ -71,12 +92,35 @@ export default function WorkflowActions({
     const ok = await onAction("RETURN", comment.trim());
     if (ok) {
       setComment("");
-      setShowReturnForm(false);
+      setShowReturnModal(false);
       onSuccess?.();
     }
   }
 
-  if (roleFilteredActions.length === 0) {
+  async function handleEscalate() {
+    if (!assessmentId) return;
+    setEscalating(true);
+    setEscalateError("");
+    try {
+      await apiFetch(`/moderation-trail/assessments/${assessmentId}/approval-requests`, {
+        method: "POST",
+        body: JSON.stringify({
+          assignedRole: escalateRole,
+          comment: escalateComment.trim() || undefined,
+        }),
+      });
+      setShowEscalateModal(false);
+      setEscalateComment("");
+      onEscalated?.();
+      onSuccess?.();
+    } catch (err) {
+      setEscalateError(err instanceof Error ? err.message : "Escalation failed");
+    } finally {
+      setEscalating(false);
+    }
+  }
+
+  if (roleFilteredActions.length === 0 && !showEscalate) {
     return (
       <p className="sc-muted" style={{ margin: 0 }}>
         No workflow actions available for your role at this stage.
@@ -87,6 +131,7 @@ export default function WorkflowActions({
   return (
     <div className="sc-workflow-actions">
       {error ? <p className="sc-error">{error}</p> : null}
+      {escalateError ? <p className="sc-error">{escalateError}</p> : null}
 
       <div className="sc-form-actions" style={{ marginTop: 0 }}>
         {roleFilteredActions.map((action) => (
@@ -100,37 +145,52 @@ export default function WorkflowActions({
             {transitioning ? "Processing…" : ACTION_LABELS[action] ?? action}
           </button>
         ))}
+        {showEscalate ? (
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost sc-mod-table-btn-escalate"
+            disabled={transitioning || escalating}
+            onClick={() => {
+              setEscalateRole("MODERATOR");
+              setEscalateComment("");
+              setEscalateError("");
+              setShowEscalateModal(true);
+            }}
+          >
+            Escalate
+          </button>
+        ) : null}
       </div>
 
-      {showReturnForm ? (
-        <div className="sc-card sc-card-padded" style={{ marginTop: "1rem" }}>
-          <label className="sc-label">Return comment (required)</label>
-          <textarea
-            className="sc-input"
-            rows={3}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Explain what changes are needed…"
-          />
-          <div className="sc-form-actions">
-            <button
-              type="button"
-              className="sc-btn sc-btn-primary"
-              disabled={transitioning || !comment.trim()}
-              onClick={() => void handleReturn()}
-            >
-              Confirm Return
-            </button>
-            <button
-              type="button"
-              className="sc-btn sc-btn-ghost"
-              onClick={() => setShowReturnForm(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <ModerationReturnModal
+        open={showReturnModal}
+        itemName={assessmentTitle ?? "Assessment"}
+        comment={comment}
+        onCommentChange={setComment}
+        busy={transitioning}
+        onConfirm={() => void handleReturn()}
+        onCancel={() => {
+          setShowReturnModal(false);
+          setComment("");
+        }}
+        confirmLabel="Confirm Return"
+        placeholder="Explain what changes are needed…"
+      />
+
+      <ModerationEscalateModal
+        open={showEscalateModal}
+        itemName={assessmentTitle ?? "Assessment"}
+        role={escalateRole}
+        onRoleChange={setEscalateRole}
+        comment={escalateComment}
+        onCommentChange={setEscalateComment}
+        busy={escalating}
+        onConfirm={() => void handleEscalate()}
+        onCancel={() => {
+          setShowEscalateModal(false);
+          setEscalateComment("");
+        }}
+      />
     </div>
   );
 }

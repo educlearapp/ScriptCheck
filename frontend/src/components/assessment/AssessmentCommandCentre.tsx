@@ -237,6 +237,9 @@ export default function AssessmentCommandCentre({ assessmentId }: Props) {
           error={workflow.error}
           onAction={workflow.transition}
           onSuccess={() => void reloadAll()}
+          assessmentId={assessmentId}
+          assessmentTitle={assessment.title}
+          onEscalated={() => void reloadAll()}
         />
       </div>
 
@@ -276,7 +279,9 @@ export default function AssessmentCommandCentre({ assessmentId }: Props) {
       {activeTab === "workflow" ? (
         <AssessmentWorkflowTab assessmentId={assessmentId} onTransition={() => void reloadAll()} />
       ) : null}
-      {activeTab === "moderation" ? <AssessmentModerationTab assessmentId={assessmentId} /> : null}
+      {activeTab === "moderation" ? (
+        <AssessmentModerationTab assessmentId={assessmentId} assessmentTitle={assessment.title} />
+      ) : null}
       {activeTab === "marking" ? (
         <AssessmentMarkingTab
           assessmentId={assessmentId}

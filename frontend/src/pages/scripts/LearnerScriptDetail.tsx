@@ -23,7 +23,11 @@ import type {
   ScriptQuestionMarkRow,
   ScriptWorkflowInfo,
   ViewMode,
+  WorkspaceRole,
 } from "../../types";
+import ModerationEscalateModal from "../moderation/shared/ModerationEscalateModal";
+import ModerationReturnModal from "../moderation/shared/ModerationReturnModal";
+import "../moderation/ModerationWorkflow.css";
 import "./Scripts.css";
 
 export default function LearnerScriptDetailPage() {
@@ -59,8 +63,14 @@ export default function LearnerScriptDetailPage() {
   const [workflow, setWorkflow] = useState<ScriptWorkflowInfo | null>(null);
   const [auditTimeline, setAuditTimeline] = useState<ScriptAuditEntry[]>([]);
   const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnComment, setReturnComment] = useState("");
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalateRole, setEscalateRole] = useState<WorkspaceRole>("MODERATOR");
+  const [escalateComment, setEscalateComment] = useState("");
 
   const canMark = hasPermission(user, "scripts.mark");
+  const canEscalate = hasPermission(user, "moderation.request_approval");
   const canFinalise = hasPermission(user, "scripts.finalise");
   const canModerate = hasPermission(user, "scripts.moderate");
   const canUpload = hasPermission(user, "scripts.create");
@@ -387,10 +397,45 @@ export default function LearnerScriptDetailPage() {
   const handleSubmitModeration = () => runBatchAction("/submit-to-hod");
   const handleStartReview = () => runBatchAction("/review");
   const handleApprove = () => runBatchAction("/approve");
-  const handleReturn = () => {
-    const comment = window.prompt("Reason for returning to teacher:");
-    if (comment?.trim()) {
-      void runBatchAction("/return", { comment: comment.trim() });
+
+  const handleReturnConfirm = async () => {
+    if (!returnComment.trim() || !script?.batchId) return;
+    setWorkflowBusy(true);
+    setError("");
+    try {
+      await apiFetch(`/script-batches/${script.batchId}/return`, {
+        method: "POST",
+        body: JSON.stringify({ comment: returnComment.trim() }),
+      });
+      await refreshWorkflow();
+      load();
+      setShowReturnModal(false);
+      setReturnComment("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Return failed");
+    } finally {
+      setWorkflowBusy(false);
+    }
+  };
+
+  const handleEscalate = async () => {
+    if (!script?.assessment.id) return;
+    setWorkflowBusy(true);
+    setError("");
+    try {
+      await apiFetch(`/moderation-trail/assessments/${script.assessment.id}/approval-requests`, {
+        method: "POST",
+        body: JSON.stringify({
+          assignedRole: escalateRole,
+          comment: escalateComment.trim() || undefined,
+        }),
+      });
+      setShowEscalateModal(false);
+      setEscalateComment("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Escalation failed");
+    } finally {
+      setWorkflowBusy(false);
     }
   };
 
@@ -453,8 +498,52 @@ export default function LearnerScriptDetailPage() {
         onSubmitModeration={handleSubmitModeration}
         onStartReview={handleStartReview}
         onApprove={handleApprove}
-        onReturn={handleReturn}
+        onReturn={() => setShowReturnModal(true)}
+        onEscalate={
+          canEscalate && canModerate
+            ? () => {
+                setEscalateRole("MODERATOR");
+                setEscalateComment("");
+                setShowEscalateModal(true);
+              }
+            : undefined
+        }
         onFinalise={handleFinalise}
+      />
+
+      <ModerationReturnModal
+        open={showReturnModal}
+        itemName={
+          script
+            ? `${script.learner.firstName} ${script.learner.lastName} · Script #${script.scriptNumber}`
+            : ""
+        }
+        comment={returnComment}
+        onCommentChange={setReturnComment}
+        busy={workflowBusy}
+        onConfirm={handleReturnConfirm}
+        onCancel={() => {
+          setShowReturnModal(false);
+          setReturnComment("");
+        }}
+        title="Return Script Batch to Teacher"
+        confirmLabel="Return to teacher"
+        placeholder="Reason for returning to teacher…"
+      />
+
+      <ModerationEscalateModal
+        open={showEscalateModal}
+        itemName={script?.assessment.title ?? ""}
+        role={escalateRole}
+        onRoleChange={setEscalateRole}
+        comment={escalateComment}
+        onCommentChange={setEscalateComment}
+        busy={workflowBusy}
+        onConfirm={() => void handleEscalate()}
+        onCancel={() => {
+          setShowEscalateModal(false);
+          setEscalateComment("");
+        }}
       />
 
       {error ? <p className="sc-error">{error}</p> : null}

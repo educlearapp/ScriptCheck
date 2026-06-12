@@ -18,6 +18,7 @@ type Props = {
   onStartReview?: () => void;
   onApprove?: () => void;
   onReturn?: () => void;
+  onEscalate?: () => void;
   onFinalise?: () => void;
 };
 
@@ -29,6 +30,7 @@ export default function ScriptWorkflowBar({
   onStartReview,
   onApprove,
   onReturn,
+  onEscalate,
   onFinalise,
 }: Props) {
   if (!workflow) return null;
@@ -105,6 +107,16 @@ export default function ScriptWorkflowBar({
             onClick={onReturn}
           >
             Return to teacher
+          </button>
+        ) : null}
+        {(actions.has("approve") || actions.has("return_to_teacher")) && onEscalate ? (
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost sc-btn-sm sc-mod-table-btn-escalate"
+            disabled={busy}
+            onClick={onEscalate}
+          >
+            Escalate
           </button>
         ) : null}
         {actions.has("finalise") && onFinalise ? (
