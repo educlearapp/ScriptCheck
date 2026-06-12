@@ -89,6 +89,23 @@
   color: #f59e0b;
 }
 
+.tt-room-warning-badge {
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  color: #f59e0b;
+}
+
+.tt-room-warning-label {
+  color: #f59e0b;
+  font-size: 0.7rem;
+}
+
+.tt-room-hint {
+  font-size: 0.75rem;
+  color: var(--sc-text-muted, #9ca3af);
+  font-weight: 400;
+}
+
 .tt-clash-panel {
   margin-top: 1rem;
   padding: 1rem;

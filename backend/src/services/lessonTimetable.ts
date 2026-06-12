@@ -14,7 +14,15 @@ export type ClashSeverity = "HARD" | "WARNING";
 
 export type TimetableClash = {
   severity: ClashSeverity;
-  type: "TEACHER" | "ROOM" | "CLASS" | "DOUBLE_PERIOD" | "OVER_SCHEDULED" | "MISSING_ROOM";
+  type:
+    | "TEACHER"
+    | "ROOM"
+    | "CLASS"
+    | "DOUBLE_PERIOD"
+    | "OVER_SCHEDULED"
+    | "MISSING_ROOM"
+    | "ROOM_CAPACITY"
+    | "ROOM_TYPE_MISMATCH";
   dayOfWeek: DayOfWeek;
   periodId: string;
   periodLabel: string;
@@ -42,10 +50,10 @@ export const lessonEntryInclude = {
       doublePeriodCapable: true,
     },
   },
-  schoolClass: { select: { id: true, name: true, code: true, grade: true } },
+  schoolClass: { select: { id: true, name: true, code: true, grade: true, learnerCount: true } },
   subject: { select: { id: true, name: true, code: true } },
   teacher: { select: { id: true, fullName: true, email: true } },
-  room: { select: { id: true, name: true, code: true } },
+  room: { select: { id: true, name: true, code: true, roomType: true, capacity: true } },
 } satisfies Prisma.LessonEntryInclude;
 
 type LessonEntryRow = Prisma.LessonEntryGetPayload<{ include: typeof lessonEntryInclude }>;

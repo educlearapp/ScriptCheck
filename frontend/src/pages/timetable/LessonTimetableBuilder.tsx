@@ -18,6 +18,7 @@ import type {
 } from "../../types";
 import LessonTimetableGrid from "./LessonTimetableGrid";
 import ReadinessPanel from "./ReadinessPanel";
+import { formatRoomType, getPreferredRoomType, getRoomSelectionWarnings } from "./roomIntelligence";
 import "./timetable-grid.css";
 
 type CellSelection = {
@@ -164,6 +165,18 @@ export default function LessonTimetableBuilder() {
       teacherUserId: match?.teacher.id ?? f.teacherUserId,
     }));
   };
+
+  const selectedClass = classes.find((c) => c.id === selectedClassId);
+  const selectedSubject = subjects.find((s) => s.id === form.subjectId);
+  const selectedRoom = rooms.find((r) => r.id === form.roomId);
+
+  const roomSelectionWarnings = getRoomSelectionWarnings({
+    room: selectedRoom,
+    subject: selectedSubject,
+    learnerCount: selectedClass?.learnerCount ?? 0,
+  });
+
+  const preferredRoomType = selectedSubject ? getPreferredRoomType(selectedSubject) : null;
 
   const teacherAssignmentWarning = (() => {
     if (!form.teacherUserId || !form.subjectId || !selectedClassId) return "";
@@ -486,6 +499,11 @@ export default function LessonTimetableBuilder() {
               </label>
               <label>
                 Room
+                {preferredRoomType ? (
+                  <span className="tt-room-hint" style={{ marginLeft: "0.35rem" }}>
+                    (prefers {formatRoomType(preferredRoomType)})
+                  </span>
+                ) : null}
                 <select
                   value={form.roomId}
                   onChange={(e) => setForm({ ...form, roomId: e.target.value })}
@@ -494,7 +512,7 @@ export default function LessonTimetableBuilder() {
                   <option value="">None</option>
                   {rooms.map((r) => (
                     <option key={r.id} value={r.id}>
-                      {r.code} — {r.name}
+                      {r.code} — {r.name} ({formatRoomType(r.roomType)}, cap. {r.capacity})
                     </option>
                   ))}
                 </select>
@@ -526,6 +544,17 @@ export default function LessonTimetableBuilder() {
                 />
               </label>
             </div>
+
+            {roomSelectionWarnings.length > 0 ? (
+              <div className="sc-alert sc-alert-warning" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>
+                {roomSelectionWarnings.map((warning) => (
+                  <div key={warning}>{warning}</div>
+                ))}
+                <div style={{ marginTop: "0.35rem", fontSize: "0.8rem" }}>
+                  Room issues are warnings only — you can still save in draft.
+                </div>
+              </div>
+            ) : null}
 
             {teacherAssignmentWarning ? (
               <div className="sc-alert sc-alert-warning" style={{ marginTop: "0.75rem", fontSize: "0.85rem" }}>

@@ -1,5 +1,6 @@
-import type { RequirementCoverageItem, TimetableReadiness } from "../../types";
+import type { RequirementCoverageItem, TimetableClash, TimetableReadiness } from "../../types";
 import { ClashPanel } from "./LessonTimetableGrid";
+import { isRoomIssueClashType } from "./roomIntelligence";
 import "./timetable-grid.css";
 
 function statusClass(status: RequirementCoverageItem["status"]) {
@@ -29,6 +30,9 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
   const coverage = selectedClassId
     ? readiness.requirementCoverage.filter((c) => c.classId === selectedClassId)
     : readiness.requirementCoverage;
+
+  const roomWarnings = readiness.warnings.filter((w) => isRoomIssueClashType(w.type));
+  const roomIntel = readiness.roomIntelligence;
 
   return (
     <div style={{ marginTop: "1rem" }}>
@@ -78,6 +82,16 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
           <Metric label="Warnings" value={s.warningCount} warn={s.warningCount > 0} />
           <Metric label="No room" value={s.unassignedRoomCount} warn={s.unassignedRoomCount > 0} />
           <Metric
+            label="Under capacity"
+            value={s.underCapacityRoomCount ?? 0}
+            warn={(s.underCapacityRoomCount ?? 0) > 0}
+          />
+          <Metric
+            label="Room type mismatch"
+            value={s.roomTypeMismatchCount ?? 0}
+            warn={(s.roomTypeMismatchCount ?? 0) > 0}
+          />
+          <Metric
             label="Teacher violations"
             value={s.teacherAssignmentViolationCount}
             warn={s.teacherAssignmentViolationCount > 0}
@@ -85,6 +99,78 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
           <Metric label="Incomplete subjects" value={s.incompleteSubjectCount} warn={s.incompleteSubjectCount > 0} />
         </div>
       </div>
+
+      {roomIntel || roomWarnings.length > 0 ? (
+        <div className="sc-card" style={{ marginTop: "1rem", padding: "1.25rem" }}>
+          <h3 style={{ marginTop: 0 }}>Room intelligence</h3>
+          {roomIntel ? (
+            <div
+              className="sc-form-grid"
+              style={{
+                marginBottom: roomWarnings.length > 0 ? "1rem" : 0,
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: "0.75rem",
+              }}
+            >
+              <Metric
+                label="Missing rooms"
+                value={roomIntel.summary.missingRoomCount}
+                warn={roomIntel.summary.missingRoomCount > 0}
+              />
+              <Metric
+                label="Under capacity"
+                value={roomIntel.summary.underCapacityCount}
+                warn={roomIntel.summary.underCapacityCount > 0}
+              />
+              <Metric
+                label="Type mismatches"
+                value={roomIntel.summary.roomTypeMismatchCount}
+                warn={roomIntel.summary.roomTypeMismatchCount > 0}
+              />
+            </div>
+          ) : null}
+
+          {roomWarnings.length > 0 ? (
+            <div className="tt-clash-panel" style={{ padding: 0, margin: 0 }}>
+              {roomWarnings.map((w, i) => (
+                <RoomWarningItem key={`${w.entryId}-${w.type}-${i}`} warning={w} />
+              ))}
+            </div>
+          ) : (
+            <p style={{ margin: 0, color: "var(--sc-text-muted)", fontSize: "0.9rem" }}>
+              All assigned rooms meet capacity and type preferences.
+            </p>
+          )}
+
+          {roomIntel && roomIntel.utilisation.length > 0 ? (
+            <details style={{ marginTop: "1rem" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: "0.9rem" }}>
+                Room utilisation
+              </summary>
+              <table className="sc-table" style={{ marginTop: "0.75rem" }}>
+                <thead>
+                  <tr>
+                    <th>Room</th>
+                    <th>Scheduled</th>
+                    <th>Available</th>
+                    <th>Utilisation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roomIntel.utilisation.map((row) => (
+                    <tr key={row.roomId}>
+                      <td>{row.roomCode}</td>
+                      <td>{row.scheduledSlots}</td>
+                      <td>{row.totalTeachingSlots}</td>
+                      <td>{row.utilisationPercent}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          ) : null}
+        </div>
+      ) : null}
 
       {readiness.teacherAssignmentViolations.length > 0 ? (
         <div className="sc-card tt-clash-panel">
@@ -97,7 +183,16 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
         </div>
       ) : null}
 
-      <ClashPanel validation={readiness} />
+      <ClashPanel
+        validation={{
+          ...readiness,
+          warnings: readiness.warnings.filter((w) => !isRoomIssueClashType(w.type)),
+          valid:
+            readiness.valid &&
+            readiness.warnings.filter((w) => !isRoomIssueClashType(w.type)).length === 0 &&
+            readiness.hardClashes.length === 0,
+        }}
+      />
 
       {coverage.length > 0 ? (
         <div className="sc-card" style={{ marginTop: "1rem", padding: 0 }}>
@@ -149,6 +244,14 @@ export default function ReadinessPanel({ readiness, selectedClassId }: Props) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function RoomWarningItem({ warning }: { warning: TimetableClash }) {
+  return (
+    <div className="tt-clash-item" style={{ color: "#f59e0b" }}>
+      <strong>Warning — {warning.type.replace(/_/g, " ")}:</strong> {warning.message}
     </div>
   );
 }

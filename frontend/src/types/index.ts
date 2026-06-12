@@ -2263,13 +2263,13 @@ export type LessonEntry = {
   periodId: string;
   period: PeriodDefinition;
   schoolClassId: string;
-  schoolClass: { id: string; name: string; code: string; grade: string };
+  schoolClass: { id: string; name: string; code: string; grade: string; learnerCount?: number };
   subjectId: string;
   subject: { id: string; name: string; code: string };
   teacherUserId: string;
   teacher: { id: string; fullName: string; email: string };
   roomId: string | null;
-  room: { id: string; name: string; code: string } | null;
+  room: { id: string; name: string; code: string; roomType?: TimetableRoomType; capacity?: number } | null;
   isDoublePeriod: boolean;
   locked: boolean;
   notes: string | null;
@@ -2279,7 +2279,15 @@ export type LessonEntry = {
 
 export type TimetableClash = {
   severity: "HARD" | "WARNING";
-  type: "TEACHER" | "ROOM" | "CLASS" | "DOUBLE_PERIOD" | "OVER_SCHEDULED" | "MISSING_ROOM";
+  type:
+    | "TEACHER"
+    | "ROOM"
+    | "CLASS"
+    | "DOUBLE_PERIOD"
+    | "OVER_SCHEDULED"
+    | "MISSING_ROOM"
+    | "ROOM_CAPACITY"
+    | "ROOM_TYPE_MISMATCH";
   dayOfWeek: DayOfWeek;
   periodId: string;
   periodLabel: string;
@@ -2319,6 +2327,26 @@ export type TeacherAssignmentViolation = {
   message: string;
 };
 
+export type RoomUtilisationItem = {
+  roomId: string;
+  roomCode: string;
+  roomName: string;
+  scheduledSlots: number;
+  totalTeachingSlots: number;
+  utilisationPercent: number;
+};
+
+export type RoomIntelligenceSummary = {
+  underCapacityCount: number;
+  roomTypeMismatchCount: number;
+  missingRoomCount: number;
+};
+
+export type RoomIntelligenceResult = {
+  summary: RoomIntelligenceSummary;
+  utilisation: RoomUtilisationItem[];
+};
+
 export type TimetableReadinessSummary = {
   totalClasses: number;
   classesWithCompleteRequirements: number;
@@ -2330,6 +2358,8 @@ export type TimetableReadinessSummary = {
   warningCount: number;
   unassignedTeacherCount: number;
   unassignedRoomCount: number;
+  underCapacityRoomCount: number;
+  roomTypeMismatchCount: number;
   teacherAssignmentViolationCount: number;
   incompleteSubjectCount: number;
 };
@@ -2343,6 +2373,7 @@ export type TimetableReadiness = {
   requirementCoverage: RequirementCoverageItem[];
   teacherAssignmentViolations: TeacherAssignmentViolation[];
   readinessSummary: TimetableReadinessSummary;
+  roomIntelligence?: RoomIntelligenceResult;
   blockingReasons: string[];
 };
 

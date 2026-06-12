@@ -9,6 +9,7 @@ import {
   type RequirementCoverageItem,
   type TimetableReadinessResult,
 } from "./timetableReadiness";
+import { scoreRoomPlacement, type RoomInfo } from "./roomIntelligence";
 
 export type UnplacedRequirement = {
   classId: string;
@@ -43,6 +44,8 @@ type PlacementTask = {
   classCode: string;
   subjectId: string;
   subjectCode: string;
+  subjectName: string;
+  learnerCount: number;
   isDouble: boolean;
   teacherCount: number;
   availableSlots: number;
@@ -197,9 +200,10 @@ class OccupancyTracker {
     roomId: string | null,
     isDouble: boolean,
     nextById: Map<string, PeriodInfo | null>,
-    prevById: Map<string, PeriodInfo | null>
+    prevById: Map<string, PeriodInfo | null>,
+    roomScore = 0
   ): number {
-    let score = 0;
+    let score = roomScore;
 
     const teacherDayKey = `${day}:${teacherId}`;
     const teacherLoad = this.teacherDayCount.get(teacherDayKey) ?? 0;
@@ -208,8 +212,6 @@ class OccupancyTracker {
     const subjectDayKey = `${day}:${classId}:${subjectId}`;
     const subjectOnDay = this.subjectDayCount.get(subjectDayKey) ?? 0;
     score -= subjectOnDay * 8;
-
-    if (roomId) score += 5;
 
     const periodIds = [periodId];
     if (isDouble) {
@@ -279,6 +281,7 @@ class OccupancyTracker {
 function buildPlacementTasks(
   coverage: RequirementCoverageItem[],
   assignmentsByClassSubject: Map<string, string[]>,
+  classLearnerCounts: Map<string, number>,
   occupancy: OccupancyTracker,
   teachingPeriods: PeriodInfo[],
   nextById: Map<string, PeriodInfo | null>,
@@ -318,6 +321,8 @@ function buildPlacementTasks(
         classCode: item.classCode,
         subjectId: item.subjectId,
         subjectCode: item.subjectCode,
+        subjectName: item.subjectName,
+        learnerCount: classLearnerCounts.get(item.classId) ?? 0,
         isDouble: true,
         teacherCount,
         availableSlots,
@@ -340,6 +345,8 @@ function buildPlacementTasks(
         classCode: item.classCode,
         subjectId: item.subjectId,
         subjectCode: item.subjectCode,
+        subjectName: item.subjectName,
+        learnerCount: classLearnerCounts.get(item.classId) ?? 0,
         isDouble: false,
         teacherCount,
         availableSlots,
@@ -359,7 +366,7 @@ function buildPlacementTasks(
 function findBestPlacement(
   task: PlacementTask,
   teachers: string[],
-  roomIds: string[],
+  rooms: RoomInfo[],
   teachingPeriods: PeriodInfo[],
   occupancy: OccupancyTracker,
   nextById: Map<string, PeriodInfo | null>,
@@ -368,6 +375,7 @@ function findBestPlacement(
 ): PlannedEntry | null {
   let best: PlannedEntry | null = null;
   let bestScore = -Infinity;
+  const subject = { name: task.subjectName, code: task.subjectCode };
 
   for (const teacherId of teachers) {
     for (const day of DAY_ORDER) {
@@ -380,21 +388,28 @@ function findBestPlacement(
         }
 
         let roomId: string | null = null;
-        for (const rid of roomIds) {
+        let roomScore = 0;
+
+        for (const room of rooms) {
           if (
-            occupancy.canPlace(
+            !occupancy.canPlace(
               day,
               period.id,
               task.classId,
               teacherId,
-              rid,
+              room.id,
               task.isDouble,
               nextById,
               byId
             )
           ) {
-            roomId = rid;
-            break;
+            continue;
+          }
+
+          const candidateScore = scoreRoomPlacement(room, subject, task.learnerCount);
+          if (candidateScore > roomScore) {
+            roomScore = candidateScore;
+            roomId = room.id;
           }
         }
 
@@ -422,7 +437,8 @@ function findBestPlacement(
           roomId,
           task.isDouble,
           nextById,
-          prevById
+          prevById,
+          roomScore
         );
 
         if (score > bestScore) {
@@ -484,7 +500,7 @@ export async function generateLessonTimetable(
     throw new TimetableError("Lesson timetable not found", 404);
   }
 
-  const { timetable, entries, requirements } = ctx;
+  const { timetable, entries, requirements, classLearnerCounts } = ctx;
 
   if (timetable.status !== LessonTimetableStatus.DRAFT) {
     throw new TimetableError("Only draft timetables can be auto-generated", 409);
@@ -515,7 +531,7 @@ export async function generateLessonTimetable(
 
   const rooms = await prisma.timetableRoom.findMany({
     where: { workspaceId, active: true },
-    select: { id: true },
+    select: { id: true, code: true, name: true, roomType: true, capacity: true },
     orderBy: { code: "asc" },
   });
   const roomIds = rooms.map((r) => r.id);
@@ -525,6 +541,7 @@ export async function generateLessonTimetable(
   const { tasks, warnings: preWarnings } = buildPlacementTasks(
     initialCoverage,
     assignmentsByClassSubject,
+    classLearnerCounts,
     occupancy,
     teachingPeriods,
     nextById,
@@ -540,7 +557,7 @@ export async function generateLessonTimetable(
     const placement = findBestPlacement(
       task,
       teachers,
-      roomIds,
+      rooms,
       teachingPeriods,
       occupancy,
       nextById,

@@ -1,6 +1,13 @@
 import { DayOfWeek, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 import type { TimetableClash } from "./lessonTimetable";
+import {
+  buildRoomIntelligenceWarnings,
+  computeRoomUtilisation,
+  summarizeRoomIntelligence,
+  type RoomIntelligenceSummary,
+  type RoomUtilisationItem,
+} from "./roomIntelligence";
 
 export const lessonEntryInclude = {
   period: {
@@ -14,16 +21,24 @@ export const lessonEntryInclude = {
       doublePeriodCapable: true,
     },
   },
-  schoolClass: { select: { id: true, name: true, code: true, grade: true } },
+  schoolClass: { select: { id: true, name: true, code: true, grade: true, learnerCount: true } },
   subject: { select: { id: true, name: true, code: true } },
   teacher: { select: { id: true, fullName: true, email: true } },
-  room: { select: { id: true, name: true, code: true } },
+  room: { select: { id: true, name: true, code: true, roomType: true, capacity: true } },
 } satisfies Prisma.LessonEntryInclude;
 
 export const TIMETABLE_INTELLIGENCE_CONFIG = {
   teacherAssignment: {
     draftMode: "warn" as "warn" | "block",
     publishMode: "block" as "warn" | "block",
+  },
+  roomCapacity: {
+    draftMode: "warn" as "warn" | "block",
+    publishMode: "warn" as "warn" | "block",
+  },
+  roomType: {
+    draftMode: "warn" as "warn" | "block",
+    publishMode: "warn" as "warn" | "block",
   },
 };
 
@@ -69,8 +84,15 @@ export type ReadinessSummary = {
   warningCount: number;
   unassignedTeacherCount: number;
   unassignedRoomCount: number;
+  underCapacityRoomCount: number;
+  roomTypeMismatchCount: number;
   teacherAssignmentViolationCount: number;
   incompleteSubjectCount: number;
+};
+
+export type RoomIntelligenceResult = {
+  summary: RoomIntelligenceSummary;
+  utilisation: RoomUtilisationItem[];
 };
 
 export type TimetableReadinessResult = {
@@ -82,6 +104,7 @@ export type TimetableReadinessResult = {
   requirementCoverage: RequirementCoverageItem[];
   teacherAssignmentViolations: TeacherAssignmentViolation[];
   readinessSummary: ReadinessSummary;
+  roomIntelligence: RoomIntelligenceResult;
   blockingReasons: string[];
 };
 
@@ -108,7 +131,7 @@ export async function loadTimetableIntelligenceContext(workspaceId: string, time
     return null;
   }
 
-  const [entries, requirements, assignments, classes] = await Promise.all([
+  const [entries, requirements, assignments, classes, rooms] = await Promise.all([
     prisma.lessonEntry.findMany({
       where: { workspaceId, timetableId },
       include: lessonEntryInclude,
@@ -126,7 +149,12 @@ export async function loadTimetableIntelligenceContext(workspaceId: string, time
     }),
     prisma.schoolClass.findMany({
       where: { workspaceId, active: true },
-      select: { id: true },
+      select: { id: true, learnerCount: true },
+    }),
+    prisma.timetableRoom.findMany({
+      where: { workspaceId, active: true },
+      select: { id: true, code: true, name: true, roomType: true, capacity: true },
+      orderBy: { code: "asc" },
     }),
   ]);
 
@@ -134,7 +162,10 @@ export async function loadTimetableIntelligenceContext(workspaceId: string, time
     assignments.map((a) => `${a.teacherId}:${a.classId}:${a.subjectId}`)
   );
 
-  return { timetable, entries, requirements, assignmentKeys, classes };
+  const classLearnerCounts = new Map(classes.map((c) => [c.id, c.learnerCount]));
+  const roomsById = new Map(rooms.map((r) => [r.id, r]));
+
+  return { timetable, entries, requirements, assignmentKeys, classes, classLearnerCounts, rooms, roomsById };
 }
 
 export function computeRequirementCoverage(
@@ -266,7 +297,7 @@ export async function evaluateTimetableReadiness(
     return null;
   }
 
-  const { timetable, entries, requirements, assignmentKeys, classes } = ctx;
+  const { timetable, entries, requirements, assignmentKeys, classes, classLearnerCounts, rooms, roomsById } = ctx;
   const periods = timetable.template.periods.map((p) => ({
     id: p.id,
     periodOrder: p.periodOrder,
@@ -274,6 +305,8 @@ export async function evaluateTimetableReadiness(
     periodType: p.periodType,
     doublePeriodCapable: p.doublePeriodCapable,
   }));
+
+  const teachingPeriodCount = periods.filter((p) => p.periodType === "TEACHING").length;
 
   const { detectLessonTimetableClashes } = await import("./lessonTimetable");
   const clashResult = detectLessonTimetableClashes(entries, periods);
@@ -285,11 +318,23 @@ export async function evaluateTimetableReadiness(
 
   const coverageWarnings = buildCoverageWarnings(requirementCoverage);
   const missingRoomWarnings = buildMissingRoomWarnings(entries);
+  const roomIntelligenceWarnings = buildRoomIntelligenceWarnings(
+    entries,
+    classLearnerCounts,
+    roomsById
+  );
   const warnings = [
     ...clashResult.warnings,
     ...coverageWarnings,
     ...missingRoomWarnings,
+    ...roomIntelligenceWarnings,
   ];
+
+  const roomIntelligenceSummary = summarizeRoomIntelligence(entries, [
+    ...missingRoomWarnings,
+    ...roomIntelligenceWarnings,
+  ]);
+  const roomUtilisation = computeRoomUtilisation(entries, rooms, teachingPeriodCount);
 
   const classIdsWithRequirements = new Set(requirements.map((r) => r.classId));
   const completeClassIds = new Set<string>();
@@ -369,6 +414,8 @@ export async function evaluateTimetableReadiness(
     warningCount: warnings.length,
     unassignedTeacherCount,
     unassignedRoomCount,
+    underCapacityRoomCount: roomIntelligenceSummary.underCapacityCount,
+    roomTypeMismatchCount: roomIntelligenceSummary.roomTypeMismatchCount,
     teacherAssignmentViolationCount: teacherAssignmentViolations.length,
     incompleteSubjectCount,
   };
@@ -382,6 +429,10 @@ export async function evaluateTimetableReadiness(
     requirementCoverage,
     teacherAssignmentViolations,
     readinessSummary,
+    roomIntelligence: {
+      summary: roomIntelligenceSummary,
+      utilisation: roomUtilisation,
+    },
     blockingReasons,
   };
 }

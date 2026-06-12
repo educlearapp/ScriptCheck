@@ -6,6 +6,7 @@ import {
   clashesForCell,
   sortPeriods,
 } from "./timetableUtils";
+import { isRoomIssueClashType } from "./roomIntelligence";
 import "./timetable-grid.css";
 
 type Props = {
@@ -70,6 +71,9 @@ export default function LessonTimetableGrid({
                     : clashesForCell(clashes, day, period.id);
                   const hasHard = cellClashes.some((c) => c.severity === "HARD");
                   const hasWarning = cellClashes.some((c) => c.severity === "WARNING");
+                  const hasRoomIssue = cellClashes.some(
+                    (c) => c.severity === "WARNING" && isRoomIssueClashType(c.type)
+                  );
 
                   return (
                     <td
@@ -92,6 +96,11 @@ export default function LessonTimetableGrid({
                           <div className="tt-lesson-subject">
                             {entry.subject.code}
                             {entry.isDoublePeriod ? " (2×)" : ""}
+                            {hasRoomIssue ? (
+                              <span className="tt-room-warning-badge" title="Room issue">
+                                ⚠
+                              </span>
+                            ) : null}
                           </div>
                           {showClass ? (
                             <div className="tt-lesson-meta">{entry.schoolClass.code}</div>
@@ -99,6 +108,9 @@ export default function LessonTimetableGrid({
                           <div className="tt-lesson-meta">{entry.teacher.fullName}</div>
                           <div className="tt-lesson-meta">
                             {entry.room ? entry.room.code : "No room"}
+                            {hasRoomIssue ? (
+                              <span className="tt-room-warning-label"> room issue</span>
+                            ) : null}
                           </div>
                           {entry.locked ? (
                             <div className="tt-lesson-locked">Locked</div>
