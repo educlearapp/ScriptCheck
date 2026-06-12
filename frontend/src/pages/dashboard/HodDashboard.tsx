@@ -55,7 +55,7 @@ export default function HodDashboard() {
   }
 
   return (
-    <div className="sc-dash">
+    <div className="sc-dash sc-dash-compact">
       <BetaBanner />
       <DashboardHero
         greeting={`${greeting()}, ${user ? firstName(user.fullName) : "there"}`}
@@ -133,7 +133,7 @@ export default function HodDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.teacherOverview.map((teacher) => (
+                    {data.teacherOverview.slice(0, 4).map((teacher) => (
                       <tr key={teacher.teacherId}>
                         <td>{teacher.teacherName}</td>
                         <td>{teacher.assessmentsCreated}</td>
@@ -187,81 +187,70 @@ export default function HodDashboard() {
         />
       </div>
 
-      <DashboardIntelligenceAlerts
-        title="Compliance Issues — Assessments Awaiting Approval"
-        items={
-          data?.moderationQueue.map((batch) => ({
-            id: batch.assessment.id,
-            title: batch.assessment.title,
-            subtitle: batch.assessment.subject.name,
-          })) ?? []
-        }
-        emptyMessage="No assessments awaiting department approval."
-      />
+      <div className="sc-dash-bottom-row sc-dash-bottom-row-3">
+        <DashboardIntelligenceAlerts
+          compact
+          title="Awaiting Approval"
+          items={
+            data?.moderationQueue.map((batch) => ({
+              id: batch.assessment.id,
+              title: batch.assessment.title,
+              subtitle: batch.assessment.subject.name,
+            })) ?? []
+          }
+          emptyMessage="No assessments awaiting department approval."
+        />
 
-      {data?.moderationQueue.length ? (
-        <section>
+        <section className="sc-card sc-card-padded sc-dash-strip">
           <h2 className="sc-dash-section-title">Moderation Queue</h2>
-          <div className="sc-card" style={{ padding: 0 }}>
-            <div className="sc-table-wrap">
-              <table className="sc-table">
-                <tbody>
-                  {data.moderationQueue.map((batch) => (
-                    <tr key={batch.id}>
-                      <td>{batch.title}</td>
-                      <td>{batch.assessment.subject.name}</td>
-                      <td>{batch.createdBy?.fullName}</td>
-                      <td>
-                        <Link
-                          to={`/assessments/${batch.assessment.id}/scripts`}
-                          className="sc-btn sc-btn-primary"
-                          style={{ padding: "0.4rem 0.85rem", fontSize: "0.8rem" }}
-                        >
-                          Moderate
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {data?.moderationQueue.length ? (
+            <ul className="sc-dash-activity-compact">
+              {data.moderationQueue.slice(0, 3).map((batch) => (
+                <li key={batch.id}>
+                  <span className="sc-dash-activity-dot" />
+                  <span className="sc-dash-activity-text">{batch.title}</span>
+                  <Link
+                    to={`/assessments/${batch.assessment.id}/scripts`}
+                    className="sc-btn sc-btn-ghost"
+                    style={{ padding: "0.2rem 0.45rem", fontSize: "0.68rem", marginLeft: "auto", flexShrink: 0 }}
+                  >
+                    Moderate
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="sc-muted" style={{ margin: 0, fontSize: "0.72rem" }}>
+              No batches pending moderation.
+            </p>
+          )}
         </section>
-      ) : null}
 
-      {atRisk.length ? (
-        <section>
-          <h2 className="sc-dash-section-title">At-risk learners</h2>
-          <div className="sc-card" style={{ padding: 0 }}>
-            <div className="sc-table-wrap">
-              <table className="sc-table">
-                <thead>
-                  <tr>
-                    <th>Learner</th>
-                    <th>Class</th>
-                    <th>Reasons</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {atRisk.slice(0, 8).map((l) => (
-                    <tr key={l.learnerId}>
-                      <td>{l.learnerName}</td>
-                      <td>{l.className ?? "—"}</td>
-                      <td>{l.reasons.join(", ").replaceAll("_", " ")}</td>
-                      <td>
-                        <Link to={`/learners/${l.learnerId}/history`} className="sc-btn sc-btn-ghost" style={{ padding: "0.4rem 0.75rem", fontSize: "0.8rem" }}>
-                          History
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <section className="sc-card sc-card-padded sc-dash-strip">
+          <h2 className="sc-dash-section-title">At-risk Learners</h2>
+          {atRisk.length ? (
+            <ul className="sc-dash-activity-compact">
+              {atRisk.slice(0, 3).map((l) => (
+                <li key={l.learnerId}>
+                  <span className="sc-dash-activity-dot" />
+                  <span className="sc-dash-activity-text">{l.learnerName}</span>
+                  <Link
+                    to={`/learners/${l.learnerId}/history`}
+                    className="sc-btn sc-btn-ghost"
+                    style={{ padding: "0.2rem 0.45rem", fontSize: "0.68rem", marginLeft: "auto", flexShrink: 0 }}
+                  >
+                    View
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="sc-muted" style={{ margin: 0, fontSize: "0.72rem" }}>
+              No at-risk learners flagged.
+            </p>
+          )}
         </section>
-      ) : null}
+      </div>
 
       <section>
         <h2 className="sc-dash-section-title">Quick Actions</h2>

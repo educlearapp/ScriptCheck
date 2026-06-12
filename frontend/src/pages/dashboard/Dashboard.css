@@ -4,6 +4,184 @@
   gap: 1.25rem;
 }
 
+/* Compact command-centre layout — dense spacing, scrolls naturally when needed */
+.sc-dash.sc-dash-compact {
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.sc-dash-compact .sc-beta-banner {
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.sc-dash-compact .sc-beta-banner-note {
+  font-size: 0.72rem;
+}
+
+.sc-dash-compact .sc-dash-kpi-grid {
+  gap: 0.45rem;
+}
+
+.sc-dash-compact .sc-dash-kpi-card {
+  padding: 0.55rem 0.75rem;
+  gap: 0.15rem;
+}
+
+.sc-dash-compact .sc-dash-kpi-card:hover {
+  transform: none;
+}
+
+.sc-dash-compact .sc-dash-kpi-icon {
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+  margin-bottom: 0;
+}
+
+.sc-dash-compact .sc-dash-kpi-value {
+  font-size: 1.45rem;
+}
+
+.sc-dash-compact .sc-dash-kpi-label {
+  font-size: 0.78rem;
+}
+
+.sc-dash-compact .sc-dash-kpi-hint {
+  display: none;
+}
+
+.sc-dash-compact .sc-dash-section-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+}
+
+.sc-dash-compact .sc-dash-two-col {
+  gap: 0.5rem;
+  grid-template-columns: 1fr 280px;
+}
+
+.sc-dash-compact .sc-table th,
+.sc-dash-compact .sc-table td {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+.sc-dash-compact .sc-table th {
+  font-size: 0.65rem;
+}
+
+.sc-dash-compact .sc-dash-status {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.62rem;
+}
+
+.sc-dash-compact .sc-dash-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.sc-dash-compact .sc-dash-bottom-row-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sc-dash-compact .sc-dash-strip {
+  padding: 0.4rem 0.65rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sc-dash-compact .sc-dash-strip .sc-dash-section-title {
+  margin-bottom: 0.25rem;
+}
+
+.sc-dash-compact .sc-dash-activity-compact {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sc-dash-compact .sc-dash-activity-compact li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--sc-text);
+  min-width: 0;
+}
+
+.sc-dash-compact .sc-dash-activity-compact .sc-dash-activity-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-dash-compact .sc-dash-activity-compact .sc-dash-activity-dot {
+  width: 5px;
+  height: 5px;
+  margin-top: 0;
+}
+
+.sc-dash-compact .sc-dash-activity-time {
+  font-size: 0.65rem;
+  color: var(--sc-text-muted);
+  flex-shrink: 0;
+}
+
+.sc-dash-compact .sc-dash-quick-actions {
+  gap: 0.4rem;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.sc-dash-compact .sc-dash-quick-btn {
+  padding: 0.45rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+.sc-dash-compact .sc-dash-empty {
+  padding: 0.65rem;
+  font-size: 0.78rem;
+}
+
+.sc-dash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sc-dash-intel-alert {
+  font-size: 0.78rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--sc-border);
+}
+
+.sc-dash-intel-alert:last-child {
+  border-bottom: none;
+}
+
+.sc-dash-compact .sc-dash-list-compact .sc-dash-intel-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
+  border-bottom: none;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sc-dash-compact .sc-card-padded {
+  padding: 0.45rem 0.65rem !important;
+}
+
 .sc-dash-header {
   display: flex;
   flex-wrap: wrap;
@@ -305,6 +483,38 @@
   .sc-dash-two-col {
     grid-template-columns: 1fr;
   }
+
+  .sc-dash-compact .sc-dash-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-dash-compact .sc-dash-bottom-row-3 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sc-dash-compact .sc-dash-bottom-row-3 > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .sc-dash-compact .sc-dash-bottom-row,
+  .sc-dash-compact .sc-dash-bottom-row-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-dash-compact .sc-dash-bottom-row-3 > :first-child {
+    grid-column: auto;
+  }
+
+  .sc-dash-compact .sc-dash-quick-actions {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .sc-dash-compact .sc-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @media (max-width: 600px) {
@@ -314,5 +524,21 @@
 
   .sc-dash-greeting {
     font-size: 1.25rem;
+  }
+
+  .sc-dash-compact .sc-dash-quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-dash-compact .sc-dash-activity-compact .sc-dash-activity-text {
+    white-space: normal;
+  }
+
+  .sc-dash-compact .sc-dash-activity-compact li {
+    flex-wrap: wrap;
+  }
+
+  .sc-dash-compact .sc-dash-list-compact .sc-dash-intel-alert {
+    white-space: normal;
   }
 }
