@@ -20,6 +20,7 @@ import { ModerationVarianceLevel } from "@prisma/client";
 import { syncMarkFromScript } from "./markCapture";
 import { ensureRubricMarksForScript } from "./rubricMarking";
 import { trackQuestionMarkChanges } from "./marking/markAudit";
+import { isMarkingPackAssessment } from "./quickScanShared";
 
 export class ScriptError extends Error {
   constructor(
@@ -213,9 +214,11 @@ export async function createScriptBatch(
     where: { id: assessmentId },
     select: { setupComplete: true, pagesPerScript: true },
   });
+  const isMarkingPack = isMarkingPackAssessment(assessment);
   const hasContent = assessment.questions.length > 0 || !!assessment.rubricTemplateId;
-  const hasSetup = setup?.setupComplete && (setup.pagesPerScript ?? 0) > 0;
-  if (!hasContent && !hasSetup) {
+  const hasSetup =
+    setup?.setupComplete === true && (setup.pagesPerScript ?? 0) > 0;
+  if (!isMarkingPack && !hasContent && !hasSetup) {
     throw new ScriptError(
       "Complete assessment setup or add questions before creating a script batch",
       400
@@ -440,6 +443,7 @@ function serializeScriptDetail(
       questionNumber: m.questionNumber,
       maxMarks: m.maxMarks,
       questionText: m.assessmentQuestion.questionText,
+      expectedAnswer: m.assessmentQuestion.expectedAnswer,
       teacherMark: m.teacherMark,
       hodMark: m.hodMark,
       finalMark: m.finalMark,
@@ -517,7 +521,7 @@ async function loadLearnerScript(scriptId: string, workspaceId: string) {
       questionMarks: {
         orderBy: { questionNumber: "asc" },
         include: {
-          assessmentQuestion: { select: { questionText: true } },
+          assessmentQuestion: { select: { questionText: true, expectedAnswer: true } },
         },
       },
       layers: true,

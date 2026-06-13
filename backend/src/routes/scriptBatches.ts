@@ -21,7 +21,7 @@ import {
   getHodModerationDashboard,
   getMarkerPerformanceAnalytics,
 } from "../services/scriptModerationAnalytics";
-import { bulkUploadScripts } from "../services/bulkScriptUpload";
+import { bulkUploadScripts, resplitBatchLearnerAnswers } from "../services/bulkScriptUpload";
 import {
   confirmScriptVerification,
   getScriptVerification,
@@ -231,6 +231,31 @@ router.get(
   requirePermission(PERMISSIONS.SCRIPTS_VIEW),
   async (req: AuthenticatedRequest, res) => {
     try {
+      const verification = await getScriptVerification(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(verification);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/:id/verification/resplit",
+  requireAuth,
+  requirePermission(PERMISSIONS.SCRIPTS_CREATE),
+  async (req: AuthenticatedRequest, res) => {
+    const pagesPerScript = Number(req.body?.pagesPerScript);
+    try {
+      await resplitBatchLearnerAnswers(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.auth!.userId,
+        pagesPerScript
+      );
+
       const verification = await getScriptVerification(
         String(req.params.id),
         req.auth!.workspaceId

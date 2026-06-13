@@ -128,10 +128,11 @@ export async function bulkUploadScripts(
     throw new ScriptError("Cannot upload scripts to batch in current status", 400);
   }
 
+  // pagesPerScript = pages per learner answer script (not assessment/question paper pages).
   const pagesPerScript = batch.assessment.pagesPerScript;
   if (!pagesPerScript || pagesPerScript < 1) {
     throw new ScriptError(
-      "Assessment setup required: set pages per script before bulk upload",
+      "Set pages per learner answer script before uploading learner answers",
       400
     );
   }
@@ -241,4 +242,198 @@ export async function bulkUploadScripts(
     scriptsCreated: createdScripts.length,
     scriptIds: createdScripts,
   };
+}
+
+type StoredLearnerPage = {
+  fileName: string;
+  filePath: string;
+  mimeType: string;
+  fileSize: number;
+  width: number | null;
+  height: number | null;
+  uploadedById: string;
+};
+
+async function createScriptsFromStoredPages(
+  batch: {
+    id: string;
+    assessmentId: string;
+    assessment: { gradeId: string; rubricTemplateId: string | null };
+  },
+  workspaceId: string,
+  userId: string,
+  pages: StoredLearnerPage[],
+  pagesPerLearnerScript: number
+) {
+  const scriptCount = Math.ceil(pages.length / pagesPerLearnerScript);
+  const createdScripts: string[] = [];
+
+  for (let s = 0; s < scriptCount; s++) {
+    const scriptIndex = s + 1;
+    const learnerNumber = `BULK-${batch.id.slice(0, 8)}-${scriptIndex}`;
+    const learner = await createLearner(workspaceId, {
+      learnerNumber,
+      firstName: "Learner",
+      lastName: `Script ${scriptIndex}`,
+      gradeId: batch.assessment.gradeId,
+    });
+
+    const script = await prisma.learnerScript.create({
+      data: {
+        batchId: batch.id,
+        learnerId: learner.id,
+        assessmentId: batch.assessmentId,
+        scriptNumber: String(scriptIndex),
+        pageCount: 0,
+        status: LearnerScriptStatus.NOT_MARKED,
+      },
+    });
+
+    await createDefaultLayersForScript(script.id, userId);
+
+    if (batch.assessment.rubricTemplateId) {
+      await ensureRubricMarksForScript(script.id, batch.assessment.rubricTemplateId);
+    } else {
+      await initQuestionMarksForScript(script.id, batch.assessmentId);
+    }
+
+    const pageSlice = pages.slice(
+      s * pagesPerLearnerScript,
+      (s + 1) * pagesPerLearnerScript
+    );
+
+    let pageNumber = 1;
+    for (const page of pageSlice) {
+      await prisma.scriptPage.create({
+        data: {
+          learnerScriptId: script.id,
+          pageNumber,
+          fileName: page.fileName,
+          filePath: page.filePath,
+          mimeType: page.mimeType,
+          fileSize: page.fileSize,
+          width: page.width,
+          height: page.height,
+          uploadedById: page.uploadedById,
+        },
+      });
+      pageNumber++;
+    }
+
+    const actualPageCount = pageSlice.length;
+    await prisma.learnerScript.update({
+      where: { id: script.id },
+      data: {
+        pageCount: actualPageCount,
+        status:
+          actualPageCount >= pagesPerLearnerScript
+            ? LearnerScriptStatus.UPLOADED
+            : LearnerScriptStatus.NOT_MARKED,
+      },
+    });
+
+    createdScripts.push(script.id);
+  }
+
+  const totalScripts = await prisma.learnerScript.count({ where: { batchId: batch.id } });
+  const totalPages = await prisma.learnerScript.aggregate({
+    where: { batchId: batch.id },
+    _sum: { pageCount: true },
+  });
+
+  await prisma.scriptBatch.update({
+    where: { id: batch.id },
+    data: {
+      totalScripts,
+      totalPages: totalPages._sum.pageCount ?? 0,
+      totalLearners: totalScripts,
+    },
+  });
+
+  return {
+    batchId: batch.id,
+    totalPagesUploaded: pages.length,
+    pagesPerScript: pagesPerLearnerScript,
+    scriptsCreated: createdScripts.length,
+    scriptIds: createdScripts,
+  };
+}
+
+/** Re-split existing learner answer pages using a new pages-per-learner-answer value. */
+export async function resplitBatchLearnerAnswers(
+  batchId: string,
+  workspaceId: string,
+  userId: string,
+  pagesPerLearnerScript: number
+) {
+  if (!Number.isInteger(pagesPerLearnerScript) || pagesPerLearnerScript < 1) {
+    throw new ScriptError("Pages per learner answer script must be at least 1", 400);
+  }
+
+  const batch = await prisma.scriptBatch.findFirst({
+    where: { id: batchId, workspaceId },
+    include: {
+      assessment: {
+        select: {
+          id: true,
+          gradeId: true,
+          rubricTemplateId: true,
+        },
+      },
+      learnerScripts: {
+        include: {
+          pages: { orderBy: { pageNumber: "asc" } },
+        },
+        orderBy: { scriptNumber: "asc" },
+      },
+    },
+  });
+
+  if (!batch) throw new ScriptError("Script batch not found", 404);
+
+  if (
+    batch.status !== ScriptBatchStatus.DRAFT &&
+    batch.status !== ScriptBatchStatus.MARKING &&
+    batch.status !== ScriptBatchStatus.RETURNED_TO_TEACHER
+  ) {
+    throw new ScriptError("Cannot re-split batch in current status", 400);
+  }
+
+  const orderedScripts = [...batch.learnerScripts].sort((a, b) => {
+    const an = Number(a.scriptNumber);
+    const bn = Number(b.scriptNumber);
+    if (Number.isFinite(an) && Number.isFinite(bn)) return an - bn;
+    return a.scriptNumber.localeCompare(b.scriptNumber, undefined, { numeric: true });
+  });
+
+  const orderedPages: StoredLearnerPage[] = orderedScripts.flatMap((script) =>
+    script.pages.map((page) => ({
+      fileName: page.fileName,
+      filePath: page.filePath,
+      mimeType: page.mimeType,
+      fileSize: page.fileSize,
+      width: page.width,
+      height: page.height,
+      uploadedById: page.uploadedById,
+    }))
+  );
+
+  if (orderedPages.length === 0) {
+    throw new ScriptError("No learner answer pages to re-split", 400);
+  }
+
+  await prisma.assessment.update({
+    where: { id: batch.assessmentId },
+    data: { pagesPerScript: pagesPerLearnerScript },
+  });
+
+  await prisma.learnerScript.deleteMany({ where: { batchId } });
+
+  return createScriptsFromStoredPages(
+    batch,
+    workspaceId,
+    userId,
+    orderedPages,
+    pagesPerLearnerScript
+  );
 }

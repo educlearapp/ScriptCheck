@@ -1,6 +1,8 @@
 import { ScriptBatchStatus } from "@prisma/client";
 import { prisma } from "../prisma";
+import { getAssessmentSetupStatus } from "./assessmentSetup";
 import { ScriptError } from "./scriptMarking";
+import { isMarkingPackAssessment, QUICK_SCAN_MEMO_BLOCKER } from "./quickScanShared";
 
 export type ScriptVerificationResult = {
   batchId: string;
@@ -44,7 +46,7 @@ export async function getScriptVerification(
 
   const expectedPagesPerScript = batch.assessment.pagesPerScript ?? 0;
   if (expectedPagesPerScript < 1) {
-    throw new ScriptError("Assessment pages per script not configured", 400);
+    throw new ScriptError("Pages per learner answer script not configured", 400);
   }
 
   const totalPagesUploaded = batch.learnerScripts.reduce(
@@ -56,8 +58,8 @@ export async function getScriptVerification(
     const isComplete = s.pageCount === expectedPagesPerScript;
     const warning = !isComplete
       ? s.pageCount < expectedPagesPerScript
-        ? `Learner Script ${s.scriptNumber} appears incomplete (${s.pageCount}/${expectedPagesPerScript} pages).`
-        : `Learner Script ${s.scriptNumber} has extra pages (${s.pageCount}/${expectedPagesPerScript}).`
+        ? `Learner answer ${s.scriptNumber} appears incomplete (${s.pageCount}/${expectedPagesPerScript} pages).`
+        : `Learner answer ${s.scriptNumber} has extra pages (${s.pageCount}/${expectedPagesPerScript}).`
       : null;
 
     return {
@@ -101,16 +103,25 @@ export async function confirmScriptVerification(
   batchId: string,
   workspaceId: string
 ) {
+  const batch = await prisma.scriptBatch.findFirst({
+    where: { id: batchId, workspaceId },
+    include: {
+      assessment: { select: { id: true, aiMetadata: true } },
+    },
+  });
+  if (!batch) throw new ScriptError("Script batch not found", 404);
+
+  if (isMarkingPackAssessment(batch.assessment)) {
+    const setup = await getAssessmentSetupStatus(batch.assessment.id, workspaceId);
+    if (!setup.memoAnswersReady) {
+      throw new ScriptError(setup.memoBlocker ?? QUICK_SCAN_MEMO_BLOCKER, 400);
+    }
+  }
+
   const verification = await getScriptVerification(batchId, workspaceId);
   if (!verification.canProceed) {
     throw new ScriptError("No scripts to process", 400);
   }
-
-  const batch = await prisma.scriptBatch.findFirst({
-    where: { id: batchId, workspaceId },
-    select: { status: true },
-  });
-  if (!batch) throw new ScriptError("Script batch not found", 404);
 
   await prisma.scriptBatch.update({
     where: { id: batchId },

@@ -130,6 +130,12 @@ export default function ScriptMarkingPanel({
                 <tr key={q.id}>
                   <td>
                     <span className="sc-marking-q-num">Q{q.questionNumber}</span>
+                    {q.questionText ? (
+                      <p className="sc-mark-comment-read">{q.questionText}</p>
+                    ) : null}
+                    {q.expectedAnswer ? (
+                      <p className="sc-mark-comment-read">Memo: {q.expectedAnswer}</p>
+                    ) : null}
                   </td>
                   <td>{q.maxMarks}</td>
                   <td>

@@ -242,6 +242,7 @@ export type Assessment = {
   rubricAvailable?: boolean;
   setupComplete?: boolean;
   setupCompletedAt?: string | null;
+  isMarkingPack?: boolean;
   status: AssessmentStatus;
   creatorTeacher: { id: string; fullName: string };
   assignedUser: { id: string; fullName: string } | null;
@@ -798,6 +799,7 @@ export type ScriptQuestionMarkRow = {
   questionNumber: string;
   maxMarks: number;
   questionText: string;
+  expectedAnswer: string | null;
   teacherMark: number | null;
   hodMark: number | null;
   finalMark: number | null;

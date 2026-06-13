@@ -7,6 +7,7 @@ export type AssessmentSetupStatus = {
   setupCompletedAt: string | null;
   questionCount: number | null;
   pagesPerScript: number | null;
+  totalMarks?: number;
   memorandumAvailable: boolean;
   rubricAvailable: boolean;
   masterFiles: {
@@ -16,6 +17,9 @@ export type AssessmentSetupStatus = {
     supportingDocuments: number;
   };
   readyForMarking: boolean;
+  questionsExtracted?: boolean;
+  memoAnswersReady?: boolean;
+  memoBlocker?: string | null;
   missingSteps: string[];
 };
 
@@ -165,6 +169,13 @@ export async function confirmScriptVerification(batchId: string) {
   });
 }
 
+export async function resplitLearnerAnswers(batchId: string, pagesPerScript: number) {
+  return apiFetch<ScriptVerificationResult>(`/script-batches/${batchId}/verification/resplit`, {
+    method: "POST",
+    body: JSON.stringify({ pagesPerScript }),
+  });
+}
+
 export async function getAssessmentFiles(assessmentId: string) {
   return apiFetch<{
     assessmentFiles: AssessmentFileEntry[];
@@ -178,4 +189,50 @@ export async function getMarkingOverview() {
 
 export async function getDhModerationOverview() {
   return apiFetch<{ items: DhModerationItem[] }>("/moderation/dh-overview");
+}
+
+export type MarkingPackResult = {
+  assessmentId: string;
+  batchId: string;
+  title: string;
+  pagesPerScript: number | null;
+};
+
+export async function createMarkingPack(input: {
+  title: string;
+  curriculumId: string;
+  phaseId: string;
+  gradeId: string;
+  subjectId: string;
+  pagesPerScript?: number | null;
+  totalMarks?: number;
+}) {
+  return apiFetch<MarkingPackResult>("/marking/pack", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export type FinalizeQuickScanResult = {
+  assessmentId: string;
+  setupComplete: boolean;
+  readyForMarking: boolean;
+  memoAnswersReady: boolean;
+  memoBlocker: string | null;
+  questionsCreated: number;
+  scriptMarksInitialized: number;
+};
+
+export async function finalizeQuickScan(assessmentId: string) {
+  return apiFetch<FinalizeQuickScanResult>(
+    `/marking/pack/${assessmentId}/finalize-quick-scan`,
+    { method: "POST" }
+  );
+}
+
+export async function reextractQuickScanQuestions(assessmentId: string) {
+  return apiFetch<FinalizeQuickScanResult>(
+    `/marking/pack/${assessmentId}/reextract-questions`,
+    { method: "POST" }
+  );
 }

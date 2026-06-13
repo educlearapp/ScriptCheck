@@ -1,6 +1,11 @@
 import { PaperDocumentType } from "@prisma/client";
 import { prisma } from "../prisma";
 import { ScriptError } from "./scriptMarking";
+import {
+  isMarkingPackAssessment,
+  isQuickScanPlaceholderQuestion,
+  QUICK_SCAN_MEMO_BLOCKER,
+} from "./quickScanShared";
 
 export type AssessmentSetupInput = {
   title?: string;
@@ -19,6 +24,7 @@ export type AssessmentSetupStatus = {
   setupCompletedAt: string | null;
   questionCount: number | null;
   pagesPerScript: number | null;
+  totalMarks: number;
   memorandumAvailable: boolean;
   rubricAvailable: boolean;
   masterFiles: {
@@ -28,6 +34,9 @@ export type AssessmentSetupStatus = {
     supportingDocuments: number;
   };
   readyForMarking: boolean;
+  questionsExtracted: boolean;
+  memoAnswersReady: boolean;
+  memoBlocker: string | null;
   missingSteps: string[];
 };
 
@@ -52,12 +61,18 @@ async function loadAssessment(assessmentId: string, workspaceId: string) {
   return assessment;
 }
 
+type SetupStatusOptions = {
+  skipQuestionChecks?: boolean;
+};
+
 export async function getAssessmentSetupStatus(
   assessmentId: string,
-  workspaceId: string
+  workspaceId: string,
+  options: SetupStatusOptions = {}
 ): Promise<AssessmentSetupStatus> {
   const assessment = await loadAssessment(assessmentId, workspaceId);
   const docTypes = new Set(assessment.paperVaultDocuments.map((d) => d.documentType));
+  const isMarkingPack = isMarkingPackAssessment(assessment);
 
   const masterFiles = {
     questionPaper: docTypes.has(PaperDocumentType.QUESTION_PAPER),
@@ -70,7 +85,7 @@ export async function getAssessmentSetupStatus(
 
   const missingSteps: string[] = [];
   if (!assessment.pagesPerScript || assessment.pagesPerScript < 1) {
-    missingSteps.push("Set pages per script");
+    missingSteps.push("Set pages per learner answer script");
   }
   if (!assessment.totalMarks) missingSteps.push("Set total marks");
   if (!masterFiles.questionPaper) missingSteps.push("Upload question paper");
@@ -91,7 +106,48 @@ export async function getAssessmentSetupStatus(
     (!assessment.memorandumAvailable || masterFiles.memorandum) &&
     (!assessment.rubricAvailable || masterFiles.rubric);
 
-  const readyForMarking = infoComplete && masterComplete;
+  let questionsExtracted = false;
+  let memoAnswersReady = false;
+  let memoBlocker: string | null = null;
+
+  if (isMarkingPack && !options.skipQuestionChecks) {
+    const questions = await prisma.assessmentQuestion.findMany({
+      where: { assessmentId: assessment.id },
+      select: { questionText: true, expectedAnswer: true, memoNotes: true },
+      orderBy: { orderIndex: "asc" },
+    });
+
+    const hasPlaceholders = questions.some((question) =>
+      isQuickScanPlaceholderQuestion(question.questionText)
+    );
+    questionsExtracted = questions.length > 0 && !hasPlaceholders;
+
+    if (questions.length === 0) {
+      missingSteps.push("Analyze question paper to extract assessment questions");
+    } else if (hasPlaceholders) {
+      missingSteps.push("Replace placeholder questions by re-running Quick Scan analysis");
+    }
+
+    memoAnswersReady =
+      questionsExtracted &&
+      questions.every(
+        (question) =>
+          Boolean(question.expectedAnswer?.trim()) ||
+          Boolean(question.memoNotes?.trim())
+      );
+
+    if (questionsExtracted && !memoAnswersReady) {
+      memoBlocker = QUICK_SCAN_MEMO_BLOCKER;
+      missingSteps.push(QUICK_SCAN_MEMO_BLOCKER);
+    }
+  }
+
+  const readyForMarking = isMarkingPack
+    ? infoComplete &&
+      masterComplete &&
+      questionsExtracted &&
+      memoAnswersReady
+    : infoComplete && masterComplete;
 
   return {
     assessmentId: assessment.id,
@@ -99,10 +155,14 @@ export async function getAssessmentSetupStatus(
     setupCompletedAt: assessment.setupCompletedAt?.toISOString() ?? null,
     questionCount: assessment.questionCount,
     pagesPerScript: assessment.pagesPerScript,
+    totalMarks: assessment.totalMarks,
     memorandumAvailable: assessment.memorandumAvailable,
     rubricAvailable: assessment.rubricAvailable,
     masterFiles,
     readyForMarking,
+    questionsExtracted,
+    memoAnswersReady,
+    memoBlocker,
     missingSteps,
   };
 }
@@ -124,7 +184,9 @@ export async function updateAssessmentSetup(
   }
   if (input.pagesPerScript !== undefined) {
     const pps = input.pagesPerScript != null ? Number(input.pagesPerScript) : null;
-    if (pps != null && pps < 1) throw new ScriptError("Pages per script must be at least 1", 400);
+    if (pps != null && pps < 1) {
+      throw new ScriptError("Pages per learner answer script must be at least 1", 400);
+    }
     data.pagesPerScript = pps;
   }
   if (input.memorandumAvailable !== undefined) data.memorandumAvailable = input.memorandumAvailable;
@@ -147,8 +209,27 @@ export async function completeAssessmentSetup(
   assessmentId: string,
   workspaceId: string
 ) {
+  const assessment = await loadAssessment(assessmentId, workspaceId);
+  const isMarkingPack = isMarkingPackAssessment(assessment);
   const status = await getAssessmentSetupStatus(assessmentId, workspaceId);
-  if (!status.readyForMarking) {
+
+  if (isMarkingPack) {
+    if (!status.masterFiles.questionPaper) {
+      throw new ScriptError("Upload question paper", 400);
+    }
+    if (!status.pagesPerScript || status.pagesPerScript < 1) {
+      throw new ScriptError("Set pages per learner answer script", 400);
+    }
+    if (!status.totalMarks) {
+      throw new ScriptError("Set total marks", 400);
+    }
+    if (!status.questionsExtracted) {
+      throw new ScriptError(
+        "Analyze the question paper and extract real questions before completing setup",
+        400
+      );
+    }
+  } else if (!status.readyForMarking) {
     throw new ScriptError(
       `Setup incomplete: ${status.missingSteps.join(", ")}`,
       400

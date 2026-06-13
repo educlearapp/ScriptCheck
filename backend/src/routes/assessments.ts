@@ -106,6 +106,10 @@ function serializeAssessment(
     rubricAvailable: assessment.rubricAvailable ?? false,
     setupComplete: assessment.setupComplete ?? false,
     setupCompletedAt: assessment.setupCompletedAt?.toISOString() ?? null,
+    isMarkingPack:
+      assessment.aiMetadata != null &&
+      typeof assessment.aiMetadata === "object" &&
+      (assessment.aiMetadata as Record<string, unknown>).markingPack === true,
     status: assessment.status,
     creatorTeacher: assessment.creatorTeacher,
     assignedUser: assessment.assignedUser,
@@ -173,6 +177,85 @@ router.get(
     } catch (err) {
       console.error("[assessments/moderation-queue]", err);
       return res.status(500).json({ error: "Failed to load moderation queue" });
+    }
+  }
+);
+
+router.get(
+  "/:id/setup",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const status = await getAssessmentSetupStatus(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(status);
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to load setup status" });
+    }
+  }
+);
+
+router.put(
+  "/:id/setup",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_EDIT_OWN),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      await updateAssessmentSetup(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.body ?? {}
+      );
+      const assessment = await prisma.assessment.findFirst({
+        where: { id: String(req.params.id), workspaceId: req.auth!.workspaceId },
+        include: assessmentInclude,
+      });
+      if (!assessment) return res.status(404).json({ error: "Assessment not found" });
+      return res.json(serializeAssessment(assessment));
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to update setup" });
+    }
+  }
+);
+
+router.post(
+  "/:id/setup/complete",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_EDIT_OWN),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      await completeAssessmentSetup(String(req.params.id), req.auth!.workspaceId);
+      const status = await getAssessmentSetupStatus(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(status);
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to complete setup" });
+    }
+  }
+);
+
+router.get(
+  "/:id/files",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const files = await listAssessmentFiles(
+        String(req.params.id),
+        req.auth!.workspaceId
+      );
+      return res.json(files);
+    } catch (err) {
+      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
+      return res.status(500).json({ error: "Failed to list files" });
     }
   }
 );
@@ -945,85 +1028,6 @@ router.patch(
     } catch (err) {
       console.error("[assessments/patch]", err);
       return res.status(500).json({ error: "Failed to update assessment" });
-    }
-  }
-);
-
-router.get(
-  "/:id/setup",
-  requireAuth,
-  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const status = await getAssessmentSetupStatus(
-        String(req.params.id),
-        req.auth!.workspaceId
-      );
-      return res.json(status);
-    } catch (err) {
-      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
-      return res.status(500).json({ error: "Failed to load setup status" });
-    }
-  }
-);
-
-router.put(
-  "/:id/setup",
-  requireAuth,
-  requirePermission(PERMISSIONS.ASSESSMENTS_EDIT_OWN),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      await updateAssessmentSetup(
-        String(req.params.id),
-        req.auth!.workspaceId,
-        req.body ?? {}
-      );
-      const assessment = await prisma.assessment.findFirst({
-        where: { id: String(req.params.id), workspaceId: req.auth!.workspaceId },
-        include: assessmentInclude,
-      });
-      if (!assessment) return res.status(404).json({ error: "Assessment not found" });
-      return res.json(serializeAssessment(assessment));
-    } catch (err) {
-      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
-      return res.status(500).json({ error: "Failed to update setup" });
-    }
-  }
-);
-
-router.post(
-  "/:id/setup/complete",
-  requireAuth,
-  requirePermission(PERMISSIONS.ASSESSMENTS_EDIT_OWN),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      await completeAssessmentSetup(String(req.params.id), req.auth!.workspaceId);
-      const status = await getAssessmentSetupStatus(
-        String(req.params.id),
-        req.auth!.workspaceId
-      );
-      return res.json(status);
-    } catch (err) {
-      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
-      return res.status(500).json({ error: "Failed to complete setup" });
-    }
-  }
-);
-
-router.get(
-  "/:id/files",
-  requireAuth,
-  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const files = await listAssessmentFiles(
-        String(req.params.id),
-        req.auth!.workspaceId
-      );
-      return res.json(files);
-    } catch (err) {
-      if (err instanceof ScriptError) return res.status(err.statusCode).json({ error: err.message });
-      return res.status(500).json({ error: "Failed to list files" });
     }
   }
 );

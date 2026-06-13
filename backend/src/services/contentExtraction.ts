@@ -56,8 +56,14 @@ export async function extractTextFromFile(
 
 async function extractPdf(filePath: string): Promise<ExtractionResult> {
   const buffer = fs.readFileSync(filePath);
-  const parsed = await pdfParse(buffer);
-  const embeddedText = normaliseOcrText(parsed.text ?? "");
+  let embeddedText = "";
+
+  try {
+    const parsed = await pdfParse(buffer);
+    embeddedText = normaliseOcrText(parsed.text ?? "");
+  } catch {
+    // pdf-parse can fail on some generated/scanned PDFs — fall through to OCR
+  }
 
   if (isMeaningfulExtractedText(embeddedText)) {
     return {

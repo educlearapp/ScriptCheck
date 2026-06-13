@@ -272,7 +272,7 @@ export default function AssessmentSetupWizard() {
               />
             </label>
             <label>
-              Number of Pages Per Script
+              Pages per learner answer script
               <input
                 className="sc-input"
                 type="number"
@@ -280,6 +280,9 @@ export default function AssessmentSetupWizard() {
                 value={form.pagesPerScript}
                 onChange={(e) => setForm({ ...form, pagesPerScript: e.target.value })}
               />
+              <span className="sc-muted" style={{ fontSize: "0.8rem" }}>
+                Used only to split scanned learner answers — not the question paper.
+              </span>
             </label>
             <label className="sc-setup-checkbox">
               <input
@@ -381,7 +384,7 @@ export default function AssessmentSetupWizard() {
           <h2>Step 3 — Bulk Script Upload</h2>
           <p className="sc-page-subtitle">
             Upload scanned learner scripts in bulk. The system splits pages automatically using{" "}
-            <strong>{form.pagesPerScript || setupStatus?.pagesPerScript} pages per script</strong>. {UPLOAD_FILES_HINT}
+            <strong>{form.pagesPerScript || setupStatus?.pagesPerScript} pages per learner answer script</strong>. {UPLOAD_FILES_HINT}
           </p>
           <div className="sc-setup-bulk-zone">
             <input

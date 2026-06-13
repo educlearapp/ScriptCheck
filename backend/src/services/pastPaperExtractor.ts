@@ -70,7 +70,7 @@ function extractMcqOptions(block: string): string[] {
   return options;
 }
 
-function splitMemoSection(text: string): { paper: string; memo: string } {
+export function splitMemoSection(text: string): { paper: string; memo: string } {
   const lines = text.split("\n");
   let memoStart = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -86,7 +86,7 @@ function splitMemoSection(text: string): { paper: string; memo: string } {
   };
 }
 
-function parseMemoAnswers(memoText: string): Map<string, string> {
+export function parseMemoAnswers(memoText: string): Map<string, string> {
   const map = new Map<string, string>();
   if (!memoText.trim()) return map;
 

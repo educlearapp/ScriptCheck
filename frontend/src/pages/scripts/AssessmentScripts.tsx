@@ -8,7 +8,7 @@ import {
   MAX_UPLOAD_FILES,
   UPLOAD_FILES_HINT,
 } from "../../config/uploadLimits";
-import { bulkUploadScripts } from "../../services/assessmentSetupApi";
+import { bulkUploadScripts, getSetupStatus } from "../../services/assessmentSetupApi";
 import { formatStatusLabel } from "../../utils/statusLabels";
 import type { AssessmentDetail, LearnerScriptSummary, ScriptBatchSummary } from "../../types";
 import "../../components/intelligence/AssessmentHealthReport.css";
@@ -36,6 +36,7 @@ export default function AssessmentScripts() {
   const [bulkFiles, setBulkFiles] = useState<File[]>([]);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [markingPackReady, setMarkingPackReady] = useState(false);
 
   const loadBatches = useCallback(() => {
     if (!assessmentId) return;
@@ -71,6 +72,16 @@ export default function AssessmentScripts() {
       )
       .finally(() => setLoading(false));
   }, [assessmentId, loadBatchDetail]);
+
+  useEffect(() => {
+    if (!assessmentId || !assessment?.isMarkingPack || assessment.setupComplete) {
+      setMarkingPackReady(false);
+      return;
+    }
+    getSetupStatus(assessmentId)
+      .then((status) => setMarkingPackReady(status.readyForMarking))
+      .catch(() => setMarkingPackReady(false));
+  }, [assessmentId, assessment?.isMarkingPack, assessment?.setupComplete]);
 
   const handleCreateBatch = async () => {
     if (!assessmentId) return;
@@ -147,6 +158,9 @@ export default function AssessmentScripts() {
     activeBatch &&
     ["MARKING", "TEACHER_REVIEW", "RETURNED_TO_TEACHER"].includes(activeBatch.status);
   const pagesPerScript = assessment.pagesPerScript;
+  const showCompleteSetup =
+    !assessment.setupComplete &&
+    !(assessment.isMarkingPack && markingPackReady);
 
   return (
     <div>
@@ -156,12 +170,12 @@ export default function AssessmentScripts() {
           <h1 className="sc-page-title">Assessment Scripts</h1>
           <p className="sc-page-subtitle">
             {assessment.title} · {assessment.subject.name} · {assessment.grade.name}
-            {pagesPerScript ? ` · ${pagesPerScript} pages per script` : ""}
+            {pagesPerScript ? ` · ${pagesPerScript} pages per learner answer` : ""}
           </p>
           {assessmentId ? <AssessmentIntelligenceHeader assessmentId={assessmentId} /> : null}
         </div>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          {!assessment.setupComplete ? (
+          {showCompleteSetup ? (
             <Link to={`/assessments/${assessmentId}/setup`} className="sc-btn sc-btn-primary">
               Complete Setup
             </Link>
@@ -263,7 +277,7 @@ export default function AssessmentScripts() {
                 <div style={{ marginTop: "1rem", padding: "1rem", border: "2px dashed var(--sc-gold)", borderRadius: "8px" }}>
                   <h4 style={{ margin: "0 0 0.5rem" }}>Bulk Script Upload</h4>
                   <p style={{ fontSize: "0.85rem", color: "var(--sc-text-muted)", margin: "0 0 0.75rem" }}>
-                    Upload scanned scripts in bulk. The system automatically splits pages ({pagesPerScript} per script).{" "}
+                    Upload scanned learner answers in bulk. The system splits pages ({pagesPerScript} per learner answer).{" "}
                     {UPLOAD_FILES_HINT}
                   </p>
                   <input
@@ -299,7 +313,7 @@ export default function AssessmentScripts() {
                     {bulkUploading ? "Processing…" : "Upload & Auto-Split Scripts"}
                   </button>
                 </div>
-              ) : !pagesPerScript ? (
+              ) : !pagesPerScript && !assessment.isMarkingPack ? (
                 <div style={{ marginTop: "1rem" }}>
                   <Link to={`/assessments/${assessmentId}/setup`} className="sc-btn sc-btn-ghost">
                     Complete setup to enable bulk upload
