@@ -15,6 +15,16 @@
 }
 
 /* Marking workbench layout */
+.sc-marking-curriculum-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.sc-marking-curriculum-error {
+  margin: 0;
+}
+
 .sc-marking-workbench-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);

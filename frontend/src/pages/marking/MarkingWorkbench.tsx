@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import FileDropzone from "../../components/marking/FileDropzone";
+import MarkingCurriculumFields, {
+  markingCurriculumReady,
+} from "../../components/marking/MarkingCurriculumFields";
 import {
   MAX_UPLOAD_FILES,
   UPLOAD_FILES_HINT,
@@ -19,7 +22,6 @@ import {
   type ScriptFormat,
   type ScriptVerificationResult,
 } from "../../services/assessmentSetupApi";
-import CurriculumSelector, { curriculumContextReady } from "../assessments/CurriculumSelector";
 import { formatStatusLabel } from "../../utils/statusLabels";
 import "../dashboard/Dashboard.css";
 import "./MarkingOverview.css";
@@ -158,6 +160,7 @@ export default function MarkingWorkbench() {
   const [workbench, setWorkbench] = useState<MarkingWorkbenchState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [curriculumError, setCurriculumError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [assessmentName, setAssessmentName] = useState("");
@@ -187,7 +190,7 @@ export default function MarkingWorkbench() {
   const memoRef = useRef<HTMLInputElement>(null);
   const rubricRef = useRef<HTMLInputElement>(null);
 
-  const curriculumReady = curriculumContextReady(curriculumId, phaseId, gradeId, subjectId);
+  const curriculumReady = markingCurriculumReady(curriculumId, phaseId, gradeId, subjectId);
   const parsedPages = parsePositiveInt(pagesInput);
   const parsedMarks = parsePositiveInt(totalMarks);
   const parsedQuestions = parsePositiveInt(questionCount);
@@ -385,6 +388,7 @@ export default function MarkingWorkbench() {
     setScriptFiles([]);
     setPagesDraft("");
     setError("");
+    setCurriculumError(null);
   };
 
   const workflowSteps = useMemo(() => {
@@ -471,12 +475,21 @@ export default function MarkingWorkbench() {
                 />
               </label>
 
-              <CurriculumSelector
+              {curriculumError ? (
+                <p className="sc-error sc-marking-curriculum-error">{curriculumError}</p>
+              ) : null}
+
+              <MarkingCurriculumFields
                 curriculumId={curriculumId}
                 phaseId={phaseId}
                 gradeId={gradeId}
                 subjectId={subjectId}
-                onCurriculumIdChange={setCurriculumId}
+                onCurriculumIdChange={(id) => {
+                  setCurriculumId(id);
+                  setPhaseId("");
+                  setGradeId("");
+                  setSubjectId("");
+                }}
                 onPhaseIdChange={(id) => {
                   setPhaseId(id);
                   setGradeId("");
@@ -484,6 +497,7 @@ export default function MarkingWorkbench() {
                 }}
                 onGradeIdChange={setGradeId}
                 onSubjectIdChange={setSubjectId}
+                onCurriculumError={setCurriculumError}
                 disabled={busy}
               />
 
