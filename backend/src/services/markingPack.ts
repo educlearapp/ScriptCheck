@@ -30,7 +30,8 @@ import {
 
 import {
   isMarkingPackAssessment,
-  MARKING_PACK_METADATA,
+  mergeMarkingWorkbenchMetadata,
+  type ScriptFormat,
 } from "./quickScanShared";
 
 export type CreateMarkingPackInput = {
@@ -39,8 +40,11 @@ export type CreateMarkingPackInput = {
   phaseId: string;
   gradeId: string;
   subjectId: string;
+  term?: string | null;
   pagesPerScript?: number | null;
   totalMarks?: number;
+  questionCount?: number | null;
+  scriptFormat?: ScriptFormat;
 };
 
 export type MarkingPackResult = {
@@ -89,20 +93,35 @@ export async function createMarkingPack(
     }
   }
 
+  const scriptFormat: ScriptFormat =
+    input.scriptFormat === "ON_QUESTION_PAPER" ? "ON_QUESTION_PAPER" : "ANSWER_SHEET";
+
+  let questionCount: number | null = null;
+  if (input.questionCount != null) {
+    questionCount = Number(input.questionCount);
+    if (!Number.isInteger(questionCount) || questionCount < 1) {
+      throw new ScriptError("questionCount must be a positive integer", 400);
+    }
+  }
+
+  const term = input.term?.trim() || null;
+
   const assessment = await prisma.assessment.create({
     data: {
       workspaceId,
       title,
+      term,
       curriculumId: input.curriculumId,
       phaseId: input.phaseId,
       gradeId: input.gradeId,
       subjectId: input.subjectId,
       assessmentType: AssessmentType.TEST,
       totalMarks,
+      questionCount,
       pagesPerScript,
       status: AssessmentStatus.DRAFT,
       creatorTeacherId: userId,
-      aiMetadata: MARKING_PACK_METADATA,
+      aiMetadata: mergeMarkingWorkbenchMetadata(null, { scriptFormat }) as Prisma.InputJsonValue,
     },
   });
 

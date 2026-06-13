@@ -4,6 +4,11 @@ import { requirePermission } from "../middleware/requirePermission";
 import { PERMISSIONS } from "../services/permissions";
 import { getMarkingOverview } from "../services/markingOverview";
 import { createMarkingPack, finalizeQuickScan, reextractQuickScanQuestions } from "../services/markingPack";
+import {
+  getMarkingWorkbenchState,
+  listMarkingJobs,
+  prepareMarkingJob,
+} from "../services/markingWorkbench";
 import { ScriptError } from "../services/scriptMarking";
 import { auditRequestMeta, logAudit } from "../services/auditLog";
 
@@ -94,8 +99,11 @@ router.post(
         phaseId: String(body.phaseId ?? ""),
         gradeId: String(body.gradeId ?? ""),
         subjectId: String(body.subjectId ?? ""),
+        term: body.term != null ? String(body.term) : undefined,
         pagesPerScript: body.pagesPerScript,
         totalMarks: body.totalMarks,
+        questionCount: body.questionCount,
+        scriptFormat: body.scriptFormat,
       });
 
       await logAudit({
@@ -113,6 +121,81 @@ router.post(
       }
       console.error("[marking/pack]", err);
       return res.status(500).json({ error: "Failed to create marking pack" });
+    }
+  }
+);
+
+router.post(
+  "/jobs/:batchId/prepare",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_EDIT_OWN),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await prepareMarkingJob(
+        String(req.params.batchId),
+        req.auth!.workspaceId
+      );
+
+      await logAudit({
+        action: "WORKFLOW_TRANSITION",
+        actorId: req.auth!.userId,
+        workspaceId: req.auth!.workspaceId,
+        metadata: {
+          batchId: data.batchId,
+          assessmentId: data.assessmentId,
+          markingWorkbenchPrepare: true,
+          aiMarkingImplemented: false,
+        },
+        ...auditRequestMeta(req),
+      });
+
+      return res.json(data);
+    } catch (err) {
+      if (err instanceof ScriptError) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      console.error("[marking/jobs/prepare]", err);
+      return res.status(500).json({ error: "Failed to prepare marking job" });
+    }
+  }
+);
+
+router.get(
+  "/jobs",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await listMarkingJobs(
+        req.auth!.workspaceId,
+        req.auth!.userId,
+        req.access!
+      );
+      return res.json(data);
+    } catch (err) {
+      console.error("[marking/jobs]", err);
+      return res.status(500).json({ error: "Failed to load marking jobs" });
+    }
+  }
+);
+
+router.get(
+  "/jobs/:batchId",
+  requireAuth,
+  requirePermission(PERMISSIONS.ASSESSMENTS_VIEW),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const data = await getMarkingWorkbenchState(
+        String(req.params.batchId),
+        req.auth!.workspaceId
+      );
+      return res.json(data);
+    } catch (err) {
+      if (err instanceof ScriptError) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      console.error("[marking/jobs/:batchId]", err);
+      return res.status(500).json({ error: "Failed to load marking workbench" });
     }
   }
 );

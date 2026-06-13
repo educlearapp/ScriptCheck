@@ -69,6 +69,73 @@ export type ScriptVerificationResult = {
   canProceed: boolean;
 };
 
+export type ScriptFormat = "ANSWER_SHEET" | "ON_QUESTION_PAPER";
+
+export type MarkingWorkflowStage =
+  | "CREATE_JOB"
+  | "UPLOADS"
+  | "AI_PROCESSING"
+  | "REVIEW"
+  | "RESULTS";
+
+export type MarkingJobListItem = {
+  batchId: string;
+  assessmentId: string;
+  title: string;
+  grade: { id: string; name: string };
+  subject: { id: string; name: string };
+  scriptCount: number;
+  scriptFormat: ScriptFormat;
+  workflowStage: MarkingWorkflowStage;
+  batchStatus: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MarkingWorkbenchScriptRow = {
+  id: string;
+  scriptNumber: string;
+  learnerName: string;
+  pageCount: number;
+  status: string;
+  teacherTotal: number | null;
+  finalTotal: number | null;
+  finalPercentage: number | null;
+};
+
+export type MarkingWorkbenchState = {
+  batchId: string;
+  assessmentId: string;
+  title: string;
+  term: string | null;
+  totalMarks: number;
+  questionCount: number | null;
+  pagesPerScript: number | null;
+  scriptFormat: ScriptFormat;
+  curriculumId: string;
+  phaseId: string;
+  grade: { id: string; name: string };
+  subject: { id: string; name: string };
+  phase: { id: string; name: string };
+  uploads: {
+    questionPaper: boolean;
+    memorandum: boolean;
+    rubric: boolean;
+    learnerScripts: boolean;
+    scriptCount: number;
+  };
+  setupComplete: boolean;
+  readyForMarking: boolean;
+  memoAnswersReady: boolean;
+  memoBlocker: string | null;
+  workflowStage: MarkingWorkflowStage;
+  batchStatus: string;
+  scripts: MarkingWorkbenchScriptRow[];
+  aiMarkingImplemented: boolean;
+  prepareBlockers: string[];
+  verification: ScriptVerificationResult | null;
+};
+
 export type MarkingOverviewItem = {
   id: string;
   title: string;
@@ -183,6 +250,20 @@ export async function getAssessmentFiles(assessmentId: string) {
   }>(`/assessments/${assessmentId}/files`);
 }
 
+export async function listMarkingJobs() {
+  return apiFetch<{ items: MarkingJobListItem[] }>("/marking/jobs");
+}
+
+export async function getMarkingWorkbench(batchId: string) {
+  return apiFetch<MarkingWorkbenchState>(`/marking/jobs/${batchId}`);
+}
+
+export async function prepareMarkingJob(batchId: string) {
+  return apiFetch<MarkingWorkbenchState>(`/marking/jobs/${batchId}/prepare`, {
+    method: "POST",
+  });
+}
+
 export async function getMarkingOverview() {
   return apiFetch<{ items: MarkingOverviewItem[] }>("/marking/overview");
 }
@@ -204,8 +285,11 @@ export async function createMarkingPack(input: {
   phaseId: string;
   gradeId: string;
   subjectId: string;
+  term?: string | null;
   pagesPerScript?: number | null;
   totalMarks?: number;
+  questionCount?: number | null;
+  scriptFormat?: ScriptFormat;
 }) {
   return apiFetch<MarkingPackResult>("/marking/pack", {
     method: "POST",
