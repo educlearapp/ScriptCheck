@@ -12,6 +12,7 @@ import {
   reextractQuickScanQuestions,
   getAssessmentFiles,
   getMarkingOverview,
+  getScriptVerification,
   getSetupStatus,
   updateSetup,
   uploadMasterFile,
@@ -182,10 +183,12 @@ function VerifyStartActions({
     setStarting(true);
     setExportError("");
     try {
-      const detail = await apiFetch<{ learnerScripts: { id: string }[] }>(
-        `/script-batches/${batch.batchId}`
-      );
-      const scriptId = detail.learnerScripts?.[0]?.id;
+      const detail = await apiFetch<{
+        learnerScripts: Array<{ id: string }>;
+      }>(`/script-batches/${batch.batchId}`);
+      const scriptId =
+        detail.learnerScripts?.[0]?.id ??
+        (await getScriptVerification(batch.batchId)).scripts[0]?.scriptId;
       if (scriptId) {
         navigate(`/scripts/${scriptId}`);
       } else {

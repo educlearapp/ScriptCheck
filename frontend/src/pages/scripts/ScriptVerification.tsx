@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { apiFetch } from "../../api";
 import {
   confirmScriptVerification,
   finalizeQuickScan,
@@ -30,6 +29,11 @@ export default function ScriptVerification() {
   const [resplitting, setResplitting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
+  const verificationRef = useRef<ScriptVerificationResult | null>(verification);
+
+  useEffect(() => {
+    verificationRef.current = verification;
+  }, [verification]);
 
   const applyVerification = useCallback((data: ScriptVerificationResult) => {
     setVerification(data);
@@ -84,12 +88,10 @@ export default function ScriptVerification() {
         applyVerification(data);
       }
       await finalizeQuickScan(assessmentId);
-      await confirmScriptVerification(batchId);
-      const batchDetail = await apiFetch<{ learnerScripts: { id: string }[] }>(
-        `/script-batches/${batchId}`
-      );
+      const confirmed = await confirmScriptVerification(batchId);
       const scriptId =
-        batchDetail.learnerScripts?.[0]?.id ?? verification?.scripts?.[0]?.scriptId;
+        confirmed.scripts[0]?.scriptId ??
+        verificationRef.current?.scripts[0]?.scriptId;
       if (scriptId) {
         navigate(`/scripts/${scriptId}`);
       } else {
