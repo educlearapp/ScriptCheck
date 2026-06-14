@@ -242,8 +242,13 @@ export async function getMarkingWorkbenchState(
     prepareBlockers.push("Upload at least one learner script");
   }
   if (setup.masterFiles.questionPaper && !setup.questionsExtracted) {
+    const onPaper =
+      getScriptFormat(batch.assessment) === "ON_QUESTION_PAPER" &&
+      !setup.masterFiles.memorandum;
     prepareBlockers.push(
-      "Question paper uploaded — run prepare step to extract questions (memo still required before AI marking)"
+      onPaper
+        ? "Question paper uploaded — confirm script split to extract questions and answers from the question paper"
+        : "Question paper uploaded — run prepare step to extract questions (memo still required before AI marking)"
     );
   }
   if (!setup.memoAnswersReady && setup.questionsExtracted) {

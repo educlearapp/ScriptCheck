@@ -1,8 +1,12 @@
 import { ScriptBatchStatus } from "@prisma/client";
 import { prisma } from "../prisma";
 import { getAssessmentSetupStatus } from "./assessmentSetup";
+import { finalizeQuickScan } from "./markingPack";
 import { ScriptError } from "./scriptMarking";
-import { isMarkingPackAssessment, QUICK_SCAN_MEMO_BLOCKER } from "./quickScanShared";
+import {
+  isMarkingPackAssessment,
+  quickScanMemoBlockerMessage,
+} from "./quickScanShared";
 
 export type ScriptVerificationResult = {
   batchId: string;
@@ -112,9 +116,19 @@ export async function confirmScriptVerification(
   if (!batch) throw new ScriptError("Script batch not found", 404);
 
   if (isMarkingPackAssessment(batch.assessment)) {
-    const setup = await getAssessmentSetupStatus(batch.assessment.id, workspaceId);
+    let setup = await getAssessmentSetupStatus(batch.assessment.id, workspaceId);
+
+    if (!setup.questionsExtracted || !setup.memoAnswersReady) {
+      await finalizeQuickScan(batch.assessment.id, workspaceId);
+      setup = await getAssessmentSetupStatus(batch.assessment.id, workspaceId);
+    }
+
     if (!setup.memoAnswersReady) {
-      throw new ScriptError(setup.memoBlocker ?? QUICK_SCAN_MEMO_BLOCKER, 400);
+      throw new ScriptError(
+        setup.memoBlocker ??
+          quickScanMemoBlockerMessage(batch.assessment, setup.masterFiles),
+        400
+      );
     }
   }
 

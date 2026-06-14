@@ -4,7 +4,7 @@ import { ScriptError } from "./scriptMarking";
 import {
   isMarkingPackAssessment,
   isQuickScanPlaceholderQuestion,
-  QUICK_SCAN_MEMO_BLOCKER,
+  quickScanMemoBlockerMessage,
 } from "./quickScanShared";
 
 export type AssessmentSetupInput = {
@@ -137,8 +137,8 @@ export async function getAssessmentSetupStatus(
       );
 
     if (questionsExtracted && !memoAnswersReady) {
-      memoBlocker = QUICK_SCAN_MEMO_BLOCKER;
-      missingSteps.push(QUICK_SCAN_MEMO_BLOCKER);
+      memoBlocker = quickScanMemoBlockerMessage(assessment, masterFiles);
+      missingSteps.push(memoBlocker);
     }
   }
 

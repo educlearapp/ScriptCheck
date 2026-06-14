@@ -139,6 +139,12 @@ async function main() {
 
   console.log("✓ verification shows 3 scripts x 4 pages");
 
+  const finalized = await api(`/marking/pack/${pack.assessmentId}/finalize-quick-scan`, {
+    method: "POST",
+    token,
+  });
+  console.log("✓ quick scan finalized", { questionsCreated: finalized.questionsCreated });
+
   const confirmed = await api(`/script-batches/${pack.batchId}/verification/confirm`, {
     method: "POST",
     token,

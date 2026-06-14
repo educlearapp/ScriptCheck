@@ -20,7 +20,8 @@ export type ExtractedPaperQuestion = {
 const SECTION_RE = /^(?:SECTION\s+([A-Z])|PART\s+([A-Z]))\b[:\s-]*(.*)$/i;
 const QUESTION_RE =
   /^(\d+(?:\.\d+)?)\s*[.)]?\s+(.+?)(?:\s*[\[(](\d+)\s*marks?[\])]|\s*\((\d+)\)\s*$|\s*\[(\d+)\]\s*$)?$/i;
-const MEMO_HEADER_RE = /^(?:MEMORANDUM|MEMO|MARKING\s+GUIDE|ANSWERS?)\b/i;
+const MEMO_HEADER_RE =
+  /^(?:MEMORANDUM|MEMO|MARKING\s+GUIDE|MARKING\s+MEMO|ANSWER\s+KEY|ANSWERS?(?:\s+INCLUDED|\s+ON\s+QUESTION\s+PAPER)?)\b/i;
 const MEMO_ANSWER_RE = /^(\d+(?:\.\d+)?)\s*[.)]?\s+(.+)$/i;
 
 const TOPIC_PATTERNS: { pattern: RegExp; topic: string }[] = [

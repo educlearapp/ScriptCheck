@@ -29,6 +29,7 @@ import {
 } from "./pastPaperExtractor";
 
 import {
+  getScriptFormat,
   isMarkingPackAssessment,
   mergeMarkingWorkbenchMetadata,
   type ScriptFormat,
@@ -195,6 +196,22 @@ function hasMemoCoverage(questions: ExtractedPaperQuestion[]): boolean {
   );
 }
 
+function applyQuestionPaperMemoFallbacks(
+  questions: ExtractedPaperQuestion[],
+  paperText: string,
+  scriptFormat: ScriptFormat,
+  hasSeparateMemo: boolean
+): ExtractedPaperQuestion[] {
+  if (hasSeparateMemo || hasMemoCoverage(questions)) return questions;
+  if (scriptFormat !== "ON_QUESTION_PAPER") return questions;
+
+  const { memo } = splitMemoSection(paperText);
+  const memoAnswers = parseMemoAnswers(memo.trim() ? memo : paperText);
+  if (memoAnswers.size === 0) return questions;
+
+  return mergeMemoAnswers(questions, memoAnswers);
+}
+
 function buildAnalyticsPlaceholder() {
   return {
     averageScore: null,
@@ -236,6 +253,7 @@ export async function extractQuickScanQuestions(
     throw new ScriptError("Upload a question paper before analyzing Quick Scan", 400);
   }
 
+  const scriptFormat = getScriptFormat(assessment);
   const paperText = await extractTextFromVaultDocument(questionPaper);
   let questions = extractQuestionsFromPastPaper(paperText, questionPaper.fileName);
 
@@ -255,6 +273,13 @@ export async function extractQuickScanQuestions(
     const { memo } = splitMemoSection(memoText);
     const memoAnswers = parseMemoAnswers(memo.trim() ? memo : memoText);
     questions = mergeMemoAnswers(questions, memoAnswers);
+  } else {
+    questions = applyQuestionPaperMemoFallbacks(
+      questions,
+      paperText,
+      scriptFormat,
+      false
+    );
   }
 
   return {
