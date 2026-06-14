@@ -18,7 +18,7 @@ import TeacherDashboard from "./pages/dashboard/TeacherDashboard";
 import ExamBodyDashboard from "./pages/dashboard/ExamBodyDashboard";
 import ModeratorDashboard from "./pages/dashboard/ModeratorDashboard";
 import ReportsAnalytics from "./pages/reports/ReportsAnalytics";
-import MarkingWorkbench from "./pages/marking/MarkingWorkbench";
+import MarkingOverview from "./pages/marking/MarkingOverview";
 import SettingsPage from "./pages/settings/SettingsPage";
 import WorkflowSettings from "./pages/settings/WorkflowSettings";
 import SubscriptionSettings from "./pages/settings/SubscriptionSettings";
@@ -112,7 +112,7 @@ function AppRoutes() {
             </Route>
 
             <Route element={<RequirePermission permission="assessments.view" />}>
-              <Route path="/marking" element={<MarkingWorkbench />} />
+              <Route path="/marking" element={<MarkingOverview />} />
             </Route>
 
             <Route path="/settings" element={<SettingsPage />} />
