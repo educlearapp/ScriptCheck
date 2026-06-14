@@ -32,6 +32,7 @@ import {
   getScriptFormat,
   isMarkingPackAssessment,
   mergeMarkingWorkbenchMetadata,
+  type MarkingMode,
   type ScriptFormat,
 } from "./quickScanShared";
 
@@ -46,6 +47,7 @@ export type CreateMarkingPackInput = {
   totalMarks?: number;
   questionCount?: number | null;
   scriptFormat?: ScriptFormat;
+  markingMode?: MarkingMode;
 };
 
 export type MarkingPackResult = {
@@ -97,6 +99,9 @@ export async function createMarkingPack(
   const scriptFormat: ScriptFormat =
     input.scriptFormat === "ON_QUESTION_PAPER" ? "ON_QUESTION_PAPER" : "ANSWER_SHEET";
 
+  const markingMode: MarkingMode =
+    input.markingMode === "QP_WITH_ANSWERS" ? "QP_WITH_ANSWERS" : "QP_LEARNER_ONLY";
+
   let questionCount: number | null = null;
   if (input.questionCount != null) {
     questionCount = Number(input.questionCount);
@@ -122,7 +127,10 @@ export async function createMarkingPack(
       pagesPerScript,
       status: AssessmentStatus.DRAFT,
       creatorTeacherId: userId,
-      aiMetadata: mergeMarkingWorkbenchMetadata(null, { scriptFormat }) as Prisma.InputJsonValue,
+      aiMetadata: mergeMarkingWorkbenchMetadata(null, {
+        scriptFormat,
+        markingMode,
+      }) as Prisma.InputJsonValue,
     },
   });
 

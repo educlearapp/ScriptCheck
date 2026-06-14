@@ -6,6 +6,7 @@ import { getAssessmentSetupStatus } from "./assessmentSetup";
 import { getScriptVerification, type ScriptVerificationResult } from "./scriptVerification";
 import { ScriptError } from "./scriptMarking";
 import {
+  getMarkingMode,
   getScriptFormat,
   isMarkingPackAssessment,
   type ScriptFormat,
@@ -67,6 +68,7 @@ export type MarkingWorkbenchState = {
   setupComplete: boolean;
   readyForMarking: boolean;
   memoAnswersReady: boolean;
+  markingGuideReady: boolean;
   memoBlocker: string | null;
   workflowStage: MarkingWorkflowStage;
   batchStatus: string;
@@ -242,17 +244,14 @@ export async function getMarkingWorkbenchState(
     prepareBlockers.push("Upload at least one learner script");
   }
   if (setup.masterFiles.questionPaper && !setup.questionsExtracted) {
-    const onPaper =
-      getScriptFormat(batch.assessment) === "ON_QUESTION_PAPER" &&
-      !setup.masterFiles.memorandum;
-    prepareBlockers.push(
-      onPaper
-        ? "Question paper uploaded — confirm script split to extract questions and answers from the question paper"
-        : "Question paper uploaded — run prepare step to extract questions (memo still required before AI marking)"
-    );
+    prepareBlockers.push("Question paper uploaded — confirm script split to extract questions");
   }
-  if (!setup.memoAnswersReady && setup.questionsExtracted) {
-    prepareBlockers.push(setup.memoBlocker ?? "Memo or approved answers required before AI marking");
+  const mode = getMarkingMode(batch.assessment);
+  if (mode === "QP_WITH_ANSWERS" && !setup.memoAnswersReady && setup.questionsExtracted) {
+    prepareBlockers.push(setup.memoBlocker ?? "Answers required on question paper before AI marking");
+  }
+  if (mode === "QP_LEARNER_ONLY" && setup.questionsExtracted && !setup.markingGuideReady) {
+    prepareBlockers.push("Confirm script split to generate AI marking guide");
   }
 
   return {
@@ -279,6 +278,7 @@ export async function getMarkingWorkbenchState(
     setupComplete: setup.setupComplete,
     readyForMarking: setup.readyForMarking,
     memoAnswersReady: setup.memoAnswersReady ?? false,
+    markingGuideReady: setup.markingGuideReady ?? false,
     memoBlocker: setup.memoBlocker ?? null,
     workflowStage: resolveWorkflowStage({
       batchStatus: batch.status,
@@ -289,7 +289,7 @@ export async function getMarkingWorkbenchState(
     }),
     batchStatus: batch.status,
     scripts,
-    aiMarkingImplemented: false,
+    aiMarkingImplemented: true,
     prepareBlockers,
     verification,
   };

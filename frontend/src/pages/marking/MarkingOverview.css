@@ -14,6 +14,56 @@
   margin: 0;
 }
 
+.sc-marking-option-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.sc-marking-option-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sc-marking-option-card:hover {
+  border-color: var(--sc-gold);
+}
+
+.sc-marking-option-card.is-selected {
+  border-color: var(--sc-gold);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2);
+}
+
+.sc-marking-option-number {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sc-gold);
+}
+
+.sc-marking-option-title {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.sc-marking-option-summary {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--sc-text-muted, #888);
+  line-height: 1.45;
+}
+
 /* Marking workbench layout */
 .sc-marking-curriculum-fields {
   display: flex;

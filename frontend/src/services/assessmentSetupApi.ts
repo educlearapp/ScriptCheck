@@ -18,8 +18,10 @@ export type AssessmentSetupStatus = {
   };
   readyForMarking: boolean;
   questionsExtracted?: boolean;
+  markingGuideReady?: boolean;
   memoAnswersReady?: boolean;
   memoBlocker?: string | null;
+  markingMode?: string | null;
   missingSteps: string[];
 };
 
@@ -70,6 +72,8 @@ export type ScriptVerificationResult = {
 };
 
 export type ScriptFormat = "ANSWER_SHEET" | "ON_QUESTION_PAPER";
+
+export type MarkingMode = "QP_LEARNER_ONLY" | "QP_WITH_ANSWERS";
 
 export type MarkingWorkflowStage =
   | "CREATE_JOB"
@@ -290,6 +294,7 @@ export async function createMarkingPack(input: {
   totalMarks?: number;
   questionCount?: number | null;
   scriptFormat?: ScriptFormat;
+  markingMode?: MarkingMode;
 }) {
   return apiFetch<MarkingPackResult>("/marking/pack", {
     method: "POST",

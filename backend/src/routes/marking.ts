@@ -104,6 +104,7 @@ router.post(
         totalMarks: body.totalMarks,
         questionCount: body.questionCount,
         scriptFormat: body.scriptFormat,
+        markingMode: body.markingMode,
       });
 
       await logAudit({
@@ -144,7 +145,7 @@ router.post(
           batchId: data.batchId,
           assessmentId: data.assessmentId,
           markingWorkbenchPrepare: true,
-          aiMarkingImplemented: false,
+          aiMarkingImplemented: true,
         },
         ...auditRequestMeta(req),
       });

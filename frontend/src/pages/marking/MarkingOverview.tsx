@@ -9,23 +9,21 @@ import {
   bulkUploadScripts,
   completeSetup,
   createMarkingPack,
-  reextractQuickScanQuestions,
-  getAssessmentFiles,
   getMarkingOverview,
-  getScriptVerification,
   getSetupStatus,
   updateSetup,
   uploadMasterFile,
-  type AssessmentFileEntry,
   type AssessmentSetupStatus,
+  type MarkingMode,
   type MarkingOverviewItem,
-  type ScriptFormat,
 } from "../../services/assessmentSetupApi";
 import type { Assessment } from "../../types";
 import { formatStatusLabel } from "../../utils/statusLabels";
 import CurriculumSelector, { curriculumContextReady } from "../assessments/CurriculumSelector";
 import "../dashboard/Dashboard.css";
 import "./MarkingOverview.css";
+
+type MarkingOption = 1 | 2 | 3;
 
 type BatchMeta = {
   batchId: string | null;
@@ -42,10 +40,22 @@ type ScriptBatchSummary = {
   _count?: { learnerScripts: number };
 };
 
-const MEMO_NOTE =
-  "If the question paper includes a memorandum section, ScriptCheck will detect answers automatically. Otherwise upload the memo separately before starting AI marking.";
+const MARKING_SESSION_KEY = "scriptcheck-marking-job";
 
-const QUICK_SCAN_SESSION_KEY = "scriptcheck-quick-scan-job";
+const OPTION_LABELS: Record<MarkingOption, { title: string; summary: string }> = {
+  1: {
+    title: "Question paper + learner booklets — no memo",
+    summary: "Upload question paper and learner booklets only. AI generates the marking guide — no memo required.",
+  },
+  2: {
+    title: "Question paper with answers included",
+    summary: "Upload a question paper that includes memo or answers, plus learner booklets.",
+  },
+  3: {
+    title: "ScriptCheck assessment",
+    summary: "Select an assessment already built in ScriptCheck, upload learner scripts, verify split, and mark.",
+  },
+};
 
 const emptyBatch = (): BatchMeta => ({
   batchId: null,
@@ -79,9 +89,10 @@ function latestBatch(batches: ScriptBatchSummary[]): BatchMeta {
   };
 }
 
-function defaultQuickTitle(term: string) {
-  const label = term.trim() || "Quick Scan";
-  return `${label} — ${new Date().toLocaleDateString()}`;
+function defaultJobTitle(term: string, option: MarkingOption) {
+  const label = term.trim() || "Marking";
+  const suffix = option === 1 ? "QP + Answers" : "QP with Memo";
+  return `${label} — ${suffix} — ${new Date().toLocaleDateString()}`;
 }
 
 function FileDropzone({
@@ -142,14 +153,14 @@ function VerifyStartActions({
   assessmentId,
   batch,
   scriptsVerified,
-  memoAnswersReady = true,
-  memoBlocker = null,
+  canStart,
+  startHint,
 }: {
   assessmentId: string | null;
   batch: BatchMeta;
   scriptsVerified: boolean;
-  memoAnswersReady?: boolean;
-  memoBlocker?: string | null;
+  canStart: boolean;
+  startHint: string;
 }) {
   const navigate = useNavigate();
   const [exporting, setExporting] = useState(false);
@@ -157,10 +168,6 @@ function VerifyStartActions({
   const [starting, setStarting] = useState(false);
 
   const hasScripts = batch.scriptCount > 0;
-  const canStartMarking = scriptsVerified && memoAnswersReady;
-  const startMarkingHint = !scriptsVerified
-    ? "Upload, verify, and confirm script split first"
-    : memoBlocker ?? "Upload memo before AI marking";
 
   const handleExportCsv = async () => {
     if (!batch.batchId) return;
@@ -179,16 +186,14 @@ function VerifyStartActions({
   };
 
   const handleStartMarking = async () => {
-    if (!assessmentId || !batch.batchId || !canStartMarking) return;
+    if (!assessmentId || !batch.batchId || !canStart) return;
     setStarting(true);
     setExportError("");
     try {
       const detail = await apiFetch<{
         learnerScripts: Array<{ id: string }>;
       }>(`/script-batches/${batch.batchId}`);
-      const scriptId =
-        detail.learnerScripts?.[0]?.id ??
-        (await getScriptVerification(batch.batchId)).scripts[0]?.scriptId;
+      const scriptId = detail.learnerScripts?.[0]?.id;
       if (scriptId) {
         navigate(`/scripts/${scriptId}`);
       } else {
@@ -215,7 +220,7 @@ function VerifyStartActions({
           Verify Scripts
         </button>
       )}
-      {canStartMarking && assessmentId ? (
+      {canStart && assessmentId ? (
         <button
           type="button"
           className="sc-btn sc-btn-primary"
@@ -229,7 +234,7 @@ function VerifyStartActions({
           type="button"
           className="sc-btn sc-btn-primary is-disabled-hint"
           disabled
-          title={startMarkingHint}
+          title={startHint}
         >
           Start AI Marking
         </button>
@@ -245,8 +250,8 @@ function VerifyStartActions({
         </button>
       ) : null}
       {exportError ? <p className="sc-marking-memo-note sc-error">{exportError}</p> : null}
-      {scriptsVerified && !memoAnswersReady && memoBlocker ? (
-        <p className="sc-marking-memo-note sc-error">{memoBlocker}</p>
+      {scriptsVerified && !canStart ? (
+        <p className="sc-marking-memo-note">{startHint}</p>
       ) : null}
     </div>
   );
@@ -259,8 +264,9 @@ export default function MarkingOverview() {
   const [queueItems, setQueueItems] = useState<MarkingOverviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedOption, setSelectedOption] = useState<MarkingOption | null>(null);
 
-  // Card 1 — ScriptCheck assessment
+  // Option 3 — ScriptCheck assessment
   const [selectedId, setSelectedId] = useState("");
   const [pagesInput, setPagesInput] = useState("");
   const [savedPages, setSavedPages] = useState<number | null>(null);
@@ -273,32 +279,27 @@ export default function MarkingOverview() {
   const [scBatch, setScBatch] = useState<BatchMeta>(emptyBatch());
   const scFileRef = useRef<HTMLInputElement>(null);
 
-  // Card 2 — Quick Scan
-  const [quickCurriculumId, setQuickCurriculumId] = useState("");
-  const [quickPhaseId, setQuickPhaseId] = useState("");
-  const [quickGradeId, setQuickGradeId] = useState("");
-  const [quickSubjectId, setQuickSubjectId] = useState("");
-  const [quickTerm, setQuickTerm] = useState("");
-  const [quickTotalMarks, setQuickTotalMarks] = useState("");
-  const [quickQuestionCount, setQuickQuestionCount] = useState("");
-  const [quickPagesInput, setQuickPagesInput] = useState("");
-  const [quickScriptFormat, setQuickScriptFormat] = useState<ScriptFormat>("ANSWER_SHEET");
-  const [quickAssessmentId, setQuickAssessmentId] = useState<string | null>(null);
-  const [quickBatchId, setQuickBatchId] = useState<string | null>(null);
-  const [quickBatch, setQuickBatch] = useState<BatchMeta>(emptyBatch());
-  const [quickSetupStatus, setQuickSetupStatus] = useState<AssessmentSetupStatus | null>(null);
-  const [quickFiles, setQuickFiles] = useState<AssessmentFileEntry[]>([]);
-  const [quickBookletFiles, setQuickBookletFiles] = useState<File[]>([]);
-  const [quickDrag, setQuickDrag] = useState(false);
-  const [quickBusy, setQuickBusy] = useState(false);
-  const [quickProgress, setQuickProgress] = useState(0);
-  const [quickUploadingPaper, setQuickUploadingPaper] = useState(false);
-  const [quickUploadingMemo, setQuickUploadingMemo] = useState(false);
-  const [quickUploadingRubric, setQuickUploadingRubric] = useState(false);
-  const quickPaperRef = useRef<HTMLInputElement>(null);
-  const quickBookletRef = useRef<HTMLInputElement>(null);
-  const quickMemoRef = useRef<HTMLInputElement>(null);
-  const quickRubricRef = useRef<HTMLInputElement>(null);
+  // Options 1 & 2 — upload workflows
+  const [packCurriculumId, setPackCurriculumId] = useState("");
+  const [packPhaseId, setPackPhaseId] = useState("");
+  const [packGradeId, setPackGradeId] = useState("");
+  const [packSubjectId, setPackSubjectId] = useState("");
+  const [packTerm, setPackTerm] = useState("");
+  const [packTotalMarks, setPackTotalMarks] = useState("");
+  const [packQuestionCount, setPackQuestionCount] = useState("");
+  const [packPagesInput, setPackPagesInput] = useState("");
+  const [packAssessmentId, setPackAssessmentId] = useState<string | null>(null);
+  const [packBatchId, setPackBatchId] = useState<string | null>(null);
+  const [packBatch, setPackBatch] = useState<BatchMeta>(emptyBatch());
+  const [packSetupStatus, setPackSetupStatus] = useState<AssessmentSetupStatus | null>(null);
+  const [packHasPaper, setPackHasPaper] = useState(false);
+  const [packBookletFiles, setPackBookletFiles] = useState<File[]>([]);
+  const [packDrag, setPackDrag] = useState(false);
+  const [packBusy, setPackBusy] = useState(false);
+  const [packProgress, setPackProgress] = useState(0);
+  const [packUploadingPaper, setPackUploadingPaper] = useState(false);
+  const packPaperRef = useRef<HTMLInputElement>(null);
+  const packBookletRef = useRef<HTMLInputElement>(null);
 
   const loadLists = useCallback(async (silent?: boolean) => {
     if (!silent) setLoading(true);
@@ -325,26 +326,29 @@ export default function MarkingOverview() {
     }
   }, []);
 
-  const fetchContext = useCallback(async (assessmentId: string, fallbackPages?: number | null) => {
-    const [statusRes, filesRes] = await Promise.allSettled([
-      getSetupStatus(assessmentId),
-      getAssessmentFiles(assessmentId),
-    ]);
-    const status = statusRes.status === "fulfilled" ? statusRes.value : null;
-    const files = filesRes.status === "fulfilled" ? filesRes.value.assessmentFiles : [];
+  const fetchSetup = useCallback(async (assessmentId: string, fallbackPages?: number | null) => {
+    const status = await getSetupStatus(assessmentId).catch(() => null);
     const pages =
       normalizePages(status?.pagesPerScript) ?? normalizePages(fallbackPages) ?? null;
-    return { status, files, pages };
+    return { status, pages };
   }, []);
 
   useEffect(() => {
     void loadLists();
     try {
-      const raw = sessionStorage.getItem(QUICK_SCAN_SESSION_KEY);
+      const raw = sessionStorage.getItem(MARKING_SESSION_KEY);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { assessmentId?: string; batchId?: string };
-      if (saved.assessmentId) setQuickAssessmentId(saved.assessmentId);
-      if (saved.batchId) setQuickBatchId(saved.batchId);
+      const saved = JSON.parse(raw) as {
+        option?: MarkingOption;
+        assessmentId?: string;
+        batchId?: string;
+      };
+      if (saved.option) setSelectedOption(saved.option);
+      if (saved.assessmentId) {
+        if (saved.option === 3) setSelectedId(saved.assessmentId);
+        else setPackAssessmentId(saved.assessmentId);
+      }
+      if (saved.batchId) setPackBatchId(saved.batchId);
     } catch {
       /* ignore corrupt session */
     }
@@ -358,30 +362,30 @@ export default function MarkingOverview() {
       setScBatch(emptyBatch());
       return;
     }
-    void fetchContext(selectedId).then(({ status, pages }) => {
+    void fetchSetup(selectedId).then(({ status, pages }) => {
       setSetupStatus(status);
       setSavedPages(pages);
       setPagesInput(pages != null ? String(pages) : "");
     });
     void fetchBatch(selectedId).then(setScBatch);
-  }, [selectedId, fetchContext, fetchBatch]);
+  }, [selectedId, fetchSetup, fetchBatch]);
 
   useEffect(() => {
-    if (!quickAssessmentId) {
-      setQuickSetupStatus(null);
-      setQuickFiles([]);
-      setQuickBatch(emptyBatch());
+    if (!packAssessmentId) {
+      setPackSetupStatus(null);
+      setPackHasPaper(false);
+      setPackBatch(emptyBatch());
       return;
     }
-    void fetchContext(quickAssessmentId).then(({ status, files }) => {
-      setQuickSetupStatus(status);
-      setQuickFiles(files);
+    void fetchSetup(packAssessmentId).then(({ status }) => {
+      setPackSetupStatus(status);
+      setPackHasPaper(status?.masterFiles.questionPaper === true);
     });
-    void fetchBatch(quickAssessmentId).then((batch) => {
-      setQuickBatch(batch);
-      if (batch.batchId) setQuickBatchId(batch.batchId);
+    void fetchBatch(packAssessmentId).then((batch) => {
+      setPackBatch(batch);
+      if (batch.batchId) setPackBatchId(batch.batchId);
     });
-  }, [quickAssessmentId, fetchContext, fetchBatch]);
+  }, [packAssessmentId, fetchSetup, fetchBatch]);
 
   useEffect(() => {
     const onFocus = () => void loadLists(true);
@@ -400,34 +404,44 @@ export default function MarkingOverview() {
     scBatch.scriptCount > 0 && !!scBatch.batchStatus && scBatch.batchStatus !== "DRAFT";
   const scCanUpload = !!selectedId && hasSavedPages && scFiles.length > 0;
 
-  const quickReady = curriculumContextReady(
-    quickCurriculumId,
-    quickPhaseId,
-    quickGradeId,
-    quickSubjectId
+  const packReady = curriculumContextReady(
+    packCurriculumId,
+    packPhaseId,
+    packGradeId,
+    packSubjectId
   );
-  const parsedQuickPages = parsePositiveInt(quickPagesInput);
-  const parsedQuickMarks = parsePositiveInt(quickTotalMarks);
-  const parsedQuickQuestions = parsePositiveInt(quickQuestionCount);
-  const quickMetaValid =
-    quickReady &&
-    quickTerm.trim().length > 0 &&
-    parsedQuickPages != null &&
-    parsedQuickMarks != null &&
-    parsedQuickQuestions != null;
-  const quickHasPaper =
-    quickSetupStatus?.masterFiles.questionPaper === true ||
-    quickFiles.some((f) => f.category === "assessment" && f.fileType === "Question Paper");
-  const quickHasMemo =
-    quickSetupStatus?.masterFiles.memorandum === true ||
-    quickFiles.some((f) => f.category === "assessment" && f.fileType === "Memorandum");
-  const quickHasRubric =
-    quickSetupStatus?.masterFiles.rubric === true ||
-    quickFiles.some((f) => f.category === "assessment" && f.fileType === "Rubric");
-  const quickVerified =
-    quickBatch.scriptCount > 0 && !!quickBatch.batchStatus && quickBatch.batchStatus !== "DRAFT";
-  const quickCanUpload =
-    quickMetaValid && !!quickBatchId && quickHasPaper && quickBookletFiles.length > 0;
+  const parsedPackPages = parsePositiveInt(packPagesInput);
+  const parsedPackMarks = parsePositiveInt(packTotalMarks);
+  const parsedPackQuestions = parsePositiveInt(packQuestionCount);
+  const packMetaValid =
+    packReady &&
+    packTerm.trim().length > 0 &&
+    parsedPackPages != null &&
+    parsedPackMarks != null &&
+    parsedPackQuestions != null;
+  const packVerified =
+    packBatch.scriptCount > 0 && !!packBatch.batchStatus && packBatch.batchStatus !== "DRAFT";
+  const packCanUpload =
+    packMetaValid && !!packBatchId && packHasPaper && packBookletFiles.length > 0;
+
+  const packCanStart =
+    packVerified &&
+    (selectedOption === 1
+      ? packSetupStatus?.markingGuideReady === true || packSetupStatus?.readyForMarking === true
+      : packSetupStatus?.memoAnswersReady === true || packSetupStatus?.readyForMarking === true);
+
+  const packStartHint = !packVerified
+    ? "Upload learner booklets and confirm script split first"
+    : selectedOption === 1
+      ? "Confirm script split to generate AI marking guide and marks"
+      : "Confirm script split — answers must be detected on the question paper";
+
+  const persistSession = (option: MarkingOption, assessmentId: string, batchId: string) => {
+    sessionStorage.setItem(
+      MARKING_SESSION_KEY,
+      JSON.stringify({ option, assessmentId, batchId })
+    );
+  };
 
   const ensureScBatch = async (assessmentId: string, title: string): Promise<string> => {
     const batches = await apiFetch<{ id: string }[]>(
@@ -445,44 +459,43 @@ export default function MarkingOverview() {
     return created.id;
   };
 
-  const ensureQuickPack = async (): Promise<{ assessmentId: string; batchId: string }> => {
-    if (quickAssessmentId && quickBatchId) {
-      return { assessmentId: quickAssessmentId, batchId: quickBatchId };
+  const ensureMarkingPack = async (option: 1 | 2): Promise<{ assessmentId: string; batchId: string }> => {
+    if (packAssessmentId && packBatchId) {
+      return { assessmentId: packAssessmentId, batchId: packBatchId };
     }
-    if (!quickMetaValid) {
+    if (!packMetaValid) {
       throw new Error("Complete grade, term, subject, total marks, questions, and pages per script.");
     }
-    setQuickBusy(true);
+    setPackBusy(true);
     try {
+      const markingMode: MarkingMode = option === 1 ? "QP_LEARNER_ONLY" : "QP_WITH_ANSWERS";
       const pack = await createMarkingPack({
-        title: defaultQuickTitle(quickTerm),
-        curriculumId: quickCurriculumId,
-        phaseId: quickPhaseId,
-        gradeId: quickGradeId,
-        subjectId: quickSubjectId,
-        pagesPerScript: parsedQuickPages ?? undefined,
-        totalMarks: parsedQuickMarks ?? undefined,
-        questionCount: parsedQuickQuestions ?? undefined,
-        scriptFormat: quickScriptFormat,
+        title: defaultJobTitle(packTerm, option),
+        curriculumId: packCurriculumId,
+        phaseId: packPhaseId,
+        gradeId: packGradeId,
+        subjectId: packSubjectId,
+        pagesPerScript: parsedPackPages ?? undefined,
+        totalMarks: parsedPackMarks ?? undefined,
+        questionCount: parsedPackQuestions ?? undefined,
+        scriptFormat: option === 2 ? "ON_QUESTION_PAPER" : "ANSWER_SHEET",
+        markingMode,
       });
       await updateSetup(pack.assessmentId, {
-        term: quickTerm.trim(),
-        totalMarks: parsedQuickMarks!,
-        questionCount: parsedQuickQuestions!,
-        pagesPerScript: parsedQuickPages!,
+        term: packTerm.trim(),
+        totalMarks: parsedPackMarks!,
+        questionCount: parsedPackQuestions!,
+        pagesPerScript: parsedPackPages!,
       });
-      setQuickAssessmentId(pack.assessmentId);
-      setQuickBatchId(pack.batchId);
-      setQuickBatch({ batchId: pack.batchId, batchStatus: "DRAFT", scriptCount: 0 });
-      sessionStorage.setItem(
-        QUICK_SCAN_SESSION_KEY,
-        JSON.stringify({ assessmentId: pack.assessmentId, batchId: pack.batchId })
-      );
+      setPackAssessmentId(pack.assessmentId);
+      setPackBatchId(pack.batchId);
+      setPackBatch({ batchId: pack.batchId, batchStatus: "DRAFT", scriptCount: 0 });
+      persistSession(option, pack.assessmentId, pack.batchId);
       const all = await apiFetch<Assessment[]>("/assessments").catch(() => [] as Assessment[]);
       setAssessments(all);
       return { assessmentId: pack.assessmentId, batchId: pack.batchId };
     } finally {
-      setQuickBusy(false);
+      setPackBusy(false);
     }
   };
 
@@ -495,7 +508,7 @@ export default function MarkingOverview() {
     setError("");
     try {
       await updateSetup(selectedId, { pagesPerScript: parsedPages });
-      const { pages, status } = await fetchContext(selectedId, parsedPages);
+      const { pages, status } = await fetchSetup(selectedId, parsedPages);
       const confirmed = pages ?? parsedPages;
       setSavedPages(confirmed);
       setPagesInput(String(confirmed));
@@ -519,8 +532,9 @@ export default function MarkingOverview() {
       const batchId = await ensureScBatch(selectedId, selectedAssessment.title);
       const result = await bulkUploadScripts(batchId, scFiles, setScProgress);
       setScBatch(await fetchBatch(selectedId));
+      persistSession(3, selectedId, batchId);
       navigate(`/assessments/${selectedId}/scripts/verify/${batchId}`, {
-        state: { verification: result.verification },
+        state: { verification: result.verification, markingOption: 3 },
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -530,91 +544,57 @@ export default function MarkingOverview() {
     }
   };
 
-  const uploadQuickPaper = async (file: File) => {
-    if (!quickMetaValid) {
-      setError("Complete all Quick Scan fields first.");
+  const uploadPackPaper = async (option: 1 | 2, file: File) => {
+    if (!packMetaValid) {
+      setError("Complete all assessment details first.");
       return;
     }
-    setQuickUploadingPaper(true);
+    setPackUploadingPaper(true);
     setError("");
     try {
-      const { assessmentId } = await ensureQuickPack();
+      const { assessmentId } = await ensureMarkingPack(option);
       await uploadMasterFile(assessmentId, "questionPaper", file);
-      const ctx = await fetchContext(assessmentId, parsedQuickPages);
-      setQuickSetupStatus(ctx.status);
-      setQuickFiles(ctx.files);
+      const { status } = await fetchSetup(assessmentId, parsedPackPages);
+      setPackSetupStatus(status);
+      setPackHasPaper(status?.masterFiles.questionPaper === true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Question paper upload failed");
     } finally {
-      setQuickUploadingPaper(false);
-      if (quickPaperRef.current) quickPaperRef.current.value = "";
+      setPackUploadingPaper(false);
+      if (packPaperRef.current) packPaperRef.current.value = "";
     }
   };
 
-  const uploadQuickMaster = async (
-    kind: "memorandum" | "rubric",
-    file: File,
-    setUploading: (v: boolean) => void,
-    ref: React.RefObject<HTMLInputElement | null>
-  ) => {
-    if (!quickMetaValid) {
-      setError("Complete all Quick Scan fields first.");
-      return;
-    }
-    setUploading(true);
-    setError("");
-    try {
-      const { assessmentId } = await ensureQuickPack();
-      await uploadMasterFile(assessmentId, kind, file);
-      await updateSetup(assessmentId, {
-        [kind === "memorandum" ? "memorandumAvailable" : "rubricAvailable"]: true,
-      });
-      if (kind === "memorandum" && quickSetupStatus?.setupComplete) {
-        await reextractQuickScanQuestions(assessmentId);
-      }
-      const ctx = await fetchContext(assessmentId, parsedQuickPages);
-      setQuickSetupStatus(ctx.status);
-      setQuickFiles(ctx.files);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-      if (ref.current) ref.current.value = "";
-    }
-  };
-
-  const uploadQuickBooklets = async () => {
-    if (!quickCanUpload) return;
-    if (quickBookletFiles.length > MAX_UPLOAD_FILES) {
+  const uploadPackBooklets = async (option: 1 | 2) => {
+    if (!packCanUpload) return;
+    if (packBookletFiles.length > MAX_UPLOAD_FILES) {
       setError(UPLOAD_FILES_HINT);
       return;
     }
-    setQuickBusy(true);
+    setPackBusy(true);
     setError("");
     try {
-      const { assessmentId, batchId } = await ensureQuickPack();
-      const result = await bulkUploadScripts(batchId, quickBookletFiles, setQuickProgress);
+      const { assessmentId, batchId } = await ensureMarkingPack(option);
+      const result = await bulkUploadScripts(batchId, packBookletFiles, setPackProgress);
       const all = await apiFetch<Assessment[]>("/assessments").catch(() => [] as Assessment[]);
       setAssessments(all);
-      const ctx = await fetchContext(assessmentId, parsedQuickPages);
-      setQuickSetupStatus(ctx.status);
-      setQuickFiles(ctx.files);
-      setQuickBatch(await fetchBatch(assessmentId));
+      const { status } = await fetchSetup(assessmentId, parsedPackPages);
+      setPackSetupStatus(status);
+      setPackHasPaper(status?.masterFiles.questionPaper === true);
+      setPackBatch(await fetchBatch(assessmentId));
+      persistSession(option, assessmentId, batchId);
       navigate(`/assessments/${assessmentId}/scripts/verify/${batchId}`, {
-        state: { verification: result.verification },
+        state: { verification: result.verification, markingOption: option },
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
-      setQuickBusy(false);
-      setQuickProgress(0);
+      setPackBusy(false);
+      setPackProgress(0);
     }
   };
 
-  const pickFiles = (
-    incoming: FileList | File[],
-    setter: (files: File[]) => void
-  ) => {
+  const pickFiles = (incoming: FileList | File[], setter: (files: File[]) => void) => {
     const list = Array.from(incoming);
     if (list.length > MAX_UPLOAD_FILES) {
       setError(UPLOAD_FILES_HINT);
@@ -624,32 +604,346 @@ export default function MarkingOverview() {
     setter(list);
   };
 
+  const selectOption = (option: MarkingOption) => {
+    setSelectedOption(option);
+    setError("");
+  };
+
   if (loading) {
     return (
-      <div className="sc-dash sc-marking-page" data-page="marking-final">
+      <div className="sc-dash sc-marking-page" data-page="marking">
         <p>Loading marking…</p>
       </div>
     );
   }
 
   return (
-    <div className="sc-dash sc-marking-page" data-page="marking-final">
+    <div className="sc-dash sc-marking-page" data-page="marking">
       <header className="sc-marking-page-header">
         <h1 className="sc-page-title">Marking</h1>
-        <p className="sc-page-subtitle">Choose how you want to mark.</p>
+        <p className="sc-page-subtitle">Choose one of three marking workflows.</p>
       </header>
 
       {error ? <p className="sc-error">{error}</p> : null}
 
-      <div className="sc-marking-cards">
-        {/* CARD 1 — Mark ScriptCheck Assessment */}
-        <article className="sc-card sc-card-padded sc-marking-card" aria-labelledby="card-scriptcheck">
+      <section className="sc-marking-option-picker" aria-label="Marking workflow options">
+        {[1, 2, 3].map((option) => {
+          const info = OPTION_LABELS[option as MarkingOption];
+          const isSelected = selectedOption === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              className={`sc-marking-option-card${isSelected ? " is-selected" : ""}`}
+              onClick={() => selectOption(option as MarkingOption)}
+              aria-pressed={isSelected}
+            >
+              <span className="sc-marking-option-number">Option {option}</span>
+              <strong className="sc-marking-option-title">{info.title}</strong>
+              <p className="sc-marking-option-summary">{info.summary}</p>
+            </button>
+          );
+        })}
+      </section>
+
+      {selectedOption === 1 ? (
+        <article className="sc-card sc-card-padded sc-marking-card" aria-labelledby="option-1">
           <header className="sc-marking-card-header">
-            <h2 id="card-scriptcheck" className="sc-marking-card-title">
-              Mark ScriptCheck Assessment
+            <h2 id="option-1" className="sc-marking-card-title">
+              Option 1 — Question paper + learner answers (no memo)
             </h2>
             <p className="sc-marking-hint">
-              For assessments already built in ScriptCheck. No question paper upload needed here.
+              Upload the question paper and learner answer booklets only. AI extracts questions,
+              generates a marking guide, marks learner answers, and lets you adjust before saving.
+            </p>
+          </header>
+
+          <CurriculumSelector
+            curriculumId={packCurriculumId}
+            phaseId={packPhaseId}
+            gradeId={packGradeId}
+            subjectId={packSubjectId}
+            onCurriculumIdChange={setPackCurriculumId}
+            onPhaseIdChange={(id) => {
+              setPackPhaseId(id);
+              setPackGradeId("");
+              setPackSubjectId("");
+            }}
+            onGradeIdChange={setPackGradeId}
+            onSubjectIdChange={setPackSubjectId}
+            disabled={packBusy}
+          />
+
+          <div className="sc-marking-details-grid">
+            <label className="sc-marking-field">
+              Term
+              <input
+                className="sc-input"
+                value={packTerm}
+                placeholder="e.g. Term 2"
+                disabled={packBusy}
+                onChange={(e) => setPackTerm(e.target.value)}
+              />
+            </label>
+            <label className="sc-marking-field">
+              Total marks
+              <input
+                className="sc-input"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={packTotalMarks}
+                placeholder="e.g. 50"
+                disabled={packBusy}
+                onChange={(e) => setPackTotalMarks(e.target.value)}
+              />
+            </label>
+            <label className="sc-marking-field">
+              Number of questions
+              <input
+                className="sc-input"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={packQuestionCount}
+                placeholder="e.g. 10"
+                disabled={packBusy}
+                onChange={(e) => setPackQuestionCount(e.target.value)}
+              />
+            </label>
+            <label className="sc-marking-field">
+              Pages per learner script
+              <input
+                className="sc-input"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={packPagesInput}
+                placeholder="e.g. 4"
+                disabled={packBusy}
+                onChange={(e) => setPackPagesInput(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="sc-marking-upload-card sc-marking-question-paper-panel">
+            <h3 className="sc-marking-section-title">Upload question paper</h3>
+            <p className="sc-marking-memo-note">No memo or answer key required for this workflow.</p>
+            <button
+              type="button"
+              className="sc-btn sc-btn-secondary"
+              disabled={!packMetaValid || packUploadingPaper || packBusy}
+              onClick={() => packPaperRef.current?.click()}
+            >
+              {packUploadingPaper || packBusy
+                ? "Preparing…"
+                : packHasPaper
+                  ? "Replace question paper"
+                  : "Upload question paper"}
+            </button>
+            <input
+              ref={packPaperRef}
+              type="file"
+              className="sc-marking-file-input-hidden"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              disabled={!packMetaValid}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void uploadPackPaper(1, file);
+              }}
+            />
+          </div>
+
+          <div className="sc-marking-upload-card">
+            <h3 className="sc-marking-section-title">Upload learner answer booklet(s)</h3>
+            <FileDropzone
+              label="Drag & drop learner answer booklet(s) here"
+              filesCount={packBookletFiles.length}
+              dragOver={packDrag}
+              disabled={!packMetaValid}
+              onPick={() => packBookletRef.current?.click()}
+              onDragOver={() => setPackDrag(true)}
+              onDragLeave={() => setPackDrag(false)}
+              onDrop={(e) => {
+                setPackDrag(false);
+                if (e.dataTransfer.files.length) pickFiles(e.dataTransfer.files, setPackBookletFiles);
+              }}
+            />
+            <input
+              ref={packBookletRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.length) pickFiles(e.target.files, setPackBookletFiles);
+              }}
+            />
+          </div>
+
+          {packProgress > 0 ? (
+            <div className="sc-setup-progress">
+              <div className="sc-setup-progress-bar" style={{ width: `${packProgress}%` }} />
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className="sc-btn sc-btn-primary"
+            disabled={packBusy || !packCanUpload}
+            onClick={() => void uploadPackBooklets(1)}
+          >
+            {packBusy ? "Uploading…" : "Upload & Verify"}
+          </button>
+
+          <VerifyStartActions
+            assessmentId={packAssessmentId}
+            batch={packBatch}
+            scriptsVerified={packVerified}
+            canStart={packCanStart}
+            startHint={packStartHint}
+          />
+        </article>
+      ) : null}
+
+      {selectedOption === 2 ? (
+        <article className="sc-card sc-card-padded sc-marking-card" aria-labelledby="option-2">
+          <header className="sc-marking-card-header">
+            <h2 id="option-2" className="sc-marking-card-title">
+              Option 2 — Question paper with answers included
+            </h2>
+            <p className="sc-marking-hint">
+              Upload a question paper that includes memo or answers, plus learner answer booklets.
+              ScriptCheck extracts questions and answers, then marks learner scripts.
+            </p>
+          </header>
+
+          <CurriculumSelector
+            curriculumId={packCurriculumId}
+            phaseId={packPhaseId}
+            gradeId={packGradeId}
+            subjectId={packSubjectId}
+            onCurriculumIdChange={setPackCurriculumId}
+            onPhaseIdChange={(id) => {
+              setPackPhaseId(id);
+              setPackGradeId("");
+              setPackSubjectId("");
+            }}
+            onGradeIdChange={setPackGradeId}
+            onSubjectIdChange={setPackSubjectId}
+            disabled={packBusy}
+          />
+
+          <div className="sc-marking-details-grid">
+            <label className="sc-marking-field">
+              Term
+              <input className="sc-input" value={packTerm} placeholder="e.g. Term 2" disabled={packBusy} onChange={(e) => setPackTerm(e.target.value)} />
+            </label>
+            <label className="sc-marking-field">
+              Total marks
+              <input className="sc-input" type="number" min={1} inputMode="numeric" value={packTotalMarks} placeholder="e.g. 50" disabled={packBusy} onChange={(e) => setPackTotalMarks(e.target.value)} />
+            </label>
+            <label className="sc-marking-field">
+              Number of questions
+              <input className="sc-input" type="number" min={1} inputMode="numeric" value={packQuestionCount} placeholder="e.g. 10" disabled={packBusy} onChange={(e) => setPackQuestionCount(e.target.value)} />
+            </label>
+            <label className="sc-marking-field">
+              Pages per learner script
+              <input className="sc-input" type="number" min={1} inputMode="numeric" value={packPagesInput} placeholder="e.g. 4" disabled={packBusy} onChange={(e) => setPackPagesInput(e.target.value)} />
+            </label>
+          </div>
+
+          <div className="sc-marking-upload-card sc-marking-question-paper-panel">
+            <h3 className="sc-marking-section-title">Upload question paper (with memo/answers)</h3>
+            <p className="sc-marking-memo-note">
+              Include a memorandum or answers section on the question paper. No separate memo upload needed.
+            </p>
+            <button
+              type="button"
+              className="sc-btn sc-btn-secondary"
+              disabled={!packMetaValid || packUploadingPaper || packBusy}
+              onClick={() => packPaperRef.current?.click()}
+            >
+              {packUploadingPaper || packBusy
+                ? "Preparing…"
+                : packHasPaper
+                  ? "Replace question paper"
+                  : "Upload question paper"}
+            </button>
+            <input
+              ref={packPaperRef}
+              type="file"
+              className="sc-marking-file-input-hidden"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              disabled={!packMetaValid}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void uploadPackPaper(2, file);
+              }}
+            />
+          </div>
+
+          <div className="sc-marking-upload-card">
+            <h3 className="sc-marking-section-title">Upload learner answer booklet(s)</h3>
+            <FileDropzone
+              label="Drag & drop learner answer booklet(s) here"
+              filesCount={packBookletFiles.length}
+              dragOver={packDrag}
+              disabled={!packMetaValid}
+              onPick={() => packBookletRef.current?.click()}
+              onDragOver={() => setPackDrag(true)}
+              onDragLeave={() => setPackDrag(false)}
+              onDrop={(e) => {
+                setPackDrag(false);
+                if (e.dataTransfer.files.length) pickFiles(e.dataTransfer.files, setPackBookletFiles);
+              }}
+            />
+            <input
+              ref={packBookletRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.length) pickFiles(e.target.files, setPackBookletFiles);
+              }}
+            />
+          </div>
+
+          {packProgress > 0 ? (
+            <div className="sc-setup-progress">
+              <div className="sc-setup-progress-bar" style={{ width: `${packProgress}%` }} />
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className="sc-btn sc-btn-primary"
+            disabled={packBusy || !packCanUpload}
+            onClick={() => void uploadPackBooklets(2)}
+          >
+            {packBusy ? "Uploading…" : "Upload & Verify"}
+          </button>
+
+          <VerifyStartActions
+            assessmentId={packAssessmentId}
+            batch={packBatch}
+            scriptsVerified={packVerified}
+            canStart={packCanStart}
+            startHint={packStartHint}
+          />
+        </article>
+      ) : null}
+
+      {selectedOption === 3 ? (
+        <article className="sc-card sc-card-padded sc-marking-card" aria-labelledby="option-3">
+          <header className="sc-marking-card-header">
+            <h2 id="option-3" className="sc-marking-card-title">
+              Option 3 — Mark ScriptCheck assessment
+            </h2>
+            <p className="sc-marking-hint">
+              Select an assessment already built in ScriptCheck. Upload learner scripts, verify the split,
+              start AI marking, then review, save, and export.
             </p>
           </header>
 
@@ -677,32 +971,12 @@ export default function MarkingOverview() {
             <div className="sc-marking-details-panel">
               <h3 className="sc-marking-section-title">Assessment details</h3>
               <dl className="sc-marking-details-list">
-                <div>
-                  <dt>Grade</dt>
-                  <dd>{selectedAssessment.grade.name}</dd>
-                </div>
-                <div>
-                  <dt>Subject</dt>
-                  <dd>{selectedAssessment.subject.name}</dd>
-                </div>
-                <div>
-                  <dt>Term</dt>
-                  <dd>{selectedAssessment.term ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt>Total marks</dt>
-                  <dd>{selectedAssessment.totalMarks}</dd>
-                </div>
-                <div>
-                  <dt>Questions</dt>
-                  <dd>
-                    {selectedAssessment.questionCount ?? setupStatus?.questionCount ?? "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Status</dt>
-                  <dd>{formatStatusLabel(selectedAssessment.status)}</dd>
-                </div>
+                <div><dt>Grade</dt><dd>{selectedAssessment.grade.name}</dd></div>
+                <div><dt>Subject</dt><dd>{selectedAssessment.subject.name}</dd></div>
+                <div><dt>Term</dt><dd>{selectedAssessment.term ?? "—"}</dd></div>
+                <div><dt>Total marks</dt><dd>{selectedAssessment.totalMarks}</dd></div>
+                <div><dt>Questions</dt><dd>{selectedAssessment.questionCount ?? setupStatus?.questionCount ?? "—"}</dd></div>
+                <div><dt>Status</dt><dd>{formatStatusLabel(selectedAssessment.status)}</dd></div>
               </dl>
             </div>
           ) : (
@@ -782,241 +1056,11 @@ export default function MarkingOverview() {
             assessmentId={selectedId || null}
             batch={scBatch}
             scriptsVerified={scVerified}
+            canStart={scVerified}
+            startHint="Upload, verify, and confirm script split first"
           />
         </article>
-
-        {/* CARD 2 — Quick Scan & Mark */}
-        <article className="sc-card sc-card-padded sc-marking-card sc-marking-card-quick" aria-labelledby="card-quickscan">
-          <header className="sc-marking-card-header">
-            <h2 id="card-quickscan" className="sc-marking-card-title">
-              Quick Scan &amp; Mark
-            </h2>
-            <p className="sc-marking-hint">
-              You only have scanned papers or PDFs — mark immediately without manual assessment setup.
-            </p>
-          </header>
-
-          <CurriculumSelector
-            curriculumId={quickCurriculumId}
-            phaseId={quickPhaseId}
-            gradeId={quickGradeId}
-            subjectId={quickSubjectId}
-            onCurriculumIdChange={setQuickCurriculumId}
-            onPhaseIdChange={(id) => {
-              setQuickPhaseId(id);
-              setQuickGradeId("");
-              setQuickSubjectId("");
-            }}
-            onGradeIdChange={setQuickGradeId}
-            onSubjectIdChange={setQuickSubjectId}
-            disabled={quickBusy}
-          />
-
-          <div className="sc-marking-details-grid">
-            <label className="sc-marking-field">
-              Term
-              <input
-                className="sc-input"
-                value={quickTerm}
-                placeholder="e.g. Term 2"
-                disabled={quickBusy}
-                onChange={(e) => setQuickTerm(e.target.value)}
-              />
-            </label>
-            <label className="sc-marking-field">
-              Total marks
-              <input
-                className="sc-input"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={quickTotalMarks}
-                placeholder="e.g. 50"
-                disabled={quickBusy}
-                onChange={(e) => setQuickTotalMarks(e.target.value)}
-              />
-            </label>
-            <label className="sc-marking-field">
-              Number of questions
-              <input
-                className="sc-input"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={quickQuestionCount}
-                placeholder="e.g. 10"
-                disabled={quickBusy}
-                onChange={(e) => setQuickQuestionCount(e.target.value)}
-              />
-            </label>
-            <label className="sc-marking-field">
-              Pages per learner script
-              <input
-                className="sc-input"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={quickPagesInput}
-                placeholder="e.g. 4"
-                disabled={quickBusy}
-                onChange={(e) => setQuickPagesInput(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <fieldset className="sc-marking-script-format">
-            <legend className="sc-marking-field">Script format</legend>
-            <label className="sc-marking-radio">
-              <input
-                type="radio"
-                name="quickScriptFormat"
-                checked={quickScriptFormat === "ANSWER_SHEET"}
-                disabled={quickBusy}
-                onChange={() => setQuickScriptFormat("ANSWER_SHEET")}
-              />
-              Separate answer sheets / booklets
-            </label>
-            <label className="sc-marking-radio">
-              <input
-                type="radio"
-                name="quickScriptFormat"
-                checked={quickScriptFormat === "ON_QUESTION_PAPER"}
-                disabled={quickBusy}
-                onChange={() => setQuickScriptFormat("ON_QUESTION_PAPER")}
-              />
-              Learners wrote on the question paper itself
-            </label>
-          </fieldset>
-
-          <div className="sc-marking-upload-card sc-marking-question-paper-panel">
-            <h3 className="sc-marking-section-title">Upload question paper</h3>
-            <p className="sc-marking-memo-note">{MEMO_NOTE}</p>
-            <button
-              type="button"
-              className="sc-btn sc-btn-secondary"
-              disabled={!quickMetaValid || quickUploadingPaper || quickBusy}
-              onClick={() => quickPaperRef.current?.click()}
-            >
-              {quickUploadingPaper || quickBusy
-                ? "Preparing…"
-                : quickHasPaper
-                  ? "Replace question paper"
-                  : "Upload question paper"}
-            </button>
-            <input
-              ref={quickPaperRef}
-              type="file"
-              className="sc-marking-file-input-hidden"
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-              disabled={!quickMetaValid}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void uploadQuickPaper(file);
-              }}
-            />
-          </div>
-
-          <div className="sc-marking-upload-card">
-            <h3 className="sc-marking-section-title">Optional memo / rubric</h3>
-            <div className="sc-marking-card-actions">
-              <button
-                type="button"
-                className="sc-btn sc-btn-ghost"
-                disabled={!quickMetaValid || quickUploadingMemo || quickBusy}
-                onClick={() => quickMemoRef.current?.click()}
-              >
-                {quickUploadingMemo
-                  ? "Uploading…"
-                  : quickHasMemo
-                    ? "Replace memorandum"
-                    : "Upload memorandum"}
-              </button>
-              <button
-                type="button"
-                className="sc-btn sc-btn-ghost"
-                disabled={!quickMetaValid || quickUploadingRubric || quickBusy}
-                onClick={() => quickRubricRef.current?.click()}
-              >
-                {quickUploadingRubric
-                  ? "Uploading…"
-                  : quickHasRubric
-                    ? "Replace rubric"
-                    : "Upload rubric"}
-              </button>
-            </div>
-            <input
-              ref={quickMemoRef}
-              type="file"
-              className="sc-marking-file-input-hidden"
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void uploadQuickMaster("memorandum", file, setQuickUploadingMemo, quickMemoRef);
-              }}
-            />
-            <input
-              ref={quickRubricRef}
-              type="file"
-              className="sc-marking-file-input-hidden"
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void uploadQuickMaster("rubric", file, setQuickUploadingRubric, quickRubricRef);
-              }}
-            />
-          </div>
-
-          <div className="sc-marking-upload-card">
-            <h3 className="sc-marking-section-title">Upload learner answer booklet(s)</h3>
-            <FileDropzone
-              label="Drag & drop learner answer booklet(s) here"
-              filesCount={quickBookletFiles.length}
-              dragOver={quickDrag}
-              disabled={!quickMetaValid}
-              onPick={() => quickBookletRef.current?.click()}
-              onDragOver={() => setQuickDrag(true)}
-              onDragLeave={() => setQuickDrag(false)}
-              onDrop={(e) => {
-                setQuickDrag(false);
-                if (e.dataTransfer.files.length) pickFiles(e.dataTransfer.files, setQuickBookletFiles);
-              }}
-            />
-            <input
-              ref={quickBookletRef}
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              multiple
-              hidden
-              onChange={(e) => {
-                if (e.target.files?.length) pickFiles(e.target.files, setQuickBookletFiles);
-              }}
-            />
-          </div>
-
-          {quickProgress > 0 ? (
-            <div className="sc-setup-progress">
-              <div className="sc-setup-progress-bar" style={{ width: `${quickProgress}%` }} />
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            className="sc-btn sc-btn-primary"
-            disabled={quickBusy || !quickCanUpload}
-            onClick={() => void uploadQuickBooklets()}
-          >
-            {quickBusy ? "Uploading…" : "Upload & Verify"}
-          </button>
-
-          <VerifyStartActions
-            assessmentId={quickAssessmentId}
-            batch={quickBatch}
-            scriptsVerified={quickVerified}
-            memoAnswersReady={quickSetupStatus?.memoAnswersReady === true}
-            memoBlocker={quickSetupStatus?.memoBlocker ?? null}
-          />
-        </article>
-      </div>
+      ) : null}
 
       {queueItems.length > 0 ? (
         <section className="sc-card sc-marking-queue" aria-label="Marking queue">
@@ -1038,7 +1082,7 @@ export default function MarkingOverview() {
               </thead>
               <tbody>
                 {queueItems.map((item) => (
-                  <tr key={item.id} className={item.id === selectedId ? "is-selected" : undefined}>
+                  <tr key={item.id}>
                     <td>{item.title}</td>
                     <td>{item.grade.name}</td>
                     <td>{item.subject.name}</td>
@@ -1050,26 +1094,14 @@ export default function MarkingOverview() {
                       </span>
                     </td>
                     <td>
-                      <div className="sc-marking-card-actions">
-                        <button
-                          type="button"
-                          className="sc-btn sc-btn-ghost sc-marking-table-btn"
-                          onClick={() => {
-                            setSelectedId(item.id);
-                            setScFiles([]);
-                          }}
+                      {item.batchId ? (
+                        <Link
+                          to={`/assessments/${item.id}/scripts`}
+                          className="sc-btn sc-btn-primary sc-marking-table-btn"
                         >
-                          Select
-                        </button>
-                        {item.batchId ? (
-                          <Link
-                            to={`/assessments/${item.id}/scripts`}
-                            className="sc-btn sc-btn-primary sc-marking-table-btn"
-                          >
-                            Mark
-                          </Link>
-                        ) : null}
-                      </div>
+                          Mark
+                        </Link>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

@@ -1,11 +1,14 @@
 import { ScriptBatchStatus } from "@prisma/client";
 import { prisma } from "../prisma";
+import { generateMarkingGuide, runAiMarkingForBatch } from "./aiScriptMarking";
 import { getAssessmentSetupStatus } from "./assessmentSetup";
 import { finalizeQuickScan } from "./markingPack";
 import { ScriptError } from "./scriptMarking";
 import {
+  getMarkingMode,
   isMarkingPackAssessment,
   quickScanMemoBlockerMessage,
+  requiresMemoForMarking,
 } from "./quickScanShared";
 
 export type ScriptVerificationResult = {
@@ -116,19 +119,29 @@ export async function confirmScriptVerification(
   if (!batch) throw new ScriptError("Script batch not found", 404);
 
   if (isMarkingPackAssessment(batch.assessment)) {
+    const mode = getMarkingMode(batch.assessment);
     let setup = await getAssessmentSetupStatus(batch.assessment.id, workspaceId);
 
-    if (!setup.questionsExtracted || !setup.memoAnswersReady) {
+    if (!setup.questionsExtracted) {
       await finalizeQuickScan(batch.assessment.id, workspaceId);
       setup = await getAssessmentSetupStatus(batch.assessment.id, workspaceId);
     }
 
-    if (!setup.memoAnswersReady) {
-      throw new ScriptError(
-        setup.memoBlocker ??
-          quickScanMemoBlockerMessage(batch.assessment, setup.masterFiles),
-        400
-      );
+    if (mode === "QP_LEARNER_ONLY") {
+      if (!setup.markingGuideReady) {
+        await generateMarkingGuide(batch.assessment.id, workspaceId);
+        setup = await getAssessmentSetupStatus(batch.assessment.id, workspaceId);
+      }
+      await runAiMarkingForBatch(batchId, workspaceId);
+    } else if (requiresMemoForMarking(batch.assessment)) {
+      if (!setup.memoAnswersReady) {
+        throw new ScriptError(
+          setup.memoBlocker ??
+            quickScanMemoBlockerMessage(batch.assessment, setup.masterFiles),
+          400
+        );
+      }
+      await runAiMarkingForBatch(batchId, workspaceId);
     }
   }
 

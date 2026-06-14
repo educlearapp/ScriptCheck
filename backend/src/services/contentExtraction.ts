@@ -54,6 +54,12 @@ export async function extractTextFromFile(
   }
 }
 
+function looksLikeShortQuestionPaper(text: string): boolean {
+  const cleaned = normaliseOcrText(text);
+  if (cleaned.length < 12) return false;
+  return /\d+[.)]\s+\S/.test(cleaned);
+}
+
 async function extractPdf(filePath: string): Promise<ExtractionResult> {
   const buffer = fs.readFileSync(filePath);
   let embeddedText = "";
@@ -65,7 +71,10 @@ async function extractPdf(filePath: string): Promise<ExtractionResult> {
     // pdf-parse can fail on some generated/scanned PDFs — fall through to OCR
   }
 
-  if (isMeaningfulExtractedText(embeddedText)) {
+  if (
+    isMeaningfulExtractedText(embeddedText, 20) ||
+    looksLikeShortQuestionPaper(embeddedText)
+  ) {
     return {
       text: embeddedText,
       status: "EXTRACTED",
@@ -77,7 +86,10 @@ async function extractPdf(filePath: string): Promise<ExtractionResult> {
   const ocrResult = await ocrPdfPages(filePath);
   const ocrText = normaliseOcrText(ocrResult.text);
 
-  if (isMeaningfulExtractedText(ocrText, 40)) {
+  if (
+    isMeaningfulExtractedText(ocrText, 20) ||
+    looksLikeShortQuestionPaper(ocrText)
+  ) {
     return {
       text: ocrText,
       status: ocrResult.confidence < 55 ? "MANUAL_REQUIRED" : "EXTRACTED",

@@ -2,9 +2,11 @@ import { PaperDocumentType } from "@prisma/client";
 import { prisma } from "../prisma";
 import { ScriptError } from "./scriptMarking";
 import {
+  getMarkingMode,
   isMarkingPackAssessment,
   isQuickScanPlaceholderQuestion,
   quickScanMemoBlockerMessage,
+  requiresMemoForMarking,
 } from "./quickScanShared";
 
 export type AssessmentSetupInput = {
@@ -35,8 +37,10 @@ export type AssessmentSetupStatus = {
   };
   readyForMarking: boolean;
   questionsExtracted: boolean;
+  markingGuideReady: boolean;
   memoAnswersReady: boolean;
   memoBlocker: string | null;
+  markingMode: string | null;
   missingSteps: string[];
 };
 
@@ -107,8 +111,10 @@ export async function getAssessmentSetupStatus(
     (!assessment.rubricAvailable || masterFiles.rubric);
 
   let questionsExtracted = false;
+  let markingGuideReady = false;
   let memoAnswersReady = false;
   let memoBlocker: string | null = null;
+  const markingMode = isMarkingPack ? getMarkingMode(assessment) : null;
 
   if (isMarkingPack && !options.skipQuestionChecks) {
     const questions = await prisma.assessmentQuestion.findMany({
@@ -125,10 +131,10 @@ export async function getAssessmentSetupStatus(
     if (questions.length === 0) {
       missingSteps.push("Analyze question paper to extract assessment questions");
     } else if (hasPlaceholders) {
-      missingSteps.push("Replace placeholder questions by re-running Quick Scan analysis");
+      missingSteps.push("Replace placeholder questions by re-running question extraction");
     }
 
-    memoAnswersReady =
+    const hasExpectedAnswers =
       questionsExtracted &&
       questions.every(
         (question) =>
@@ -136,9 +142,21 @@ export async function getAssessmentSetupStatus(
           Boolean(question.memoNotes?.trim())
       );
 
-    if (questionsExtracted && !memoAnswersReady) {
-      memoBlocker = quickScanMemoBlockerMessage(assessment, masterFiles);
-      missingSteps.push(memoBlocker);
+    markingGuideReady = hasExpectedAnswers;
+
+    if (markingMode === "QP_LEARNER_ONLY") {
+      memoAnswersReady = markingGuideReady;
+      if (questionsExtracted && !markingGuideReady) {
+        missingSteps.push("Confirm script split to generate AI marking guide");
+      }
+    } else if (requiresMemoForMarking(assessment)) {
+      memoAnswersReady = hasExpectedAnswers;
+      if (questionsExtracted && !memoAnswersReady) {
+        memoBlocker = quickScanMemoBlockerMessage(assessment, masterFiles);
+        missingSteps.push(memoBlocker);
+      }
+    } else {
+      memoAnswersReady = hasExpectedAnswers;
     }
   }
 
@@ -146,7 +164,7 @@ export async function getAssessmentSetupStatus(
     ? infoComplete &&
       masterComplete &&
       questionsExtracted &&
-      memoAnswersReady
+      (markingMode === "QP_LEARNER_ONLY" ? markingGuideReady : memoAnswersReady)
     : infoComplete && masterComplete;
 
   return {
@@ -161,8 +179,10 @@ export async function getAssessmentSetupStatus(
     masterFiles,
     readyForMarking,
     questionsExtracted,
+    markingGuideReady,
     memoAnswersReady,
     memoBlocker,
+    markingMode,
     missingSteps,
   };
 }

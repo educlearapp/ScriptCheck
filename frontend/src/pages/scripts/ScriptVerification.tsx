@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   confirmScriptVerification,
-  finalizeQuickScan,
   getScriptVerification,
   resplitLearnerAnswers,
   type ScriptVerificationResult,
@@ -87,7 +86,6 @@ export default function ScriptVerification() {
         const data = await resplitLearnerAnswers(batchId, parsedPages);
         applyVerification(data);
       }
-      await finalizeQuickScan(assessmentId);
       const confirmed = await confirmScriptVerification(batchId);
       const scriptId =
         confirmed.scripts[0]?.scriptId ??
