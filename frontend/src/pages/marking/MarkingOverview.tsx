@@ -9,7 +9,6 @@ import {
   bulkUploadScripts,
   completeSetup,
   createMarkingPack,
-  finalizeQuickScan,
   reextractQuickScanQuestions,
   getAssessmentFiles,
   getMarkingOverview,
@@ -44,6 +43,8 @@ type ScriptBatchSummary = {
 
 const MEMO_NOTE =
   "If the question paper includes a memorandum section, ScriptCheck will detect answers automatically. Otherwise upload the memo separately before starting AI marking.";
+
+const QUICK_SCAN_SESSION_KEY = "scriptcheck-quick-scan-job";
 
 const emptyBatch = (): BatchMeta => ({
   batchId: null,
@@ -149,8 +150,10 @@ function VerifyStartActions({
   memoAnswersReady?: boolean;
   memoBlocker?: string | null;
 }) {
+  const navigate = useNavigate();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [starting, setStarting] = useState(false);
 
   const hasScripts = batch.scriptCount > 0;
   const canStartMarking = scriptsVerified && memoAnswersReady;
@@ -174,6 +177,27 @@ function VerifyStartActions({
     }
   };
 
+  const handleStartMarking = async () => {
+    if (!assessmentId || !batch.batchId || !canStartMarking) return;
+    setStarting(true);
+    setExportError("");
+    try {
+      const detail = await apiFetch<{ learnerScripts: { id: string }[] }>(
+        `/script-batches/${batch.batchId}`
+      );
+      const scriptId = detail.learnerScripts?.[0]?.id;
+      if (scriptId) {
+        navigate(`/scripts/${scriptId}`);
+      } else {
+        navigate(`/assessments/${assessmentId}/scripts`);
+      }
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Could not open marking view");
+    } finally {
+      setStarting(false);
+    }
+  };
+
   return (
     <div className="sc-marking-card-actions">
       {hasScripts && batch.batchId ? (
@@ -189,9 +213,14 @@ function VerifyStartActions({
         </button>
       )}
       {canStartMarking && assessmentId ? (
-        <Link to={`/assessments/${assessmentId}/scripts`} className="sc-btn sc-btn-primary">
-          Start AI Marking
-        </Link>
+        <button
+          type="button"
+          className="sc-btn sc-btn-primary"
+          disabled={starting}
+          onClick={() => void handleStartMarking()}
+        >
+          {starting ? "Opening…" : "Start AI Marking"}
+        </button>
       ) : (
         <button
           type="button"
@@ -307,6 +336,15 @@ export default function MarkingOverview() {
 
   useEffect(() => {
     void loadLists();
+    try {
+      const raw = sessionStorage.getItem(QUICK_SCAN_SESSION_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { assessmentId?: string; batchId?: string };
+      if (saved.assessmentId) setQuickAssessmentId(saved.assessmentId);
+      if (saved.batchId) setQuickBatchId(saved.batchId);
+    } catch {
+      /* ignore corrupt session */
+    }
   }, [loadLists]);
 
   useEffect(() => {
@@ -433,6 +471,10 @@ export default function MarkingOverview() {
       setQuickAssessmentId(pack.assessmentId);
       setQuickBatchId(pack.batchId);
       setQuickBatch({ batchId: pack.batchId, batchStatus: "DRAFT", scriptCount: 0 });
+      sessionStorage.setItem(
+        QUICK_SCAN_SESSION_KEY,
+        JSON.stringify({ assessmentId: pack.assessmentId, batchId: pack.batchId })
+      );
       const all = await apiFetch<Assessment[]>("/assessments").catch(() => [] as Assessment[]);
       setAssessments(all);
       return { assessmentId: pack.assessmentId, batchId: pack.batchId };
@@ -549,7 +591,6 @@ export default function MarkingOverview() {
     try {
       const { assessmentId, batchId } = await ensureQuickPack();
       const result = await bulkUploadScripts(batchId, quickBookletFiles, setQuickProgress);
-      await finalizeQuickScan(assessmentId);
       const all = await apiFetch<Assessment[]>("/assessments").catch(() => [] as Assessment[]);
       setAssessments(all);
       const ctx = await fetchContext(assessmentId, parsedQuickPages);
@@ -968,7 +1009,7 @@ export default function MarkingOverview() {
             assessmentId={quickAssessmentId}
             batch={quickBatch}
             scriptsVerified={quickVerified}
-            memoAnswersReady={quickSetupStatus?.memoAnswersReady !== false}
+            memoAnswersReady={quickSetupStatus?.memoAnswersReady === true}
             memoBlocker={quickSetupStatus?.memoBlocker ?? null}
           />
         </article>

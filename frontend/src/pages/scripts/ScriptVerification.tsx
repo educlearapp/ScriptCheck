@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { apiFetch } from "../../api";
 import {
   confirmScriptVerification,
+  finalizeQuickScan,
   getScriptVerification,
   resplitLearnerAnswers,
   type ScriptVerificationResult,
@@ -81,8 +83,18 @@ export default function ScriptVerification() {
         const data = await resplitLearnerAnswers(batchId, parsedPages);
         applyVerification(data);
       }
+      await finalizeQuickScan(assessmentId);
       await confirmScriptVerification(batchId);
-      navigate(`/assessments/${assessmentId}/scripts`);
+      const batchDetail = await apiFetch<{ learnerScripts: { id: string }[] }>(
+        `/script-batches/${batchId}`
+      );
+      const scriptId =
+        batchDetail.learnerScripts?.[0]?.id ?? verification?.scripts?.[0]?.scriptId;
+      if (scriptId) {
+        navigate(`/scripts/${scriptId}`);
+      } else {
+        navigate(`/assessments/${assessmentId}/scripts`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Confirmation failed");
     } finally {
@@ -235,7 +247,7 @@ export default function ScriptVerification() {
           disabled={confirming || resplitting}
           onClick={() => void handleConfirm()}
         >
-          {confirming ? "Confirming…" : "Confirm & Start AI Marking"}
+          {confirming ? "Starting AI marking…" : "Confirm & Start AI Marking"}
         </button>
       </div>
     </div>
