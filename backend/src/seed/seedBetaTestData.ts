@@ -20,8 +20,23 @@ async function createMembershipWithRoles(
   const membership = await prisma.workspaceMembership.upsert({
     where: { userId_workspaceId: { userId, workspaceId } },
     update: { isActive: true },
-    create: { userId, workspaceId },
+    create: { userId, workspaceId, joinedAt: new Date() },
   });
+
+  const desiredRoles = new Set(roles);
+  const existingRoles = await prisma.membershipRole.findMany({
+    where: { membershipId: membership.id },
+  });
+
+  for (const row of existingRoles) {
+    if (!desiredRoles.has(row.role)) {
+      await prisma.membershipRole.delete({
+        where: {
+          membershipId_role: { membershipId: membership.id, role: row.role },
+        },
+      });
+    }
+  }
 
   for (const role of roles) {
     await prisma.membershipRole.upsert({
@@ -79,28 +94,32 @@ async function upsertQuestions(
 
 export async function seedBetaTestData() {
   const passwordHash = await hashAuthPassword(BETA_PASSWORD);
-  const trialExpiresAt = new Date();
-  trialExpiresAt.setDate(trialExpiresAt.getDate() + 14);
 
   const betaWorkspace = await prisma.workspace.upsert({
     where: { slug: "scriptcheck-beta-test" },
     update: {
-      subscriptionPlan: SubscriptionPlan.TRIAL,
-      subscriptionStatus: SubscriptionStatus.TRIAL,
-      trialExpiresAt,
+      name: "ScriptCheck Beta Test School",
+      subscriptionPlan: SubscriptionPlan.PAID,
+      subscriptionStatus: SubscriptionStatus.ACTIVE,
+      trialExpiresAt: null,
     },
     create: {
       name: "ScriptCheck Beta Test School",
       slug: "scriptcheck-beta-test",
       type: WorkspaceType.SCHOOL,
       email: "beta@scriptcheck-beta.school",
-      subscriptionPlan: SubscriptionPlan.TRIAL,
-      subscriptionStatus: SubscriptionStatus.TRIAL,
-      trialExpiresAt,
+      subscriptionPlan: SubscriptionPlan.PAID,
+      subscriptionStatus: SubscriptionStatus.ACTIVE,
+      trialExpiresAt: null,
     },
   });
 
   const betaUsers = [
+    {
+      email: "hod.foundation@scriptcheck-beta.school",
+      fullName: "Beta HOD Foundation Phase",
+      roles: [WorkspaceRole.HOD, WorkspaceRole.TEACHER] as WorkspaceRole[],
+    },
     {
       email: "hod.math@scriptcheck-beta.school",
       fullName: "Beta HOD Mathematics",
@@ -128,8 +147,8 @@ export async function seedBetaTestData() {
   for (const demo of betaUsers) {
     const user = await prisma.user.upsert({
       where: { email: demo.email },
-      update: { passwordHash, fullName: demo.fullName },
-      create: { email: demo.email, fullName: demo.fullName, passwordHash },
+      update: { passwordHash, fullName: demo.fullName, isActive: true },
+      create: { email: demo.email, fullName: demo.fullName, passwordHash, isActive: true },
     });
     await createMembershipWithRoles(user.id, betaWorkspace.id, demo.roles);
     userRecords[demo.email] = { id: user.id, email: demo.email };
@@ -502,7 +521,7 @@ export async function seedBetaTestData() {
   });
 
   console.log("Beta test workspace seeded:");
-  console.log(`  Workspace: ${betaWorkspace.slug} (TRIAL)`);
+  console.log(`  Workspace: ${betaWorkspace.slug} (PAID — marking export enabled)`);
   console.log(`  Assessments: 3 (${TEST_PREFIX} prefix)`);
   console.log("  Beta HOD logins (password: ScriptCheckBeta2026!):");
   for (const demo of betaUsers) {

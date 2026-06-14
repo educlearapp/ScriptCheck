@@ -42,6 +42,7 @@ import moderationTrailRoutes from "./routes/moderationTrail";
 import betaFeedbackRoutes from "./routes/betaFeedback";
 import superAdminRoutes from "./routes/superAdmin";
 import timetableRoutes from "./routes/timetable";
+import { bootstrapOnStartup } from "./bootstrap";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -131,6 +132,13 @@ app.use(
   }
 );
 
-app.listen(PORT, () => {
-  console.log(`ScriptCheck API listening on http://localhost:${PORT}`);
-});
+bootstrapOnStartup()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`ScriptCheck API listening on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("[startup] Bootstrap failed:", err);
+    process.exit(1);
+  });
