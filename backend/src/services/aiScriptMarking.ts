@@ -1,11 +1,13 @@
-import path from "path";
-import fs from "fs";
 import { prisma } from "../prisma";
-import { ocrImageFile, ocrPdfPages } from "./ocrEngine";
+import {
+  isMeaningfulLearnerScriptOcr,
+  ocrLearnerScriptPages,
+} from "./ocrEngine";
 import { ScriptError } from "./scriptMarking";
 import { getMarkingMode, isMarkingPackAssessment, type MarkingMode } from "./quickScanShared";
 
-const UPLOAD_ROOT = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
+export const LEARNER_OCR_UNREADABLE_COMMENT =
+  "AI: learner answer text could not be read";
 
 export type MarkingGuideResult = {
   assessmentId: string;
@@ -24,11 +26,6 @@ export type AiMarkBatchResult = {
   scriptsMarked: number;
   results: AiMarkScriptResult[];
 };
-
-function resolveFilePath(storedPath: string): string {
-  if (path.isAbsolute(storedPath)) return storedPath;
-  return path.join(UPLOAD_ROOT, storedPath);
-}
 
 function generateExpectedAnswer(questionText: string, marks: number, questionNumber: string): string {
   const text = questionText.trim();
@@ -123,50 +120,6 @@ function scoreAnswer(
   return { mark: 0, comment: "AI: no matching answer found" };
 }
 
-async function ocrScriptPages(
-  pages: Array<{ filePath: string; mimeType: string }>
-): Promise<string> {
-  const chunks: string[] = [];
-
-  for (const page of pages) {
-    const fullPath = resolveFilePath(page.filePath);
-    if (!fs.existsSync(fullPath)) continue;
-
-    try {
-      if (page.mimeType === "application/pdf") {
-        try {
-          const pdfParse = (await import("pdf-parse")).default;
-          const buffer = fs.readFileSync(fullPath);
-          const parsed = await pdfParse(buffer);
-          if (parsed.text?.trim()) {
-            chunks.push(parsed.text);
-            continue;
-          }
-        } catch {
-          /* fall through to OCR */
-        }
-        const result = await ocrPdfPages(fullPath);
-        if (result.text.trim()) chunks.push(result.text);
-      } else if (page.mimeType.startsWith("image/")) {
-        const result = await ocrImageFile(fullPath);
-        if (result.text.trim()) chunks.push(result.text);
-      } else {
-        const raw = fs.readFileSync(fullPath, "utf-8");
-        if (raw.trim()) chunks.push(raw);
-      }
-    } catch {
-      try {
-        const raw = fs.readFileSync(fullPath, "utf-8");
-        if (raw.trim() && !raw.includes("\0")) chunks.push(raw);
-      } catch {
-        /* skip unreadable page */
-      }
-    }
-  }
-
-  return chunks.join("\n\n");
-}
-
 export async function generateMarkingGuide(
   assessmentId: string,
   workspaceId: string
@@ -249,7 +202,13 @@ export async function runAiMarkingForScript(
 
   if (!script) throw new ScriptError("Learner script not found", 404);
 
-  const ocrText = await ocrScriptPages(script.pages);
+  const { text: ocrText, debug: ocrDebug } = await ocrLearnerScriptPages(script.pages);
+  const canScore = isMeaningfulLearnerScriptOcr(ocrText, script.pages.length);
+
+  console.log(
+    `[ai-marking] script=${scriptId} ocrLen=${ocrText.length} meaningful=${canScore} pages=${ocrDebug.map((d) => `${d.method}:${d.textLength}`).join(",")}`
+  );
+
   let questionsMarked = 0;
   let teacherTotal = 0;
 
@@ -257,7 +216,15 @@ export async function runAiMarkingForScript(
     const expected = mark.assessmentQuestion.expectedAnswer?.trim();
     if (!expected) continue;
 
-    const { mark: awarded, comment } = scoreAnswer(ocrText, expected, mark.maxMarks);
+    let awarded = 0;
+    let comment = LEARNER_OCR_UNREADABLE_COMMENT;
+
+    if (canScore) {
+      const scored = scoreAnswer(ocrText, expected, mark.maxMarks);
+      awarded = scored.mark;
+      comment = scored.comment;
+    }
+
     const clamped = Math.max(0, Math.min(mark.maxMarks, awarded));
 
     await prisma.scriptQuestionMark.update({

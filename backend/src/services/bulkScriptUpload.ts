@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import sizeOf from "image-size";
 import { PDFDocument } from "pdf-lib";
 import { LearnerScriptStatus, ScriptBatchStatus } from "@prisma/client";
 import { prisma } from "../prisma";
@@ -27,7 +28,16 @@ type ExtractedPage = {
   width: number;
   height: number;
   sourceName: string;
+  mimeType: string;
+  extension: string;
 };
+
+function imageMimeAndExt(mime: string, ext: string): { mimeType: string; extension: string } {
+  if (mime === "image/png" || ext === ".png") {
+    return { mimeType: "image/png", extension: ".png" };
+  }
+  return { mimeType: "image/jpeg", extension: ".jpg" };
+}
 
 function ensureDir(dir: string) {
   fs.mkdirSync(dir, { recursive: true });
@@ -53,6 +63,8 @@ async function extractPagesFromPdf(buffer: Buffer, sourceName: string): Promise<
       width: Math.round(width),
       height: Math.round(height),
       sourceName,
+      mimeType: "application/pdf",
+      extension: ".pdf",
     });
   }
 
@@ -74,11 +86,23 @@ async function collectAllPages(files: BulkUploadFile[]): Promise<ExtractedPage[]
       const pages = await extractPagesFromPdf(file.buffer, file.originalname);
       allPages.push(...pages);
     } else if (mime === "image/jpeg" || mime === "image/jpg" || mime === "image/png" || [".jpg", ".jpeg", ".png"].includes(ext)) {
+      const { mimeType, extension } = imageMimeAndExt(mime, ext);
+      let width = 0;
+      let height = 0;
+      try {
+        const dims = sizeOf(file.buffer);
+        width = dims.width ?? 0;
+        height = dims.height ?? 0;
+      } catch {
+        /* dimensions optional */
+      }
       allPages.push({
         buffer: file.buffer,
-        width: 0,
-        height: 0,
+        width,
+        height,
         sourceName: file.originalname,
+        mimeType,
+        extension,
       });
     } else {
       throw new ScriptError(
@@ -185,7 +209,7 @@ export async function bulkUploadScripts(
 
     let pageNumber = 1;
     for (const page of pageSlice) {
-      const storedName = `${Date.now()}-page-${pageNumber}.pdf`;
+      const storedName = `${Date.now()}-page-${pageNumber}${page.extension}`;
       const filePath = path.join(uploadDir, storedName);
       fs.writeFileSync(filePath, page.buffer);
 
@@ -195,7 +219,7 @@ export async function bulkUploadScripts(
           pageNumber,
           fileName: `${page.sourceName} (page ${pageNumber})`,
           filePath,
-          mimeType: "application/pdf",
+          mimeType: page.mimeType,
           fileSize: page.buffer.length,
           width: page.width || null,
           height: page.height || null,

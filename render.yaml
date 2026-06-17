@@ -13,6 +13,7 @@ services:
     runtime: node
     rootDir: backend
     plan: starter
+    # Scanned learner OCR: pdf.js + Tesseract.js fallback (Poppler optional; see Dockerfile.backend).
     buildCommand: npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /health
