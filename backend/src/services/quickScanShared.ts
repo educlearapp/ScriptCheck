@@ -1,10 +1,10 @@
 export const MARKING_PACK_METADATA = { markingPack: true } as const;
 
 export const QUICK_SCAN_MEMO_BLOCKER =
-  "No memo or answers detected. Upload memo before AI marking.";
+  "No memorandum could be detected. Please upload a memorandum or use Option 1.";
 
 export const QUICK_SCAN_ON_PAPER_MEMO_BLOCKER =
-  "Answers could not be detected inside the uploaded question paper. Please upload a paper that includes answers/memo or use Option 1.";
+  "No memorandum could be detected. Please upload a memorandum or use Option 1.";
 
 export type ScriptFormat = "ANSWER_SHEET" | "ON_QUESTION_PAPER";
 
@@ -59,7 +59,6 @@ export function usesQuestionPaperAsMemoSource(
 ): boolean {
   return (
     getMarkingMode(assessment) === "QP_WITH_ANSWERS" &&
-    isOnQuestionPaperFormat(assessment) &&
     masterFiles.questionPaper &&
     !masterFiles.memorandum
   );

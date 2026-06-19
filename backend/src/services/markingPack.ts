@@ -30,7 +30,6 @@ import {
 } from "./pastPaperExtractor";
 
 import {
-  getScriptFormat,
   getMarkingMode,
   isMarkingPackAssessment,
   mergeMarkingWorkbenchMetadata,
@@ -206,14 +205,16 @@ function hasMemoCoverage(questions: ExtractedPaperQuestion[]): boolean {
   );
 }
 
+function countMemoAnswers(questions: ExtractedPaperQuestion[]): number {
+  return questions.filter((question) => Boolean(question.memoAnswer?.trim())).length;
+}
+
 function applyQuestionPaperMemoFallbacks(
   questions: ExtractedPaperQuestion[],
   paperText: string,
-  scriptFormat: ScriptFormat,
   hasSeparateMemo: boolean
 ): ExtractedPaperQuestion[] {
   if (hasSeparateMemo || hasMemoCoverage(questions)) return questions;
-  if (scriptFormat !== "ON_QUESTION_PAPER") return questions;
 
   const memoAnswers = parseEmbeddedMemoAnswers(paperText);
   if (memoAnswers.size === 0) return questions;
@@ -234,6 +235,7 @@ function buildAnalyticsPlaceholder() {
 export type QuickScanExtractionResult = {
   questions: ExtractedPaperQuestion[];
   memoAnswersDetected: boolean;
+  memoAnswerCount: number;
   sourceFileName: string;
 };
 
@@ -262,7 +264,6 @@ export async function extractQuickScanQuestions(
     throw new ScriptError("Upload a question paper before analyzing Quick Scan", 400);
   }
 
-  const scriptFormat = getScriptFormat(assessment);
   const markingMode = getMarkingMode(assessment);
   const paperText = await extractTextFromVaultDocument(questionPaper);
   let questions = extractQuestionsFromPastPaper(paperText, questionPaper.fileName);
@@ -274,12 +275,9 @@ export async function extractQuickScanQuestions(
     );
   }
 
-  const memorandum =
-    markingMode === "QP_WITH_ANSWERS"
-      ? undefined
-      : assessment.paperVaultDocuments.find(
-          (doc) => doc.documentType === PaperDocumentType.MEMORANDUM
-        );
+  const memorandum = assessment.paperVaultDocuments.find(
+    (doc) => doc.documentType === PaperDocumentType.MEMORANDUM
+  );
 
   if (memorandum) {
     const memoText = await extractTextFromVaultDocument(memorandum);
@@ -290,21 +288,23 @@ export async function extractQuickScanQuestions(
     questions = applyQuestionPaperMemoFallbacks(
       questions,
       paperText,
-      scriptFormat,
       false
     );
   }
 
-  if (markingMode === "QP_WITH_ANSWERS" && !hasMemoCoverage(questions)) {
+  const memoAnswerCount = countMemoAnswers(questions);
+
+  if (markingMode === "QP_WITH_ANSWERS" && memoAnswerCount === 0) {
     throw new ScriptError(
-      "Answers could not be detected inside the uploaded question paper. Please upload a paper that includes answers/memo or use Option 1.",
+      "No memorandum could be detected. Please upload a memorandum or use Option 1.",
       400
     );
   }
 
   return {
     questions,
-    memoAnswersDetected: hasMemoCoverage(questions),
+    memoAnswersDetected: memoAnswerCount > 0,
+    memoAnswerCount,
     sourceFileName: questionPaper.fileName,
   };
 }
@@ -401,6 +401,7 @@ export type FinalizeQuickScanResult = {
   memoAnswersReady: boolean;
   memoBlocker: string | null;
   questionsCreated: number;
+  memoAnswerCount: number;
   scriptMarksInitialized: number;
 };
 
@@ -444,6 +445,7 @@ export async function finalizeQuickScan(
         extractedAt: new Date().toISOString(),
         questionsExtracted: questionsCreated,
         memoAnswersDetected: extraction.memoAnswersDetected,
+        memoAnswerCount: extraction.memoAnswerCount,
         sourceFileName: extraction.sourceFileName,
       }) as Prisma.InputJsonValue,
     },
@@ -463,6 +465,7 @@ export async function finalizeQuickScan(
     memoAnswersReady: refreshedStatus.memoAnswersReady ?? false,
     memoBlocker: refreshedStatus.memoBlocker ?? null,
     questionsCreated,
+    memoAnswerCount: extraction.memoAnswerCount,
     scriptMarksInitialized,
   };
 }
@@ -493,6 +496,7 @@ export async function reextractQuickScanQuestions(
         extractedAt: new Date().toISOString(),
         questionsExtracted: questionsCreated,
         memoAnswersDetected: extraction.memoAnswersDetected,
+        memoAnswerCount: extraction.memoAnswerCount,
         sourceFileName: extraction.sourceFileName,
       }) as Prisma.InputJsonValue,
     },
@@ -508,6 +512,7 @@ export async function reextractQuickScanQuestions(
     memoAnswersReady: refreshedStatus.memoAnswersReady ?? false,
     memoBlocker: refreshedStatus.memoBlocker ?? null,
     questionsCreated,
+    memoAnswerCount: extraction.memoAnswerCount,
     scriptMarksInitialized,
   };
 }

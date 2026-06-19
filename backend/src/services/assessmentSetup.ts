@@ -51,6 +51,9 @@ const MASTER_DOC_TYPES: Record<string, PaperDocumentType> = {
   supporting: PaperDocumentType.SUPPORTING_MATERIAL,
 };
 
+const GENERIC_EXPECTED_ANSWER_RE =
+  /^Award up to \d+(?:\.\d+)? marks for a correct answer to question/i;
+
 async function loadAssessment(assessmentId: string, workspaceId: string) {
   const assessment = await prisma.assessment.findFirst({
     where: { id: assessmentId, workspaceId },
@@ -141,6 +144,12 @@ export async function getAssessmentSetupStatus(
           Boolean(question.expectedAnswer?.trim()) ||
           Boolean(question.memoNotes?.trim())
       );
+    const hasRealMemoAnswers =
+      questionsExtracted &&
+      questions.some((question) => {
+        const answer = question.expectedAnswer?.trim();
+        return answer != null && answer.length > 0 && !GENERIC_EXPECTED_ANSWER_RE.test(answer);
+      });
 
     markingGuideReady = hasExpectedAnswers;
 
@@ -150,7 +159,7 @@ export async function getAssessmentSetupStatus(
         missingSteps.push("Confirm script split to generate AI marking guide");
       }
     } else if (requiresMemoForMarking(assessment)) {
-      memoAnswersReady = hasExpectedAnswers;
+      memoAnswersReady = hasRealMemoAnswers;
       if (questionsExtracted && !memoAnswersReady) {
         memoBlocker = quickScanMemoBlockerMessage(assessment, masterFiles);
         missingSteps.push(memoBlocker);

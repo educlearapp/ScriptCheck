@@ -10,8 +10,12 @@ export const LEARNER_OCR_UNREADABLE_COMMENT =
   "AI: learner answer text could not be read";
 const LEARNER_ANSWER_NOT_DETECTED_COMMENT =
   "AI: learner answer for this question was not detected";
+const MEMO_ANSWER_NOT_DETECTED_COMMENT =
+  "AI: memo answer for this question was not detected";
 const GENERIC_EXPECTED_ANSWER_RE =
   /^Award up to \d+(?:\.\d+)? marks for a correct answer to question/i;
+const OPTION_2_MEMO_NOT_DETECTED_MESSAGE =
+  "No memorandum could be detected. Please upload a memorandum or use Option 1.";
 
 export type MarkingGuideResult = {
   assessmentId: string;
@@ -22,6 +26,8 @@ export type MarkingGuideResult = {
 export type AiMarkScriptResult = {
   scriptId: string;
   questionsMarked: number;
+  learnerAnswerCount: number;
+  unmatchedQuestionNumbers: string[];
   teacherTotal: number;
 };
 
@@ -255,13 +261,12 @@ export async function runAiMarkingForScript(
   const { text: ocrText, debug: ocrDebug } = await ocrLearnerScriptPages(script.pages);
   const canScore = isMeaningfulLearnerScriptOcr(ocrText, script.pages.length);
   const mode = getMarkingMode(script.assessment);
-  const learnerAnswers =
-    mode === "QP_WITH_ANSWERS" && canScore
-      ? extractLearnerAnswersByQuestion(
-          ocrText,
-          script.questionMarks.map((mark) => mark.questionNumber)
-        )
-      : new Map<string, string>();
+  const learnerAnswers = canScore
+    ? extractLearnerAnswersByQuestion(
+        ocrText,
+        script.questionMarks.map((mark) => mark.questionNumber)
+      )
+    : new Map<string, string>();
 
   console.log(
     `[ai-marking] script=${scriptId} ocrLen=${ocrText.length} meaningful=${canScore} extractedAnswers=${learnerAnswers.size} pages=${ocrDebug.map((d) => `${d.method}:${d.textLength}`).join(",")}`
@@ -269,13 +274,27 @@ export async function runAiMarkingForScript(
 
   let questionsMarked = 0;
   let teacherTotal = 0;
+  const unmatchedQuestionNumbers: string[] = [];
 
   for (const mark of script.questionMarks) {
     const expected = mark.assessmentQuestion.expectedAnswer?.trim();
-    if (!expected) continue;
+    const questionNumber = normaliseQuestionNumber(mark.questionNumber);
+    if (!expected) {
+      await prisma.scriptQuestionMark.update({
+        where: { id: mark.id },
+        data: {
+          teacherMark: 0,
+          teacherComment: MEMO_ANSWER_NOT_DETECTED_COMMENT,
+          finalMark: 0,
+        },
+      });
+      questionsMarked++;
+      unmatchedQuestionNumbers.push(questionNumber);
+      continue;
+    }
     if (mode === "QP_WITH_ANSWERS" && GENERIC_EXPECTED_ANSWER_RE.test(expected)) {
       throw new ScriptError(
-        "Answers could not be detected inside the uploaded question paper. Please upload a paper that includes answers/memo or use Option 1.",
+        OPTION_2_MEMO_NOT_DETECTED_MESSAGE,
         400
       );
     }
@@ -284,10 +303,7 @@ export async function runAiMarkingForScript(
     let comment = LEARNER_OCR_UNREADABLE_COMMENT;
 
     if (canScore) {
-      const learnerAnswer =
-        mode === "QP_WITH_ANSWERS"
-          ? learnerAnswers.get(normaliseQuestionNumber(mark.questionNumber))?.trim()
-          : ocrText;
+      const learnerAnswer = learnerAnswers.get(questionNumber)?.trim();
 
       if (learnerAnswer) {
         const scored = scoreAnswer(learnerAnswer, expected, mark.maxMarks);
@@ -295,7 +311,10 @@ export async function runAiMarkingForScript(
         comment = scored.comment;
       } else {
         comment = LEARNER_ANSWER_NOT_DETECTED_COMMENT;
+        unmatchedQuestionNumbers.push(questionNumber);
       }
+    } else {
+      unmatchedQuestionNumbers.push(questionNumber);
     }
 
     const clamped = Math.max(0, Math.min(mark.maxMarks, awarded));
@@ -326,7 +345,13 @@ export async function runAiMarkingForScript(
     },
   });
 
-  return { scriptId, questionsMarked, teacherTotal };
+  return {
+    scriptId,
+    questionsMarked,
+    learnerAnswerCount: learnerAnswers.size,
+    unmatchedQuestionNumbers: [...new Set(unmatchedQuestionNumbers)],
+    teacherTotal,
+  };
 }
 
 export async function runAiMarkingForBatch(

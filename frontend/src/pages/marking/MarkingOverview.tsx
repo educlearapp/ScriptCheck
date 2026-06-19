@@ -48,9 +48,9 @@ const OPTION_LABELS: Record<MarkingOption, { title: string; summary: string }> =
     summary: "Upload question paper and learner booklets only. AI generates the marking guide — no memo required.",
   },
   2: {
-    title: "Question paper with memo/answers included",
+    title: "Question paper + memorandum + learner booklets",
     summary:
-      "Upload ONE question paper that already contains the memo/answers, plus learner booklets.",
+      "Upload the question paper, an optional separate memo, and learner answer booklets.",
   },
   3: {
     title: "ScriptCheck assessment",
@@ -92,7 +92,7 @@ function latestBatch(batches: ScriptBatchSummary[]): BatchMeta {
 
 function defaultJobTitle(term: string, option: MarkingOption) {
   const label = term.trim() || "Marking";
-  const suffix = option === 1 ? "QP + Answers" : "QP with Memo";
+  const suffix = option === 1 ? "QP only" : "QP with optional memo";
   return `${label} — ${suffix} — ${new Date().toLocaleDateString()}`;
 }
 
@@ -294,12 +294,15 @@ export default function MarkingOverview() {
   const [packBatch, setPackBatch] = useState<BatchMeta>(emptyBatch());
   const [packSetupStatus, setPackSetupStatus] = useState<AssessmentSetupStatus | null>(null);
   const [packHasPaper, setPackHasPaper] = useState(false);
+  const [packHasMemo, setPackHasMemo] = useState(false);
   const [packBookletFiles, setPackBookletFiles] = useState<File[]>([]);
   const [packDrag, setPackDrag] = useState(false);
   const [packBusy, setPackBusy] = useState(false);
   const [packProgress, setPackProgress] = useState(0);
   const [packUploadingPaper, setPackUploadingPaper] = useState(false);
+  const [packUploadingMemo, setPackUploadingMemo] = useState(false);
   const packPaperRef = useRef<HTMLInputElement>(null);
+  const packMemoRef = useRef<HTMLInputElement>(null);
   const packBookletRef = useRef<HTMLInputElement>(null);
 
   const loadLists = useCallback(async (silent?: boolean) => {
@@ -375,12 +378,14 @@ export default function MarkingOverview() {
     if (!packAssessmentId) {
       setPackSetupStatus(null);
       setPackHasPaper(false);
+      setPackHasMemo(false);
       setPackBatch(emptyBatch());
       return;
     }
     void fetchSetup(packAssessmentId).then(({ status }) => {
       setPackSetupStatus(status);
       setPackHasPaper(status?.masterFiles.questionPaper === true);
+      setPackHasMemo(status?.masterFiles.memorandum === true);
     });
     void fetchBatch(packAssessmentId).then((batch) => {
       setPackBatch(batch);
@@ -435,7 +440,7 @@ export default function MarkingOverview() {
     ? "Upload learner booklets and confirm script split first"
     : selectedOption === 1
       ? "Confirm script split to generate AI marking guide and marks"
-      : "Confirm script split — answers must be detected on the question paper";
+      : "Confirm script split — ScriptCheck will use the uploaded memo or detect answers inside the question paper";
 
   const persistSession = (option: MarkingOption, assessmentId: string, batchId: string) => {
     sessionStorage.setItem(
@@ -479,7 +484,7 @@ export default function MarkingOverview() {
         pagesPerScript: parsedPackPages ?? undefined,
         totalMarks: parsedPackMarks ?? undefined,
         questionCount: parsedPackQuestions ?? undefined,
-        scriptFormat: option === 2 ? "ON_QUESTION_PAPER" : "ANSWER_SHEET",
+        scriptFormat: "ANSWER_SHEET",
         markingMode,
       });
       await updateSetup(pack.assessmentId, {
@@ -558,11 +563,34 @@ export default function MarkingOverview() {
       const { status } = await fetchSetup(assessmentId, parsedPackPages);
       setPackSetupStatus(status);
       setPackHasPaper(status?.masterFiles.questionPaper === true);
+      setPackHasMemo(status?.masterFiles.memorandum === true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Question paper upload failed");
     } finally {
       setPackUploadingPaper(false);
       if (packPaperRef.current) packPaperRef.current.value = "";
+    }
+  };
+
+  const uploadPackMemo = async (file: File) => {
+    if (!packMetaValid) {
+      setError("Complete all assessment details first.");
+      return;
+    }
+    setPackUploadingMemo(true);
+    setError("");
+    try {
+      const { assessmentId } = await ensureMarkingPack(2);
+      await uploadMasterFile(assessmentId, "memorandum", file);
+      const { status } = await fetchSetup(assessmentId, parsedPackPages);
+      setPackSetupStatus(status);
+      setPackHasPaper(status?.masterFiles.questionPaper === true);
+      setPackHasMemo(status?.masterFiles.memorandum === true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Memorandum upload failed");
+    } finally {
+      setPackUploadingMemo(false);
+      if (packMemoRef.current) packMemoRef.current.value = "";
     }
   };
 
@@ -582,6 +610,7 @@ export default function MarkingOverview() {
       const { status } = await fetchSetup(assessmentId, parsedPackPages);
       setPackSetupStatus(status);
       setPackHasPaper(status?.masterFiles.questionPaper === true);
+      setPackHasMemo(status?.masterFiles.memorandum === true);
       setPackBatch(await fetchBatch(assessmentId));
       persistSession(option, assessmentId, batchId);
       navigate(`/assessments/${assessmentId}/scripts/verify/${batchId}`, {
@@ -811,12 +840,12 @@ export default function MarkingOverview() {
         <article className="sc-card sc-card-padded sc-marking-card" aria-labelledby="option-2">
           <header className="sc-marking-card-header">
             <h2 id="option-2" className="sc-marking-card-title">
-              Option 2 — Question paper with memo/answers included
+              Option 2 — Question paper + memorandum
             </h2>
             <p className="sc-marking-hint">
-              Upload ONE question paper that already contains the memorandum or answers, plus the learner
-              answer booklets. ScriptCheck will extract both the questions and the memo from the same
-              uploaded paper. No separate memo or answers file is required.
+              Upload the question paper, an optional separate memorandum, and the learner answer booklets.
+              If you upload a memorandum, ScriptCheck uses that as the answer source. If you do not,
+              ScriptCheck looks for a memo or answers section inside the question paper.
             </p>
           </header>
 
@@ -856,10 +885,10 @@ export default function MarkingOverview() {
           </div>
 
           <div className="sc-marking-upload-card sc-marking-question-paper-panel">
-            <h3 className="sc-marking-section-title">Upload question paper (memo/answers included)</h3>
+            <h3 className="sc-marking-section-title">Upload question paper</h3>
             <p className="sc-marking-memo-note">
-              Upload the question paper only. The memorandum or answers must already be inside this same
-              document. Do not upload a separate memo or answers file.
+              Required. Upload the question paper PDF or document here. Do not merge it with learner
+              answers; the memo may be separate or embedded in this paper.
             </p>
             <button
               type="button"
@@ -887,7 +916,41 @@ export default function MarkingOverview() {
           </div>
 
           <div className="sc-marking-upload-card">
+            <h3 className="sc-marking-section-title">Upload memorandum (optional)</h3>
+            <p className="sc-marking-memo-note">
+              Optional. If your school has a separate memo PDF or document, upload it here. If you leave
+              this out, ScriptCheck will try to detect the memo or answers inside the question paper.
+            </p>
+            <button
+              type="button"
+              className="sc-btn sc-btn-secondary"
+              disabled={!packMetaValid || packUploadingMemo || packBusy}
+              onClick={() => packMemoRef.current?.click()}
+            >
+              {packUploadingMemo || packBusy
+                ? "Preparing…"
+                : packHasMemo
+                  ? "Replace memorandum"
+                  : "Upload memorandum (optional)"}
+            </button>
+            <input
+              ref={packMemoRef}
+              type="file"
+              className="sc-marking-file-input-hidden"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              disabled={!packMetaValid}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void uploadPackMemo(file);
+              }}
+            />
+          </div>
+
+          <div className="sc-marking-upload-card">
             <h3 className="sc-marking-section-title">Upload learner answer booklet(s)</h3>
+            <p className="sc-marking-memo-note">
+              Required. Upload only learner scripts or answer booklets here, not the memo.
+            </p>
             <FileDropzone
               label="Drag & drop learner answer booklet(s) here"
               filesCount={packBookletFiles.length}

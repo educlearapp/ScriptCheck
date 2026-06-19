@@ -309,6 +309,7 @@ export type FinalizeQuickScanResult = {
   memoAnswersReady: boolean;
   memoBlocker: string | null;
   questionsCreated: number;
+  memoAnswerCount?: number;
   scriptMarksInitialized: number;
 };
 
