@@ -23,6 +23,7 @@ import {
 } from "./contentExtraction";
 import {
   extractQuestionsFromPastPaper,
+  parseEmbeddedMemoAnswers,
   parseMemoAnswers,
   splitMemoSection,
   type ExtractedPaperQuestion,
@@ -30,6 +31,7 @@ import {
 
 import {
   getScriptFormat,
+  getMarkingMode,
   isMarkingPackAssessment,
   mergeMarkingWorkbenchMetadata,
   type MarkingMode,
@@ -213,8 +215,7 @@ function applyQuestionPaperMemoFallbacks(
   if (hasSeparateMemo || hasMemoCoverage(questions)) return questions;
   if (scriptFormat !== "ON_QUESTION_PAPER") return questions;
 
-  const { memo } = splitMemoSection(paperText);
-  const memoAnswers = parseMemoAnswers(memo.trim() ? memo : paperText);
+  const memoAnswers = parseEmbeddedMemoAnswers(paperText);
   if (memoAnswers.size === 0) return questions;
 
   return mergeMemoAnswers(questions, memoAnswers);
@@ -262,6 +263,7 @@ export async function extractQuickScanQuestions(
   }
 
   const scriptFormat = getScriptFormat(assessment);
+  const markingMode = getMarkingMode(assessment);
   const paperText = await extractTextFromVaultDocument(questionPaper);
   let questions = extractQuestionsFromPastPaper(paperText, questionPaper.fileName);
 
@@ -272,9 +274,12 @@ export async function extractQuickScanQuestions(
     );
   }
 
-  const memorandum = assessment.paperVaultDocuments.find(
-    (doc) => doc.documentType === PaperDocumentType.MEMORANDUM
-  );
+  const memorandum =
+    markingMode === "QP_WITH_ANSWERS"
+      ? undefined
+      : assessment.paperVaultDocuments.find(
+          (doc) => doc.documentType === PaperDocumentType.MEMORANDUM
+        );
 
   if (memorandum) {
     const memoText = await extractTextFromVaultDocument(memorandum);
@@ -287,6 +292,13 @@ export async function extractQuickScanQuestions(
       paperText,
       scriptFormat,
       false
+    );
+  }
+
+  if (markingMode === "QP_WITH_ANSWERS" && !hasMemoCoverage(questions)) {
+    throw new ScriptError(
+      "Answers could not be detected inside the uploaded question paper. Please upload a paper that includes answers/memo or use Option 1.",
+      400
     );
   }
 

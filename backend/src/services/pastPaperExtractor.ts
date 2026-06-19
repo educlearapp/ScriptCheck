@@ -22,7 +22,12 @@ const QUESTION_RE =
   /^(\d+(?:\.\d+)?)\s*[.)]?\s+(.+?)(?:\s*[\[(](\d+)\s*marks?[\])]|\s*\((\d+)\)\s*$|\s*\[(\d+)\]\s*$)?$/i;
 const MEMO_HEADER_RE =
   /^(?:MEMORANDUM|MEMO|MARKING\s+GUIDE|MARKING\s+MEMO|ANSWER\s+KEY|ANSWERS?(?:\s+INCLUDED|\s+ON\s+QUESTION\s+PAPER)?)\b/i;
-const MEMO_ANSWER_RE = /^(\d+(?:\.\d+)?)\s*[.)]?\s+(.+)$/i;
+const MEMO_ANSWER_RE =
+  /^(?:q(?:uestion)?\s*)?(\d+(?:[.,]\d+)*)\s*(?:[.)\]:-]|\s)\s*(.+)$/i;
+const EXPLICIT_EMBEDDED_ANSWER_RE =
+  /^(?:(?:answer|memo\s+answer|expected\s+answer|solution)\s*(?:for)?\s*(?:q(?:uestion)?\s*)?(\d+(?:[.,]\d+)*)|(?:q(?:uestion)?\s*)?(\d+(?:[.,]\d+)*)\s*(?:[.)\]:-])?\s*(?:answer|memo\s+answer|expected\s+answer|solution))\s*[:.)-]?\s*(.+)$/i;
+const INLINE_ANSWER_MARKER_RE =
+  /\b(?:answer|memo\s+answer|expected\s+answer|solution)\s*[:=-]\s*/i;
 
 const TOPIC_PATTERNS: { pattern: RegExp; topic: string }[] = [
   { pattern: /bully|harass|exclusion/i, topic: "Bullying" },
@@ -91,15 +96,58 @@ export function parseMemoAnswers(memoText: string): Map<string, string> {
   const map = new Map<string, string>();
   if (!memoText.trim()) return map;
 
+  let currentQuestion: string | null = null;
+  let currentParts: string[] = [];
+
+  const flush = () => {
+    if (!currentQuestion) return;
+    const answer = currentParts.join(" ").replace(/\s+/g, " ").trim();
+    if (answer) map.set(currentQuestion, answer);
+    currentQuestion = null;
+    currentParts = [];
+  };
+
   for (const line of memoText.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     const m = trimmed.match(MEMO_ANSWER_RE);
     if (m) {
-      map.set(m[1], m[2].trim());
+      flush();
+      currentQuestion = normaliseQuestionNumber(m[1]);
+      currentParts = [cleanMemoAnswer(m[2])];
+    } else if (currentQuestion && !/^(total|marks?|memorandum|memo|answers?)\b/i.test(trimmed)) {
+      currentParts.push(cleanMemoAnswer(trimmed));
+    }
+  }
+  flush();
+  return map;
+}
+
+export function parseEmbeddedMemoAnswers(text: string): Map<string, string> {
+  const { memo } = splitMemoSection(text);
+  if (memo.trim()) return parseMemoAnswers(memo);
+
+  const map = new Map<string, string>();
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const m = trimmed.match(EXPLICIT_EMBEDDED_ANSWER_RE);
+    if (m) {
+      map.set(normaliseQuestionNumber(m[1] ?? m[2]), cleanMemoAnswer(m[3]));
     }
   }
   return map;
+}
+
+function normaliseQuestionNumber(value: string): string {
+  return value.replace(/,/g, ".").trim();
+}
+
+function cleanMemoAnswer(value: string): string {
+  return value
+    .replace(/^(?:answer|memo\s+answer|expected\s+answer|solution)\s*[:=-]\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function defaultMarks(type: string): number {
@@ -142,22 +190,29 @@ export function extractQuestionsFromPastPaper(
     }
 
     const type = detectQuestionType(raw);
+    const inlineAnswerMatch = raw.match(INLINE_ANSWER_MARKER_RE);
+    const questionText = inlineAnswerMatch
+      ? raw.slice(0, inlineAnswerMatch.index).trim()
+      : raw;
+    const inlineMemoAnswer = inlineAnswerMatch
+      ? cleanMemoAnswer(raw.slice((inlineAnswerMatch.index ?? 0) + inlineAnswerMatch[0].length))
+      : undefined;
     const marks = bufferMarks ?? defaultMarks(type);
-    const topic = detectTopic(raw);
-    const cognitiveLevel = detectCognitiveLevel(raw, type);
+    const topic = detectTopic(questionText);
+    const cognitiveLevel = detectCognitiveLevel(questionText, type);
     const options = type === "MULTIPLE_CHOICE" ? extractMcqOptions(buffer.join("\n")) : undefined;
 
     questions.push({
       id: randomUUID(),
       questionNumber: bufferNumber,
       section: currentSection,
-      questionText: raw,
+      questionText,
       marks,
       questionType: type,
       topic,
       cognitiveLevel,
       difficulty: marks <= 2 ? "Easy" : marks >= 6 ? "Difficult" : "Moderate",
-      memoAnswer: memoAnswers.get(bufferNumber),
+      memoAnswer: inlineMemoAnswer || memoAnswers.get(bufferNumber),
       tags: [
         "past-paper",
         ...(sourcePaper ? [sourcePaper.replace(/\.[^.]+$/, "")] : []),

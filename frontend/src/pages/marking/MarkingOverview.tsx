@@ -48,8 +48,9 @@ const OPTION_LABELS: Record<MarkingOption, { title: string; summary: string }> =
     summary: "Upload question paper and learner booklets only. AI generates the marking guide — no memo required.",
   },
   2: {
-    title: "Question paper with answers included",
-    summary: "Upload a question paper that includes memo or answers, plus learner booklets.",
+    title: "Question paper with memo/answers included",
+    summary:
+      "Upload ONE question paper that already contains the memo/answers, plus learner booklets.",
   },
   3: {
     title: "ScriptCheck assessment",
@@ -810,11 +811,12 @@ export default function MarkingOverview() {
         <article className="sc-card sc-card-padded sc-marking-card" aria-labelledby="option-2">
           <header className="sc-marking-card-header">
             <h2 id="option-2" className="sc-marking-card-title">
-              Option 2 — Question paper with answers included
+              Option 2 — Question paper with memo/answers included
             </h2>
             <p className="sc-marking-hint">
-              Upload a question paper that includes memo or answers, plus learner answer booklets.
-              ScriptCheck extracts questions and answers, then marks learner scripts.
+              Upload ONE question paper that already contains the memorandum or answers, plus the learner
+              answer booklets. ScriptCheck will extract both the questions and the memo from the same
+              uploaded paper. No separate memo or answers file is required.
             </p>
           </header>
 
@@ -854,9 +856,10 @@ export default function MarkingOverview() {
           </div>
 
           <div className="sc-marking-upload-card sc-marking-question-paper-panel">
-            <h3 className="sc-marking-section-title">Upload question paper (with memo/answers)</h3>
+            <h3 className="sc-marking-section-title">Upload question paper (memo/answers included)</h3>
             <p className="sc-marking-memo-note">
-              Include a memorandum or answers section on the question paper. No separate memo upload needed.
+              Upload the question paper only. The memorandum or answers must already be inside this same
+              document. Do not upload a separate memo or answers file.
             </p>
             <button
               type="button"

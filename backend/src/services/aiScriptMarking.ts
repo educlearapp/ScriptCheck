@@ -8,6 +8,10 @@ import { getMarkingMode, isMarkingPackAssessment, type MarkingMode } from "./qui
 
 export const LEARNER_OCR_UNREADABLE_COMMENT =
   "AI: learner answer text could not be read";
+const LEARNER_ANSWER_NOT_DETECTED_COMMENT =
+  "AI: learner answer for this question was not detected";
+const GENERIC_EXPECTED_ANSWER_RE =
+  /^Award up to \d+(?:\.\d+)? marks for a correct answer to question/i;
 
 export type MarkingGuideResult = {
   assessmentId: string;
@@ -120,6 +124,52 @@ function scoreAnswer(
   return { mark: 0, comment: "AI: no matching answer found" };
 }
 
+function normaliseQuestionNumber(value: string): string {
+  return value.replace(/,/g, ".").trim();
+}
+
+function extractLearnerAnswersByQuestion(
+  ocrText: string,
+  questionNumbers: string[]
+): Map<string, string> {
+  const wanted = new Set(questionNumbers.map(normaliseQuestionNumber));
+  const answers = new Map<string, string[]>();
+  let currentQuestion: string | null = null;
+
+  for (const line of ocrText.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    const match = trimmed.match(
+      /^(?:q(?:uestion)?\s*)?(\d+(?:[.,]\d+)*)\s*(?:[.)\]:-])?\s*(.*)$/i
+    );
+    if (match) {
+      const questionNumber = normaliseQuestionNumber(match[1]);
+      if (wanted.has(questionNumber)) {
+        currentQuestion = questionNumber;
+        const remainder = match[2].trim();
+        if (remainder) {
+          answers.set(questionNumber, [...(answers.get(questionNumber) ?? []), remainder]);
+        } else if (!answers.has(questionNumber)) {
+          answers.set(questionNumber, []);
+        }
+        continue;
+      }
+    }
+
+    if (currentQuestion) {
+      answers.set(currentQuestion, [...(answers.get(currentQuestion) ?? []), trimmed]);
+    }
+  }
+
+  return new Map(
+    [...answers.entries()].map(([questionNumber, parts]) => [
+      questionNumber,
+      parts.join(" ").replace(/\s+/g, " ").trim(),
+    ])
+  );
+}
+
 export async function generateMarkingGuide(
   assessmentId: string,
   workspaceId: string
@@ -204,9 +254,17 @@ export async function runAiMarkingForScript(
 
   const { text: ocrText, debug: ocrDebug } = await ocrLearnerScriptPages(script.pages);
   const canScore = isMeaningfulLearnerScriptOcr(ocrText, script.pages.length);
+  const mode = getMarkingMode(script.assessment);
+  const learnerAnswers =
+    mode === "QP_WITH_ANSWERS" && canScore
+      ? extractLearnerAnswersByQuestion(
+          ocrText,
+          script.questionMarks.map((mark) => mark.questionNumber)
+        )
+      : new Map<string, string>();
 
   console.log(
-    `[ai-marking] script=${scriptId} ocrLen=${ocrText.length} meaningful=${canScore} pages=${ocrDebug.map((d) => `${d.method}:${d.textLength}`).join(",")}`
+    `[ai-marking] script=${scriptId} ocrLen=${ocrText.length} meaningful=${canScore} extractedAnswers=${learnerAnswers.size} pages=${ocrDebug.map((d) => `${d.method}:${d.textLength}`).join(",")}`
   );
 
   let questionsMarked = 0;
@@ -215,14 +273,29 @@ export async function runAiMarkingForScript(
   for (const mark of script.questionMarks) {
     const expected = mark.assessmentQuestion.expectedAnswer?.trim();
     if (!expected) continue;
+    if (mode === "QP_WITH_ANSWERS" && GENERIC_EXPECTED_ANSWER_RE.test(expected)) {
+      throw new ScriptError(
+        "Answers could not be detected inside the uploaded question paper. Please upload a paper that includes answers/memo or use Option 1.",
+        400
+      );
+    }
 
     let awarded = 0;
     let comment = LEARNER_OCR_UNREADABLE_COMMENT;
 
     if (canScore) {
-      const scored = scoreAnswer(ocrText, expected, mark.maxMarks);
-      awarded = scored.mark;
-      comment = scored.comment;
+      const learnerAnswer =
+        mode === "QP_WITH_ANSWERS"
+          ? learnerAnswers.get(normaliseQuestionNumber(mark.questionNumber))?.trim()
+          : ocrText;
+
+      if (learnerAnswer) {
+        const scored = scoreAnswer(learnerAnswer, expected, mark.maxMarks);
+        awarded = scored.mark;
+        comment = scored.comment;
+      } else {
+        comment = LEARNER_ANSWER_NOT_DETECTED_COMMENT;
+      }
     }
 
     const clamped = Math.max(0, Math.min(mark.maxMarks, awarded));

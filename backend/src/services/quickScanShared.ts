@@ -4,7 +4,7 @@ export const QUICK_SCAN_MEMO_BLOCKER =
   "No memo or answers detected. Upload memo before AI marking.";
 
 export const QUICK_SCAN_ON_PAPER_MEMO_BLOCKER =
-  "Could not detect answers in the question paper. Include a memorandum or answers section on the question paper, or upload a memo separately.";
+  "Answers could not be detected inside the uploaded question paper. Please upload a paper that includes answers/memo or use Option 1.";
 
 export type ScriptFormat = "ANSWER_SHEET" | "ON_QUESTION_PAPER";
 
