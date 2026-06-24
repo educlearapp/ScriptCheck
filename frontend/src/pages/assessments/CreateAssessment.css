@@ -1,38 +1,312 @@
-.sc-create-paths {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-top: 1.5rem;
+.sc-builder-shell {
+  max-width: 980px;
+  min-height: 68vh;
+  margin: 0 auto;
 }
 
-.sc-create-path {
-  background: var(--sc-bg-card);
+.sc-builder-welcome,
+.sc-builder-loading,
+.sc-builder-success {
+  min-height: 68vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 1.25rem;
+}
+
+.sc-builder-welcome h1,
+.sc-builder-loading h1,
+.sc-builder-success h1,
+.sc-builder-card h1 {
+  margin: 0;
+  max-width: 760px;
+  color: var(--sc-text);
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+}
+
+.sc-builder-welcome p,
+.sc-builder-loading p {
+  margin: 0;
+  color: var(--sc-text-muted);
+  font-size: 1.25rem;
+}
+
+.sc-builder-welcome .sc-btn,
+.sc-builder-card > .sc-btn,
+.sc-builder-preview-wrap > .sc-btn {
+  min-width: 220px;
+  justify-content: center;
+  padding: 0.95rem 1.4rem;
+  font-size: 1rem;
+}
+
+.sc-builder-step-note {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--sc-border-gold);
+  border-radius: var(--sc-radius);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.sc-builder-step-note span {
+  color: var(--sc-gold-dark);
+  font-weight: 800;
+}
+
+.sc-builder-step-note strong {
+  color: var(--sc-text);
+}
+
+.sc-builder-error {
+  max-width: 760px;
+  margin: 0 auto 1rem;
+}
+
+.sc-builder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: clamp(1.25rem, 4vw, 2.25rem);
   border: 1px solid var(--sc-border);
   border-radius: var(--sc-radius);
-  padding: 1.25rem;
+  background: var(--sc-surface);
+  box-shadow: var(--sc-shadow);
+}
+
+.sc-builder-form-grid,
+.sc-builder-simple-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.sc-builder-form-grid label,
+.sc-builder-simple-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--sc-text);
+  font-weight: 700;
+}
+
+.sc-builder-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.sc-builder-choice {
+  min-height: 190px;
+  padding: 1.35rem;
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius);
+  background: #ffffff;
+  color: var(--sc-text);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: var(--sc-shadow);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
 }
 
-.sc-create-path:hover {
-  border-color: var(--sc-gold);
-  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.25);
+.sc-builder-choice:hover,
+.sc-builder-choice:focus {
+  border-color: var(--sc-border-gold);
+  box-shadow: var(--sc-shadow-lg);
 }
 
-.sc-create-path-icon {
-  font-size: 1.5rem;
+.sc-builder-choice span {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.sc-builder-choice strong {
+  color: var(--sc-gold-dark);
+}
+
+.sc-builder-choice.is-recommended {
+  background: linear-gradient(135deg, #fff8dc 0%, #ffffff 76%);
+  border-color: var(--sc-border-gold);
+}
+
+.sc-builder-label {
+  display: block;
   margin-bottom: 0.5rem;
+  font-weight: 800;
 }
 
-.sc-create-path-title {
-  color: var(--sc-gold-light);
-  font-weight: 600;
-  margin-bottom: 0.35rem;
+.sc-builder-topic-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
-.sc-create-path-desc {
-  font-size: 0.85rem;
-  color: var(--sc-text-muted);
+.sc-builder-topic-list button {
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--sc-border);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--sc-text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.sc-builder-topic-list button.is-selected {
+  border-color: var(--sc-border-gold);
+  background: rgba(212, 175, 55, 0.14);
+  color: var(--sc-gold-dark);
+}
+
+.sc-builder-topic-list p {
   margin: 0;
+  color: var(--sc-text-muted);
+}
+
+.sc-builder-loader {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 8px solid rgba(212, 175, 55, 0.18);
+  border-top-color: var(--sc-gold);
+  animation: sc-builder-spin 1s linear infinite;
+}
+
+@keyframes sc-builder-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sc-builder-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+}
+
+.sc-builder-paper {
+  width: min(100%, 820px);
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.sc-builder-paper header {
+  text-align: center;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.sc-builder-paper header p,
+.sc-builder-paper header h1 {
+  margin: 0.25rem 0;
+}
+
+.sc-builder-paper header h1 {
+  font-size: 1.8rem;
+  letter-spacing: 0;
+}
+
+.sc-builder-paper header div {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 0.8rem;
+  font-weight: 700;
+}
+
+.sc-builder-question {
+  padding: 1rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sc-builder-question > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-weight: 800;
+}
+
+.sc-builder-question p {
+  margin: 0.65rem 0;
+  line-height: 1.55;
+}
+
+.sc-builder-question-actions {
+  display: flex;
+  gap: 0.55rem;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.sc-builder-question-actions button,
+.sc-builder-text-button {
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-sm);
+  background: #ffffff;
+  color: var(--sc-text);
+  cursor: pointer;
+  font-weight: 700;
+  padding: 0.45rem 0.7rem;
+}
+
+.sc-builder-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.sc-builder-success-actions .sc-btn {
+  min-width: 170px;
+  justify-content: center;
+}
+
+.sc-builder-text-button {
+  margin-top: 0.5rem;
+}
+
+@media print {
+  .sc-sidebar,
+  .sc-topbar,
+  .sc-builder-step-note,
+  .sc-builder-preview-wrap > .sc-btn,
+  .sc-builder-question-actions {
+    display: none !important;
+  }
+
+  .sc-app-content {
+    padding: 0 !important;
+  }
+
+  .sc-builder-paper {
+    box-shadow: none;
+    border: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .sc-builder-form-grid,
+  .sc-builder-simple-grid,
+  .sc-builder-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-builder-step-note,
+  .sc-builder-paper header div {
+    flex-direction: column;
+  }
 }
