@@ -815,7 +815,7 @@ export default function CreateAssessment() {
         <section className="sc-builder-card" aria-label="Question Library choices">
           <h1>Choose your questions.</h1>
           <div className="sc-builder-question-library">
-            <div className="sc-builder-question-library-head" aria-hidden="true">
+            <div className="sc-builder-question-library-head">
               <span>Question</span>
               <span>Marks</span>
               <span>Difficulty</span>
