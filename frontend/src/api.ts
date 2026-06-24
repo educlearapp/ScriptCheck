@@ -1,4 +1,4 @@
-import { getAuthToken } from "./auth/session";
+import { clearAuthSession, getAuthToken } from "./auth/session";
 
 export const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -30,6 +30,13 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!res.ok) {
+    if (res.status === 401 && path !== "/auth/login") {
+      clearAuthSession();
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+    }
+
     const message =
       typeof data === "object" &&
       data !== null &&
