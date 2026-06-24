@@ -9,7 +9,7 @@ import "./Sidebar.css";
 const MAIN_NAV: NavItem[] = [
   { to: "/dashboard", label: "Home", icon: "◆", section: "assessment" },
   {
-    to: "/assessments",
+    to: "/assessments/new",
     label: "Create Assessment",
     icon: "▣",
     permission: "assessments.view",
