@@ -50,6 +50,12 @@
   font-size: 0.9rem;
 }
 
+.sc-builder-field-note {
+  color: var(--sc-danger, #b42318);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .sc-builder-step-note {
   display: flex;
   justify-content: space-between;

@@ -78,6 +78,8 @@ export default function CreateAssessment() {
   const [subjects, setSubjects] = useState<SubjectRef[]>([]);
   const [topics, setTopics] = useState<CurriculumTopic[]>([]);
   const [bankItems, setBankItems] = useState<QuestionBankItem[]>([]);
+  const [curriculumLoading, setCurriculumLoading] = useState(true);
+  const [curriculumLoadError, setCurriculumLoadError] = useState("");
   const [gradesLoading, setGradesLoading] = useState(false);
   const [subjectsLoading, setSubjectsLoading] = useState(false);
 
@@ -113,9 +115,21 @@ export default function CreateAssessment() {
   );
 
   useEffect(() => {
-    apiFetch<CurriculumRef[]>("/curriculum")
-      .then(setCurriculums)
-      .catch(() => setCurriculums([]));
+    setCurriculumLoading(true);
+    setCurriculumLoadError("");
+    apiFetch<CurriculumRef[]>("/curriculum", { cache: "no-store" })
+      .then((list) => {
+        setCurriculums(list);
+        if (list.length === 0) {
+          setCurriculumLoadError("I could not find the curriculum list. Please refresh and try again.");
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setCurriculums([]);
+        setCurriculumLoadError("I could not load the curriculum list. Please refresh and try again.");
+      })
+      .finally(() => setCurriculumLoading(false));
   }, []);
 
   useEffect(() => {
@@ -126,12 +140,14 @@ export default function CreateAssessment() {
       return;
     }
     setGradesLoading(true);
-    apiFetch<PhaseRef[]>(`/curriculum/${curriculumId}/phases`)
+    apiFetch<PhaseRef[]>(`/curriculum/${curriculumId}/phases`, { cache: "no-store" })
       .then(async (phaseList) => {
         setPhases(phaseList);
         const gradeGroups = await Promise.all(
           phaseList.map((phase) =>
-            apiFetch<GradeRef[]>(`/curriculum/phases/${phase.id}/grades`).catch(() => [])
+            apiFetch<GradeRef[]>(`/curriculum/phases/${phase.id}/grades`, {
+              cache: "no-store",
+            }).catch(() => [])
           )
         );
         setGrades(gradeGroups.flat());
@@ -152,7 +168,7 @@ export default function CreateAssessment() {
       return;
     }
     setSubjectsLoading(true);
-    apiFetch<SubjectRef[]>(`/curriculum/phases/${phaseId}/subjects`)
+    apiFetch<SubjectRef[]>(`/curriculum/phases/${phaseId}/subjects`, { cache: "no-store" })
       .then(setSubjects)
       .catch(() => {
         setSubjects([]);
@@ -476,6 +492,7 @@ export default function CreateAssessment() {
               <select
                 className="sc-select"
                 value={curriculumId}
+                disabled={curriculumLoading}
                 onChange={(e) => {
                   setCurriculumId(e.target.value);
                   setPhaseId("");
@@ -485,13 +502,18 @@ export default function CreateAssessment() {
                   resetAfterDetailsChange();
                 }}
               >
-                <option value="">Choose curriculum</option>
+                <option value="">
+                  {curriculumLoading ? "Loading curriculum..." : "Choose curriculum"}
+                </option>
                 {curriculums.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
                   </option>
                 ))}
               </select>
+              {curriculumLoadError ? (
+                <span className="sc-builder-field-note">{curriculumLoadError}</span>
+              ) : null}
             </label>
             <label>
               Grade
