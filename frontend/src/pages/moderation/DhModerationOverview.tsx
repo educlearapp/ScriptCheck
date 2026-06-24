@@ -324,7 +324,7 @@ export default function DhModerationOverview() {
                 checked={saveToBank}
                 onChange={(e) => setSaveToBank(e.target.checked)}
               />
-              Save approved questions to Question Bank (DH Approved)
+              Save approved questions to Question Library (DH Approved)
             </label>
           ) : (
             <p className="sc-mod-hint" style={{ margin: 0 }}>

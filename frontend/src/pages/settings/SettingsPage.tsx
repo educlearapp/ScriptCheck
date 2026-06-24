@@ -8,7 +8,7 @@ const ADMIN_LINKS = [
   { to: "/users", label: "Users & Roles", permission: "users.view" as const },
   { to: "/subjects", label: "Subjects", permission: "subjects.view" as const },
   { to: "/curriculum", label: "Curriculum Management", permission: "curriculum.view" as const },
-  { to: "/question-bank", label: "Question Bank", permission: "questionBank.view" as const },
+  { to: "/question-bank", label: "Question Library", permission: "questionBank.view" as const },
   { to: "/assessment-templates", label: "Assessment Templates", permission: "assessmentTemplates.view" as const },
   { to: "/rubrics", label: "Rubrics", permission: "rubrics.view" as const },
   { to: "/concessions", label: "Concessions", permission: "concessions.view" as const },

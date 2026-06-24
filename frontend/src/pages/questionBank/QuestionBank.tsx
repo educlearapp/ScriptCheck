@@ -82,7 +82,7 @@ export default function QuestionBank() {
     apiFetch<QuestionBankItem[]>(`/question-bank?${params}`)
       .then(setItems)
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load question bank")
+        setError(err instanceof Error ? err.message : "Failed to load question library")
       )
       .finally(() => setLoading(false));
   }, [curriculumId, phaseId, gradeId, subjectId, topicFilter, statusFilter]);
@@ -184,7 +184,7 @@ export default function QuestionBank() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
         <div>
-          <h1 className="sc-page-title">Question Bank</h1>
+          <h1 className="sc-page-title">Question Library</h1>
           <p className="sc-page-subtitle">
             Reusable questions from teacher work, AI generation, and DH-approved assessments.
           </p>

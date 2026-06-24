@@ -427,7 +427,7 @@ export default function AiAssessmentBuilder() {
 
   async function handleSaveQuestionsToBank(materialId: string, questions: ExtractedPaperQuestion[]) {
     if (!requestId || !curriculumId || !phaseId || !gradeId || !subjectId) {
-      setError("Complete curriculum settings (Step 3) before saving to Question Bank, or fill grade/subject in Settings first.");
+      setError("Complete curriculum settings (Step 3) before saving to Question Library, or fill grade/subject in Settings first.");
       return;
     }
     setSavingQuestions(true);
@@ -844,7 +844,7 @@ export default function AiAssessmentBuilder() {
                   <strong>Detected questions ({m.extractedQuestions.length})</strong>
                   {m.duplicateWarnings?.some((d) => d.isDuplicate) && (
                     <p className="sc-error" style={{ fontSize: "0.82rem" }}>
-                      Duplicate warnings — similar questions exist in the Question Bank
+                      Duplicate warnings — similar questions exist in the Question Library
                     </p>
                   )}
                   <div className="ai-material-list">
@@ -961,7 +961,7 @@ export default function AiAssessmentBuilder() {
                     disabled={savingQuestions || !curriculumId || !phaseId || !gradeId || !subjectId}
                     onClick={() => void handleSaveQuestionsToBank(m.id, m.extractedQuestions)}
                   >
-                    {savingQuestions ? "Saving…" : "Save to Question Bank"}
+                    {savingQuestions ? "Saving…" : "Save to Question Library"}
                   </button>
                 </div>
               )}
@@ -1120,7 +1120,7 @@ export default function AiAssessmentBuilder() {
 
           {bankItems.length > 0 && (
             <div>
-              <span className="sc-label">Reuse Question Bank items (optional)</span>
+              <span className="sc-label">Reuse Question Library items (optional)</span>
               <div className="ai-material-list">
                 {bankItems.slice(0, 20).map((item) => (
                   <label key={item.id} className="ai-checkbox-item" style={{ display: "flex", gap: "0.5rem" }}>

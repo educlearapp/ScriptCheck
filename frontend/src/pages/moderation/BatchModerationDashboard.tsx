@@ -120,7 +120,7 @@ export default function BatchModerationDashboard() {
       {canExport ? (
         <div className="sc-form-actions" style={{ margin: "1rem 0" }}>
           <button type="button" className="sc-btn sc-btn-primary" onClick={handleExport}>
-            Export CSV
+            Download Results
           </button>
         </div>
       ) : null}

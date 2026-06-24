@@ -448,7 +448,7 @@ export function assertContentQualityGate(questions: AiGeneratedQuestion[]): void
 
 /**
  * Framework-first generation — structure comes from blueprint only.
- * AI fills content into fixed slots. Priority: Question Bank → Past Paper → AI fill.
+ * AI fills content into fixed slots. Priority: Question Library -> Past Paper -> AI fill.
  */
 export function generateFromBlueprint(input: BlueprintGenerationInput): AiGeneratedDraft {
   const { blueprint, bankItems = [], extractedQuestions = [], genInput } = input;
@@ -808,7 +808,7 @@ export function generateDraftFromQuestionBank(
   const totalMarks = questions.reduce((s, q) => s + q.marks, 0);
 
   return {
-    instructions: input.instructions?.trim() || `Assessment from question bank — ${input.title}.`,
+    instructions: input.instructions?.trim() || `Assessment from question library - ${input.title}.`,
     sections: [
       {
         name: "Section A",

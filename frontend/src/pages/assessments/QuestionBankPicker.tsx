@@ -53,7 +53,7 @@ export default function QuestionBankPicker({
     apiFetch<QuestionBankItem[]>(`/question-bank?${params}`)
       .then(setItems)
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load question bank")
+        setError(err instanceof Error ? err.message : "Failed to load question library")
       )
       .finally(() => setLoading(false));
   }, [open, assessment, topic, subtopic, difficulty, marks, status]);
@@ -111,7 +111,7 @@ export default function QuestionBankPicker({
       <div className="sc-qb-picker-modal" onClick={(e) => e.stopPropagation()}>
         <div className="sc-qb-picker-header">
           <div>
-            <h2 style={{ margin: 0, color: "var(--sc-gold-light)" }}>Question Bank</h2>
+            <h2 style={{ margin: 0, color: "var(--sc-gold-light)" }}>Question Library</h2>
             <p className="sc-page-subtitle" style={{ margin: "0.35rem 0 0" }}>
               {assessment.subject.name} · {assessment.grade.name} · Approved questions shown first
             </p>
@@ -154,7 +154,7 @@ export default function QuestionBankPicker({
           {loading ? (
             <p>Loading questions…</p>
           ) : items.length === 0 ? (
-            <p style={{ color: "var(--sc-text-muted)" }}>No matching questions in the bank.</p>
+            <p style={{ color: "var(--sc-text-muted)" }}>No matching questions in the library.</p>
           ) : (
             <div className="sc-table-wrap">
               <table className="sc-table">

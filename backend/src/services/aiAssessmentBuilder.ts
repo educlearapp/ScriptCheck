@@ -1016,7 +1016,7 @@ export async function generateAiAssessment(
         where: { id: { in: bankIds }, workspaceId, status: { not: "ARCHIVED" } },
       });
       if (bankItems.length === 0) {
-        throw new AiBuilderError("No valid question bank items selected", 400);
+        throw new AiBuilderError("No valid question library items selected", 400);
       }
       draft = generateDraftFromQuestionBank(genInput, bankItems);
     } else if (request.sourceMode === "PAST_PAPER") {

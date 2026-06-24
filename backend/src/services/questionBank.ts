@@ -531,7 +531,7 @@ export async function addQuestionBankItemsToAssessment(
   itemIds: string[]
 ) {
   if (!itemIds.length) {
-    throw new QuestionBankError("At least one question bank item is required", 400);
+    throw new QuestionBankError("At least one question library item is required", 400);
   }
 
   const assessment = await loadWorkspaceAssessment(assessmentId, workspaceId);
@@ -546,7 +546,7 @@ export async function addQuestionBankItemsToAssessment(
   });
 
   if (bankItems.length !== itemIds.length) {
-    throw new QuestionBankError("One or more question bank items not found", 404);
+    throw new QuestionBankError("One or more question library items not found", 404);
   }
 
   const maxOrder = await prisma.assessmentQuestion.aggregate({
@@ -621,7 +621,7 @@ export async function createAssessmentFromQuestionBank(
   }
 ) {
   if (!data.itemIds.length) {
-    throw new QuestionBankError("At least one question bank item is required", 400);
+    throw new QuestionBankError("At least one question library item is required", 400);
   }
 
   const title = data.title.trim();
@@ -636,7 +636,7 @@ export async function createAssessmentFromQuestionBank(
   });
 
   if (bankItems.length !== data.itemIds.length) {
-    throw new QuestionBankError("One or more question bank items not found", 404);
+    throw new QuestionBankError("One or more question library items not found", 404);
   }
 
   const questionTotal = bankItems.reduce((sum, q) => sum + q.marks, 0);

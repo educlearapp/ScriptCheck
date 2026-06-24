@@ -467,7 +467,7 @@ export default function MarkingOverview() {
               disabled={actionBusy === "export"}
               onClick={() => void exportMarks()}
             >
-              {actionBusy === "export" ? "Exporting..." : "Export"}
+              {actionBusy === "export" ? "Downloading..." : "Download Results"}
             </button>
           </div>
         </section>

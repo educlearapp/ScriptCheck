@@ -375,7 +375,7 @@ export default function HodModerationQueue() {
               checked={saveToBank}
               onChange={(e) => setSaveToBank(e.target.checked)}
             />
-            Save approved questions to Question Bank (DH Approved)
+            Save approved questions to Question Library (DH Approved)
           </label>
           <div className="sc-form-actions">
             <button

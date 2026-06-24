@@ -12,7 +12,7 @@ const HOME_ACTIONS = [
     main: true,
   },
   {
-    title: "Question Bank",
+    title: "Question Library",
     text: "Find and reuse questions you already trust.",
     to: "/question-bank",
   },

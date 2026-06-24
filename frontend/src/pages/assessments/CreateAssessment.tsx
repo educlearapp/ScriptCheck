@@ -16,9 +16,9 @@ import type {
 import "./CreateAssessment.css";
 
 type BuilderStep =
-  | "welcome"
   | "details"
   | "method"
+  | "topics"
   | "bank"
   | "loading"
   | "preview"
@@ -36,6 +36,28 @@ type PreviewQuestion = {
 };
 
 const DIFFICULTIES = ["Easy", "Standard", "Challenging"];
+const LANGUAGES = [
+  "English",
+  "Afrikaans",
+  "isiZulu",
+  "isiXhosa",
+  "Setswana",
+  "Sesotho",
+  "Sepedi",
+  "Siswati",
+  "Tshivenda",
+  "X" + "itsonga",
+  "isiNdebele",
+];
+
+const SUBJECT_TOPIC_FALLBACKS: Record<string, string[]> = {
+  "life skills": [
+    "Beginning Knowledge",
+    "Creative Arts",
+    "Physical Education",
+    "Personal & Social Well-being",
+  ],
+};
 
 function toDifficulty(value: string): GenerationDifficulty {
   if (value === "Easy") return "EASY";
@@ -67,7 +89,7 @@ function makeOwnQuestions(totalMarks: number, topic: string): PreviewQuestion[] 
 export default function CreateAssessment() {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<BuilderStep>("welcome");
+  const [step, setStep] = useState<BuilderStep>("details");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [createdAssessment, setCreatedAssessment] = useState<Assessment | null>(null);
@@ -87,6 +109,7 @@ export default function CreateAssessment() {
   const [phaseId, setPhaseId] = useState("");
   const [gradeId, setGradeId] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [language, setLanguage] = useState("");
   const [term, setTerm] = useState("");
   const [title, setTitle] = useState("");
   const [totalMarks, setTotalMarks] = useState("50");
@@ -95,6 +118,7 @@ export default function CreateAssessment() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState("Standard");
   const [bankMarks, setBankMarks] = useState("50");
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [previewQuestions, setPreviewQuestions] = useState<PreviewQuestion[]>([]);
 
   const selectedCurriculum = curriculums.find((item) => item.id === curriculumId);
@@ -102,12 +126,17 @@ export default function CreateAssessment() {
   const selectedSubject = subjects.find((item) => item.id === subjectId);
   const marksNumber = Math.max(1, Number(totalMarks) || 0);
   const bankMarksNumber = Math.max(1, Number(bankMarks) || marksNumber);
+  const requiresLanguage = Boolean(
+    selectedSubject &&
+      ["home language", "first additional language"].includes(selectedSubject.name.toLowerCase())
+  );
 
   const detailsReady = Boolean(
     curriculumId &&
       phaseId &&
       gradeId &&
       subjectId &&
+      (!requiresLanguage || language) &&
       term.trim() &&
       title.trim() &&
       Number(totalMarks) > 0 &&
@@ -213,30 +242,68 @@ export default function CreateAssessment() {
     for (const item of bankItems) {
       if (item.topic) names.add(item.topic);
     }
+    if (names.size === 0 && selectedSubject) {
+      const fallback = SUBJECT_TOPIC_FALLBACKS[selectedSubject.name.toLowerCase()] ?? [];
+      for (const topic of fallback) names.add(topic);
+    }
     return Array.from(names).slice(0, 12);
-  }, [bankItems, topics]);
+  }, [bankItems, selectedSubject, topics]);
+
+  const hasRealTopics = topics.length > 0 || bankItems.some((item) => item.topic);
 
   const filteredBankItems = useMemo(() => {
-    return bankItems.filter((item) => {
+    const selectedLanguageLower = language.toLowerCase();
+    const items = bankItems.filter((item) => {
       const topicOk =
-        selectedTopics.length === 0 || (item.topic ? selectedTopics.includes(item.topic) : false);
+        !hasRealTopics ||
+        selectedTopics.length === 0 ||
+        (item.topic ? selectedTopics.includes(item.topic) : false);
       const difficultyOk =
         difficulty === "Standard" ||
         !item.difficulty ||
         item.difficulty.toLowerCase().includes(difficulty.toLowerCase());
       return topicOk && difficultyOk;
     });
-  }, [bankItems, difficulty, selectedTopics]);
+    if (!requiresLanguage || !selectedLanguageLower) return items;
+
+    const languageMatches = items.filter((item) => {
+      const searchable = [item.topic, item.subtopic, item.questionText, item.expectedAnswer]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(selectedLanguageLower);
+    });
+    return languageMatches.length > 0 ? languageMatches : items;
+  }, [bankItems, difficulty, hasRealTopics, language, requiresLanguage, selectedTopics]);
+
+  const selectedLibraryQuestions = useMemo(
+    () => filteredBankItems.filter((item) => selectedQuestionIds.includes(item.id)),
+    [filteredBankItems, selectedQuestionIds]
+  );
+  const selectedLibraryMarks = selectedLibraryQuestions.reduce((total, item) => total + item.marks, 0);
+  const selectedEstimatedDuration = Math.max(
+    10,
+    Math.round((Number(durationMinutes) || 60) * (selectedLibraryMarks / Math.max(1, marksNumber)))
+  );
 
   function resetAfterDetailsChange() {
     setPreviewQuestions([]);
     setCreatedAssessment(null);
+    setSelectedTopics([]);
+    setSelectedQuestionIds([]);
     setError("");
   }
 
   function toggleTopic(topic: string) {
     setSelectedTopics((current) =>
       current.includes(topic) ? current.filter((item) => item !== topic) : [...current, topic]
+    );
+    setSelectedQuestionIds([]);
+  }
+
+  function toggleLibraryQuestion(id: string) {
+    setSelectedQuestionIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
     );
   }
 
@@ -252,9 +319,9 @@ export default function CreateAssessment() {
   }
 
   async function buildFromBank() {
-    const picked = pickBankQuestions();
+    const picked = selectedLibraryQuestions.length > 0 ? selectedLibraryQuestions : pickBankQuestions();
     if (picked.length === 0) {
-      setError("I could not find matching questions. Try another topic or difficulty.");
+      setError("Choose at least one question to create your assessment.");
       return;
     }
     setError("");
@@ -294,7 +361,7 @@ export default function CreateAssessment() {
           title: title.trim(),
           totalMarks: marksNumber,
           difficulty: toDifficulty(difficulty),
-          topics: [fallbackTopic],
+          topics: [language ? `${fallbackTopic} - ${language}` : fallbackTopic],
           outputMode: "QUESTIONS_AND_MEMO",
           instructions: null,
         }),
@@ -324,7 +391,9 @@ export default function CreateAssessment() {
   async function buildOwnAssessment() {
     setStep("loading");
     await new Promise((resolve) => window.setTimeout(resolve, 700));
-    setPreviewQuestions(makeOwnQuestions(marksNumber, topicOptions[0] || selectedSubject?.name || "General"));
+    setPreviewQuestions(
+      makeOwnQuestions(marksNumber, selectedTopics[0] || topicOptions[0] || selectedSubject?.name || "General")
+    );
     setStep("preview");
   }
 
@@ -384,6 +453,7 @@ export default function CreateAssessment() {
         method: "POST",
         body: JSON.stringify({
           title: title.trim(),
+          description: language ? `Language: ${language}` : null,
           curriculumId,
           phaseId,
           gradeId,
@@ -449,22 +519,12 @@ export default function CreateAssessment() {
 
   async function saveToQuestionBank() {
     if (!createdAssessment) return;
-    setError("Save to Question Bank happens when your DH approves the assessment.");
+    setError("Save to Question Library happens when your DH approves the assessment.");
   }
 
   return (
     <div className="sc-builder-shell">
-      {step === "welcome" ? (
-        <section className="sc-builder-welcome" aria-label="Welcome">
-          <h1>Let&apos;s create your assessment</h1>
-          <p>&ldquo;We&apos;ll guide you step by step.&rdquo;</p>
-          <button type="button" className="sc-btn sc-btn-primary" onClick={() => setStep("details")}>
-            Start Assessment
-          </button>
-        </section>
-      ) : null}
-
-      {step !== "welcome" && step !== "loading" ? (
+      {step !== "loading" ? (
         <div className="sc-builder-step-note">
           <span>Assessment Builder</span>
           <strong>
@@ -472,11 +532,13 @@ export default function CreateAssessment() {
               ? "Tell us about your assessment."
               : step === "method"
                 ? "Choose how to create it."
-                : step === "bank"
-                  ? "Choose questions."
-                  : step === "preview"
-                    ? "Check the paper."
-                    : "Your assessment is ready."}
+                : step === "topics"
+                  ? "Choose topics."
+                  : step === "bank"
+                    ? "Choose questions."
+                    : step === "preview"
+                      ? "Check the paper."
+                      : "Your assessment is ready."}
           </strong>
         </div>
       ) : null}
@@ -555,6 +617,13 @@ export default function CreateAssessment() {
                 disabled={!gradeId || !phaseId || subjectsLoading}
                 onChange={(e) => {
                   setSubjectId(e.target.value);
+                  const subject = subjects.find((item) => item.id === e.target.value);
+                  if (
+                    !subject ||
+                    !["home language", "first additional language"].includes(subject.name.toLowerCase())
+                  ) {
+                    setLanguage("");
+                  }
                   resetAfterDetailsChange();
                 }}
               >
@@ -568,6 +637,26 @@ export default function CreateAssessment() {
                 ))}
               </select>
             </label>
+            {requiresLanguage ? (
+              <label>
+                Language
+                <select
+                  className="sc-select"
+                  value={language}
+                  onChange={(e) => {
+                    setLanguage(e.target.value);
+                    resetAfterDetailsChange();
+                  }}
+                >
+                  <option value="">Choose language</option>
+                  {LANGUAGES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label>
               Term
               <input
@@ -626,11 +715,11 @@ export default function CreateAssessment() {
             disabled={!detailsReady}
             onClick={() => setStep("method")}
           >
-            Next
+            Continue
           </button>
           {!detailsReady ? (
             <p className="sc-builder-next-hint">
-              Complete each field above, then click Next.
+              Complete each field above, then click Continue.
             </p>
           ) : null}
         </section>
@@ -641,24 +730,26 @@ export default function CreateAssessment() {
           <h1>How would you like to create your assessment?</h1>
           <div className="sc-builder-choice-grid">
             <button type="button" className="sc-builder-choice is-recommended" onClick={() => {
-              setStep("bank");
+              setStep("topics");
             }}>
-              <span>Build from Question Bank</span>
-              <strong>(Recommended)</strong>
+              <span>Choose from Question Library</span>
+              <p>Browse curriculum-aligned questions and choose the ones you want.</p>
             </button>
             <button type="button" className="sc-builder-choice" onClick={() => void buildWithAssistant()}>
-              <span>Create with AI</span>
+              <span>Let ScriptCheck Build It</span>
+              <p>ScriptCheck creates a complete assessment for you to review.</p>
             </button>
             <button type="button" className="sc-builder-choice" onClick={() => void buildOwnAssessment()}>
-              <span>Create My Own Assessment</span>
+              <span>Write My Own Questions</span>
+              <p>Create your own assessment from scratch.</p>
             </button>
           </div>
         </section>
       ) : null}
 
-      {step === "bank" ? (
-        <section className="sc-builder-card" aria-label="Question bank choices">
-          <h1>Choose what should be in the assessment.</h1>
+      {step === "topics" ? (
+        <section className="sc-builder-card" aria-label="Topic choices">
+          <h1>Choose the topics.</h1>
           <div className="sc-builder-simple-grid">
             <div>
               <label className="sc-builder-label">Topic(s)</label>
@@ -671,13 +762,23 @@ export default function CreateAssessment() {
                       className={selectedTopics.includes(topic) ? "is-selected" : ""}
                       onClick={() => toggleTopic(topic)}
                     >
+                      <span aria-hidden="true">
+                        {selectedTopics.includes(topic) ? "☑" : "☐"}
+                      </span>{" "}
                       {topic}
                     </button>
                   ))
                 ) : (
-                  <p>No topics found yet. You can still build from all available questions.</p>
+                  <p>
+                    No topics are listed yet. You can still browse the full Question Library.
+                  </p>
                 )}
               </div>
+              {!hasRealTopics && topicOptions.length ? (
+                <p className="sc-builder-next-hint">
+                  These are simple topic choices for this subject. You can continue without selecting one.
+                </p>
+              ) : null}
             </div>
             <label>
               Difficulty
@@ -704,8 +805,59 @@ export default function CreateAssessment() {
               />
             </label>
           </div>
-          <button type="button" className="sc-btn sc-btn-primary" onClick={() => void buildFromBank()}>
-            Build My Assessment
+          <button type="button" className="sc-btn sc-btn-primary" onClick={() => setStep("bank")}>
+            Continue
+          </button>
+        </section>
+      ) : null}
+
+      {step === "bank" ? (
+        <section className="sc-builder-card" aria-label="Question Library choices">
+          <h1>Choose your questions.</h1>
+          {filteredBankItems.length ? (
+            <div className="sc-builder-question-library">
+              <div className="sc-builder-question-library-head" aria-hidden="true">
+                <span>Question</span>
+                <span>Marks</span>
+                <span>Difficulty</span>
+                <span>Topic</span>
+                <span>Preview</span>
+              </div>
+              {filteredBankItems.map((item) => (
+                <label key={item.id} className="sc-builder-question-row">
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={selectedQuestionIds.includes(item.id)}
+                      onChange={() => toggleLibraryQuestion(item.id)}
+                    />{" "}
+                    {item.questionText}
+                  </span>
+                  <span>{item.marks}</span>
+                  <span>{item.difficulty || "Standard"}</span>
+                  <span>{item.topic || "General"}</span>
+                  <span>{item.expectedAnswer ? "Answer included" : "View when selected"}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="sc-builder-friendly-empty">
+              There are no matching questions in the Question Library yet. Change the topic or choose
+              &ldquo;Write My Own Questions&rdquo; on the previous screen.
+            </p>
+          )}
+          <div className="sc-builder-selection-summary">
+            <span>Questions selected: {selectedLibraryQuestions.length}</span>
+            <span>Total Marks: {selectedLibraryMarks}</span>
+            <span>Estimated Duration: {selectedEstimatedDuration} minutes</span>
+          </div>
+          <button
+            type="button"
+            className="sc-btn sc-btn-primary"
+            disabled={selectedLibraryQuestions.length === 0}
+            onClick={() => void buildFromBank()}
+          >
+            Create My Assessment
           </button>
         </section>
       ) : null}
@@ -725,7 +877,8 @@ export default function CreateAssessment() {
               <p>{selectedCurriculum?.name}</p>
               <h1>{title}</h1>
               <p>
-                {selectedGrade?.name} {selectedSubject ? `- ${selectedSubject.name}` : ""} - {term}
+                {selectedGrade?.name} {selectedSubject ? `- ${selectedSubject.name}` : ""}
+                {language ? ` - ${language}` : ""} - {term}
               </p>
               <div>
                 <span>Total: {marksNumber} marks</span>
@@ -759,7 +912,7 @@ export default function CreateAssessment() {
             disabled={busy}
             onClick={() => void approveAssessment()}
           >
-            {busy ? "Saving..." : "Approve Assessment"}
+            {busy ? "Saving..." : "Finish Assessment"}
           </button>
         </section>
       ) : null}
@@ -778,7 +931,7 @@ export default function CreateAssessment() {
               Send to DH
             </button>
             <button type="button" className="sc-btn sc-btn-secondary" onClick={() => void saveToQuestionBank()}>
-              Save to Question Bank
+              Save to Question Library
             </button>
           </div>
           {createdAssessment ? (

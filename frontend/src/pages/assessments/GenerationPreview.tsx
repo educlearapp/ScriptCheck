@@ -222,7 +222,7 @@ export default function GenerationPreview() {
             disabled={!!actionLoading}
             onClick={handleSaveToBank}
           >
-            {actionLoading === "bank" ? "Saving…" : "Save Generated Questions to Question Bank"}
+            {actionLoading === "bank" ? "Saving…" : "Save Generated Questions to Question Library"}
           </button>
         ) : null}
         {isApproved ? (

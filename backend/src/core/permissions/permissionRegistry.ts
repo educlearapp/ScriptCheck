@@ -31,7 +31,7 @@ export const PERMISSION_DEFINITIONS = {
   "audit.view": { category: "audit", label: "View audit logs" },
   "subscription.manage": { category: "subscription", label: "Manage subscription" },
   "export.assessment_pack": { category: "export", label: "Export assessment packs" },
-  "questionBank.view": { category: "questionBank", label: "View question bank" },
+  "questionBank.view": { category: "questionBank", label: "View question library" },
   "questionBank.create": { category: "questionBank", label: "Create questions" },
   "questionBank.edit": { category: "questionBank", label: "Edit questions" },
   "questionBank.approve": { category: "questionBank", label: "Approve questions" },

@@ -17,7 +17,7 @@ const MAIN_NAV: NavItem[] = [
   },
   {
     to: "/question-bank",
-    label: "Question Bank",
+    label: "Question Library",
     icon: "□",
     permission: "questionBank.view",
     section: "assessment",

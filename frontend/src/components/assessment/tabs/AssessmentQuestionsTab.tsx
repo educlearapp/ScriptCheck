@@ -32,7 +32,7 @@ export default function AssessmentQuestionsTab({ user, q, onReload }: Props) {
             </button>
             {q.canUseBank ? (
               <button type="button" className="sc-btn sc-btn-ghost" onClick={() => q.setPickerOpen(true)}>
-                Question Bank
+                Question Library
               </button>
             ) : null}
             {hasPermission(user, "assessments.create") ? (
