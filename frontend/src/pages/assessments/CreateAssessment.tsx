@@ -78,6 +78,8 @@ export default function CreateAssessment() {
   const [subjects, setSubjects] = useState<SubjectRef[]>([]);
   const [topics, setTopics] = useState<CurriculumTopic[]>([]);
   const [bankItems, setBankItems] = useState<QuestionBankItem[]>([]);
+  const [gradesLoading, setGradesLoading] = useState(false);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
 
   const [curriculumId, setCurriculumId] = useState("");
   const [phaseId, setPhaseId] = useState("");
@@ -120,8 +122,10 @@ export default function CreateAssessment() {
     if (!curriculumId) {
       setPhases([]);
       setGrades([]);
+      setGradesLoading(false);
       return;
     }
+    setGradesLoading(true);
     apiFetch<PhaseRef[]>(`/curriculum/${curriculumId}/phases`)
       .then(async (phaseList) => {
         setPhases(phaseList);
@@ -135,18 +139,26 @@ export default function CreateAssessment() {
       .catch(() => {
         setPhases([]);
         setGrades([]);
+      })
+      .finally(() => {
+        setGradesLoading(false);
       });
   }, [curriculumId]);
 
   useEffect(() => {
     if (!phaseId) {
       setSubjects([]);
+      setSubjectsLoading(false);
       return;
     }
+    setSubjectsLoading(true);
     apiFetch<SubjectRef[]>(`/curriculum/phases/${phaseId}/subjects`)
       .then(setSubjects)
       .catch(() => {
         setSubjects([]);
+      })
+      .finally(() => {
+        setSubjectsLoading(false);
       });
   }, [phaseId]);
 
@@ -469,6 +481,7 @@ export default function CreateAssessment() {
                   setPhaseId("");
                   setGradeId("");
                   setSubjectId("");
+                  setSubjects([]);
                   resetAfterDetailsChange();
                 }}
               >
@@ -485,16 +498,20 @@ export default function CreateAssessment() {
               <select
                 className="sc-select"
                 value={gradeId}
-                disabled={!curriculumId}
+                disabled={!curriculumId || gradesLoading}
                 onChange={(e) => {
                   const grade = grades.find((item) => item.id === e.target.value);
                   setGradeId(e.target.value);
                   if (grade?.phaseId) setPhaseId(grade.phaseId);
+                  else setPhaseId("");
                   setSubjectId("");
+                  setSubjects([]);
                   resetAfterDetailsChange();
                 }}
               >
-                <option value="">Choose grade</option>
+                <option value="">
+                  {gradesLoading ? "Loading grades..." : "Choose grade"}
+                </option>
                 {phases.map((phase) => (
                   <optgroup key={phase.id} label={phase.name}>
                     {grades
@@ -513,13 +530,15 @@ export default function CreateAssessment() {
               <select
                 className="sc-select"
                 value={subjectId}
-                disabled={!phaseId}
+                disabled={!gradeId || !phaseId || subjectsLoading}
                 onChange={(e) => {
                   setSubjectId(e.target.value);
                   resetAfterDetailsChange();
                 }}
               >
-                <option value="">Choose subject</option>
+                <option value="">
+                  {subjectsLoading ? "Loading subjects..." : "Choose subject"}
+                </option>
                 {subjects.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
@@ -587,6 +606,11 @@ export default function CreateAssessment() {
           >
             Next
           </button>
+          {!detailsReady ? (
+            <p className="sc-builder-next-hint">
+              Complete each field above, then click Next.
+            </p>
+          ) : null}
         </section>
       ) : null}
 
