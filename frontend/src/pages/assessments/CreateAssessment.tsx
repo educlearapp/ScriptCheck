@@ -814,16 +814,16 @@ export default function CreateAssessment() {
       {step === "bank" ? (
         <section className="sc-builder-card" aria-label="Question Library choices">
           <h1>Choose your questions.</h1>
-          {filteredBankItems.length ? (
-            <div className="sc-builder-question-library">
-              <div className="sc-builder-question-library-head" aria-hidden="true">
-                <span>Question</span>
-                <span>Marks</span>
-                <span>Difficulty</span>
-                <span>Topic</span>
-                <span>Preview</span>
-              </div>
-              {filteredBankItems.map((item) => (
+          <div className="sc-builder-question-library">
+            <div className="sc-builder-question-library-head" aria-hidden="true">
+              <span>Question</span>
+              <span>Marks</span>
+              <span>Difficulty</span>
+              <span>Topic</span>
+              <span>Preview</span>
+            </div>
+            {filteredBankItems.length ? (
+              filteredBankItems.map((item) => (
                 <label key={item.id} className="sc-builder-question-row">
                   <span>
                     <input
@@ -838,14 +838,14 @@ export default function CreateAssessment() {
                   <span>{item.topic || "General"}</span>
                   <span>{item.expectedAnswer ? "Answer included" : "View when selected"}</span>
                 </label>
-              ))}
-            </div>
-          ) : (
-            <p className="sc-builder-friendly-empty">
-              There are no matching questions in the Question Library yet. Change the topic or choose
-              &ldquo;Write My Own Questions&rdquo; on the previous screen.
-            </p>
-          )}
+              ))
+            ) : (
+              <p className="sc-builder-question-empty">
+                There are no matching questions in the Question Library yet. You can go back and choose
+                &ldquo;Write My Own Questions&rdquo;.
+              </p>
+            )}
+          </div>
           <div className="sc-builder-selection-summary">
             <span>Questions selected: {selectedLibraryQuestions.length}</span>
             <span>Total Marks: {selectedLibraryMarks}</span>

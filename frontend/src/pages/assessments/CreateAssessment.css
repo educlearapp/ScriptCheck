@@ -252,6 +252,14 @@
   font-weight: 700;
 }
 
+.sc-builder-question-empty {
+  margin: 0;
+  padding: 1rem;
+  border-top: 1px solid var(--sc-border);
+  color: var(--sc-text-muted);
+  font-weight: 700;
+}
+
 .sc-builder-loader {
   width: 76px;
   height: 76px;
