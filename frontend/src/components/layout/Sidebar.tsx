@@ -7,24 +7,31 @@ import { NAV_SECTION_LABELS } from "../../types";
 import "./Sidebar.css";
 
 const MAIN_NAV: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard", icon: "◆", section: "assessment" },
+  { to: "/dashboard", label: "Home", icon: "◆", section: "assessment" },
   {
     to: "/assessments",
-    label: "Assessments",
+    label: "Create Assessment",
     icon: "▣",
     permission: "assessments.view",
     section: "assessment",
   },
   {
+    to: "/question-bank",
+    label: "Question Bank",
+    icon: "□",
+    permission: "questionBank.view",
+    section: "assessment",
+  },
+  {
     to: "/marking",
-    label: "Marking",
+    label: "Mark Papers",
     icon: "✎",
     permission: "assessments.view",
     section: "assessment",
   },
   {
     to: "/moderation",
-    label: "Moderation",
+    label: "DH Review",
     icon: "⚖",
     section: "assessment",
   },
@@ -37,14 +44,14 @@ const MAIN_NAV: NavItem[] = [
   },
   {
     to: "/ai-assessment-builder",
-    label: "AI Assessment Builder",
+    label: "Assessment Builder",
     icon: "✦",
     permission: "assessments.create",
     section: "ai",
   },
   {
     to: "/assessments/generate",
-    label: "AI Paper Generator",
+    label: "Create Paper",
     icon: "◇",
     permission: "assessments.create",
     section: "ai",
@@ -110,7 +117,7 @@ export default function Sidebar() {
 
       <div className="sc-sidebar-footer">
         <div className="sc-sidebar-school">
-          {user?.workspaceName || "Workspace"}
+          {user?.workspaceName || "School"}
         </div>
         <div className="sc-sidebar-role">
           {user ? formatRoles(user.roles) : ""}

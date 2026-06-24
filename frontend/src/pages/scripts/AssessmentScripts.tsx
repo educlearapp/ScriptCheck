@@ -43,7 +43,7 @@ export default function AssessmentScripts() {
     apiFetch<ScriptBatchSummary[]>(`/assessments/${assessmentId}/script-batches`)
       .then(setBatches)
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load batches")
+        setError(err instanceof Error ? err.message : "Could not load learner papers")
       );
   }, [assessmentId]);
 
@@ -51,7 +51,7 @@ export default function AssessmentScripts() {
     apiFetch<BatchDetail>(`/script-batches/${batchId}`)
       .then(setActiveBatch)
       .catch((err) =>
-        setActionError(err instanceof Error ? err.message : "Failed to load batch")
+        setActionError(err instanceof Error ? err.message : "Could not load learner papers")
       );
   }, []);
 
@@ -96,7 +96,7 @@ export default function AssessmentScripts() {
       loadBatches();
       loadBatchDetail(batch.id);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to create batch");
+      setActionError(err instanceof Error ? err.message : "Could not start the upload");
     } finally {
       setCreating(false);
     }
@@ -119,7 +119,7 @@ export default function AssessmentScripts() {
         state: { verification: result.verification },
       });
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Bulk upload failed");
+      setActionError(err instanceof Error ? err.message : "The papers could not be uploaded");
     } finally {
       setBulkUploading(false);
       setUploadProgress(0);
@@ -135,7 +135,7 @@ export default function AssessmentScripts() {
       loadBatchDetail(activeBatch.id);
       loadBatches();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Submit failed");
+      setActionError(err instanceof Error ? err.message : "Could not send to DH");
     } finally {
       setSubmitting(false);
     }
@@ -166,8 +166,8 @@ export default function AssessmentScripts() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem" }}>
         <div>
-          <Link to={`/assessments/${assessmentId}`} className="sc-detail-back">← Assessment</Link>
-          <h1 className="sc-page-title">Assessment Scripts</h1>
+          <Link to={`/assessments/${assessmentId}`} className="sc-detail-back">Back to assessment</Link>
+          <h1 className="sc-page-title">Learner Papers</h1>
           <p className="sc-page-subtitle">
             {assessment.title} · {assessment.subject.name} · {assessment.grade.name}
             {pagesPerScript ? ` · ${pagesPerScript} pages per learner answer` : ""}
@@ -177,12 +177,12 @@ export default function AssessmentScripts() {
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           {showCompleteSetup ? (
             <Link to={`/assessments/${assessmentId}/setup`} className="sc-btn sc-btn-primary">
-              Complete Setup
+              Finish assessment setup
             </Link>
           ) : null}
           {canViewResults(user, assessment.creatorTeacher.id) ? (
             <Link to={`/assessments/${assessmentId}/results`} className="sc-btn sc-btn-ghost">
-              View Results
+              Results
             </Link>
           ) : null}
         </div>
@@ -192,9 +192,9 @@ export default function AssessmentScripts() {
 
       <div className="sc-grid-2" style={{ gap: "1rem", marginTop: "1rem", alignItems: "start" }}>
         <div className="sc-card" style={{ padding: "1rem" }}>
-          <h3 style={{ margin: "0 0 0.75rem", color: "var(--sc-gold-light)" }}>Script Batches</h3>
+          <h3 style={{ margin: "0 0 0.75rem", color: "var(--sc-gold-light)" }}>Papers to mark</h3>
           {batches.length === 0 ? (
-            <p style={{ color: "var(--sc-text-muted)", fontSize: "0.9rem" }}>No batches yet.</p>
+            <p style={{ color: "var(--sc-text-muted)", fontSize: "0.9rem" }}>No learner papers yet.</p>
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {batches.map((b) => (
@@ -218,7 +218,7 @@ export default function AssessmentScripts() {
             <div style={{ marginTop: "1rem" }}>
               <input
                 className="sc-input"
-                placeholder="Batch title"
+                placeholder="Name this set of papers"
                 value={batchTitle}
                 onChange={(e) => setBatchTitle(e.target.value)}
               />
@@ -229,7 +229,7 @@ export default function AssessmentScripts() {
                 disabled={creating}
                 onClick={handleCreateBatch}
               >
-                {creating ? "Creating…" : "Create script batch"}
+                {creating ? "Creating…" : "Start upload"}
               </button>
             </div>
           ) : null}
@@ -242,7 +242,7 @@ export default function AssessmentScripts() {
                 <div>
                   <h3 style={{ margin: 0, color: "var(--sc-gold-light)" }}>{activeBatch.title}</h3>
                   <p className="sc-page-subtitle" style={{ margin: "0.25rem 0 0" }}>
-                    {activeBatch.totalScripts} scripts · {formatStatusLabel(activeBatch.status)}
+                    {activeBatch.totalScripts} learner paper(s) · {formatStatusLabel(activeBatch.status)}
                   </p>
                 </div>
                 <div className="sc-form-actions" style={{ marginTop: 0 }}>
@@ -250,14 +250,14 @@ export default function AssessmentScripts() {
                     to={`/script-batches/${activeBatch.id}/analytics`}
                     className="sc-btn sc-btn-ghost"
                   >
-                    Analytics
+                    Summary
                   </Link>
                   {activeBatch.totalScripts > 0 ? (
                     <Link
                       to={`/assessments/${assessmentId}/scripts/verify/${activeBatch.id}`}
                       className="sc-btn sc-btn-ghost"
                     >
-                      Verify Scripts
+                      Check papers
                     </Link>
                   ) : null}
                   {canSubmit && canSubmitBatch ? (
@@ -267,7 +267,7 @@ export default function AssessmentScripts() {
                       disabled={submitting}
                       onClick={handleSubmitBatch}
                     >
-                      {submitting ? "Submitting…" : "Submit batch to DH"}
+                      {submitting ? "Sending…" : "Send to DH"}
                     </button>
                   ) : null}
                 </div>
@@ -275,9 +275,9 @@ export default function AssessmentScripts() {
 
               {canCreate && pagesPerScript && ["DRAFT", "MARKING", "RETURNED_TO_TEACHER"].includes(activeBatch.status) ? (
                 <div style={{ marginTop: "1rem", padding: "1rem", border: "2px dashed var(--sc-gold)", borderRadius: "8px" }}>
-                  <h4 style={{ margin: "0 0 0.5rem" }}>Bulk Script Upload</h4>
+                  <h4 style={{ margin: "0 0 0.5rem" }}>Upload learner papers</h4>
                   <p style={{ fontSize: "0.85rem", color: "var(--sc-text-muted)", margin: "0 0 0.75rem" }}>
-                    Upload scanned learner answers in bulk. The system splits pages ({pagesPerScript} per learner answer).{" "}
+                    Upload scanned learner papers. ScriptCheck will group the pages ({pagesPerScript} per learner).{" "}
                     {UPLOAD_FILES_HINT}
                   </p>
                   <input
@@ -310,13 +310,13 @@ export default function AssessmentScripts() {
                     disabled={bulkUploading || !bulkFiles.length}
                     onClick={() => void handleBulkUpload()}
                   >
-                    {bulkUploading ? "Processing…" : "Upload & Auto-Split Scripts"}
+                    {bulkUploading ? "Uploading…" : "Upload papers"}
                   </button>
                 </div>
               ) : !pagesPerScript && !assessment.isMarkingPack ? (
                 <div style={{ marginTop: "1rem" }}>
                   <Link to={`/assessments/${assessmentId}/setup`} className="sc-btn sc-btn-ghost">
-                    Complete setup to enable bulk upload
+                    Finish setup to upload learner papers
                   </Link>
                 </div>
               ) : null}
@@ -355,7 +355,7 @@ export default function AssessmentScripts() {
               </div>
             </>
           ) : (
-            <p style={{ color: "var(--sc-text-muted)" }}>Select or create a batch to manage learner scripts.</p>
+            <p style={{ color: "var(--sc-text-muted)" }}>Select or start an upload to manage learner papers.</p>
           )}
         </div>
       </div>

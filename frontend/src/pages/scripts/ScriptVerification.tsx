@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   confirmScriptVerification,
   getScriptVerification,
+  prepareMarkingJob,
   resplitLearnerAnswers,
   type ScriptVerificationResult,
 } from "../../services/assessmentSetupApi";
@@ -46,7 +47,7 @@ export default function ScriptVerification() {
       const data = await getScriptVerification(batchId);
       applyVerification(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load verification");
+      setError(err instanceof Error ? err.message : "Could not check the papers");
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ export default function ScriptVerification() {
 
   const handleResplit = async () => {
     if (!batchId || parsedPages == null) {
-      setError("Enter a whole number greater than 0 for pages per learner answer script.");
+      setError("Enter a whole number greater than 0 for pages for one learner.");
       return;
     }
     setResplitting(true);
@@ -71,7 +72,7 @@ export default function ScriptVerification() {
       const data = await resplitLearnerAnswers(batchId, parsedPages);
       applyVerification(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to recalculate split");
+      setError(err instanceof Error ? err.message : "Could not check the pages again");
     } finally {
       setResplitting(false);
     }
@@ -87,6 +88,7 @@ export default function ScriptVerification() {
         applyVerification(data);
       }
       const confirmed = await confirmScriptVerification(batchId);
+      await prepareMarkingJob(batchId);
       const scriptId =
         confirmed.scripts[0]?.scriptId ??
         verificationRef.current?.scripts[0]?.scriptId;
@@ -96,19 +98,19 @@ export default function ScriptVerification() {
         navigate(`/assessments/${assessmentId}/scripts`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Confirmation failed");
+      setError(err instanceof Error ? err.message : "ScriptCheck could not start marking");
     } finally {
       setConfirming(false);
     }
   };
 
-  if (loading) return <p>Verifying learner answers…</p>;
+  if (loading) return <p>Checking learner papers...</p>;
   if (!verification) {
     return (
       <div>
-        <p className="sc-error">{error || "Verification data not available"}</p>
+        <p className="sc-error">{error || "Paper check not available"}</p>
         <Link to="/marking" className="sc-btn sc-btn-ghost">
-          Back to Marking
+          Back to Mark Papers
         </Link>
       </div>
     );
@@ -117,19 +119,19 @@ export default function ScriptVerification() {
   return (
     <div>
       <Link to="/marking" className="sc-detail-back">
-        ← Marking
+        Back to Mark Papers
       </Link>
-      <h1 className="sc-page-title">Learner Answer Verification</h1>
+      <h1 className="sc-page-title">Check the learner papers</h1>
       <p className="sc-page-subtitle">
-        Review how scanned learner answer papers were split. Adjust pages per learner answer script if the split
-        looks wrong — no re-upload needed.
+        Make sure each learner has the right number of pages. If it looks wrong,
+        change the number below and check again. You do not need to upload again.
       </p>
 
       {error ? <p className="sc-error">{error}</p> : null}
 
       <div className="sc-card sc-card-padded sc-verification-pages-editor" style={{ marginTop: "1.25rem" }}>
         <label className="sc-label" htmlFor="verification-pages-per-learner">
-          Expected pages per learner answer script
+          Pages for one learner
         </label>
         <div className="sc-verification-pages-row">
           <input
@@ -150,30 +152,29 @@ export default function ScriptVerification() {
             disabled={resplitting || !pagesChanged || parsedPages == null}
             onClick={() => void handleResplit()}
           >
-            {resplitting ? "Recalculating…" : "Recalculate split"}
+            {resplitting ? "Checking..." : "Check pages again"}
           </button>
         </div>
         <p className="sc-marking-pages-hint">
-          Example: if each learner answer booklet is 4 pages, enter 4. This does not use the assessment paper
-          page count.
+          Example: if each learner paper is 4 pages, enter 4.
         </p>
       </div>
 
       <div className="sc-grid-3" style={{ marginTop: "1.25rem" }}>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-detail-label">Total Learner Answer Pages</div>
+          <div className="sc-detail-label">Pages uploaded</div>
           <div className="sc-stat-value">{verification.totalPagesUploaded}</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-detail-label">Pages Per Learner Answer Script</div>
+          <div className="sc-detail-label">Pages for one learner</div>
           <div className="sc-stat-value">{verification.expectedPagesPerScript}</div>
         </div>
         <div className="sc-card sc-card-gold" style={{ padding: "1.25rem" }}>
-          <div className="sc-detail-label">Detected Learner Answers</div>
+          <div className="sc-detail-label">Learner papers found</div>
           <div className="sc-stat-value">{verification.detectedScriptCount}</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
-          <div className="sc-detail-label">Complete Learner Answers</div>
+          <div className="sc-detail-label">Papers that look complete</div>
           <div className="sc-stat-value">{verification.completeScripts}</div>
         </div>
         <div className="sc-card" style={{ padding: "1.25rem" }}>
@@ -188,14 +189,14 @@ export default function ScriptVerification() {
 
       {verification.incompleteScripts > 0 ? (
         <div className="sc-card" style={{ marginTop: "1rem", padding: "1rem", borderColor: "var(--sc-warning, #f0ad4e)" }}>
-          <strong>Warning:</strong> {verification.incompleteScripts} learner answer(s) appear incomplete.
-          Try changing pages per learner answer script and recalculating the split.
+          <strong>Please check:</strong> {verification.incompleteScripts} learner paper(s) may be missing pages.
+          Try changing the pages for one learner and check again.
         </div>
       ) : null}
 
       {verification.warnings.length > 0 ? (
         <div className="sc-card" style={{ marginTop: "1rem", padding: "1rem" }}>
-          <h3 style={{ marginTop: 0 }}>Warnings</h3>
+          <h3 style={{ marginTop: 0 }}>Please check</h3>
           <ul>
             {verification.warnings.map((w) => (
               <li key={w} style={{ color: "var(--sc-warning, #f0ad4e)" }}>{w}</li>
@@ -209,7 +210,7 @@ export default function ScriptVerification() {
           <table className="sc-table">
             <thead>
               <tr>
-                <th>Learner Answer</th>
+                <th>Learner paper</th>
                 <th>Learner</th>
                 <th>Pages</th>
                 <th>Expected</th>
@@ -239,7 +240,7 @@ export default function ScriptVerification() {
 
       <div className="sc-form-actions" style={{ marginTop: "1.5rem" }}>
         <Link to="/marking" className="sc-btn sc-btn-ghost">
-          Back to Marking
+          Back to Mark Papers
         </Link>
         <button
           type="button"
@@ -247,7 +248,7 @@ export default function ScriptVerification() {
           disabled={confirming || resplitting}
           onClick={() => void handleConfirm()}
         >
-          {confirming ? "Starting AI marking…" : "Confirm & Start AI Marking"}
+          {confirming ? "ScriptCheck is marking..." : "Looks right, let ScriptCheck mark"}
         </button>
       </div>
     </div>
