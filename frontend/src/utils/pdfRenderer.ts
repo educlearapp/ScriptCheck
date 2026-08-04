@@ -1,5 +1,10 @@
-import * as pdfjs from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { getAuthToken } from "../auth/session";
+import { API_URL } from "../api";
+
+export { formatPdfRenderError } from "./pdfRenderErrors";
+
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfjsWorker from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -75,9 +80,6 @@ export function clearPdfCache(fileKey?: string) {
     renderCache.clear();
   }
 }
-
-import { getAuthToken } from "../auth/session";
-import { API_URL } from "../api";
 
 export async function fetchPageBytes(
   scriptId: string,

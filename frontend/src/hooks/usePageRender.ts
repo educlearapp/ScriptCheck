@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { apiBlobUrl } from "../api";
 import type { ScriptPageInfo } from "../types";
-import { fetchPageBytes, renderPdfPageToDataUrl } from "../utils/pdfRenderer";
+import {
+  fetchPageBytes,
+  renderPdfPageToDataUrl,
+} from "../utils/pdfRenderer";
+import { formatPdfRenderError } from "../utils/pdfRenderErrors";
 
 type RenderState = {
   src: string | null;
@@ -105,7 +109,7 @@ export function usePageRender(
           setState((s) => ({
             ...s,
             loading: false,
-            error: err instanceof Error ? err.message : "Render failed",
+            error: formatPdfRenderError(err),
           }));
         }
       }

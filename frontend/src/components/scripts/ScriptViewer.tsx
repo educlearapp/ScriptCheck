@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { apiOpenPdf } from "../../api";
 import { useDebouncedLayerSave } from "../../hooks/useDebouncedLayerSave";
 import { useLayerHistory } from "../../hooks/useLayerHistory";
 import { usePageRender } from "../../hooks/usePageRender";
@@ -455,8 +456,21 @@ export default function ScriptViewer({
             <p>Rendering page…</p>
           </div>
         ) : error ? (
-          <div className="sc-viewer-empty">
+          <div className="sc-viewer-empty" role="alert">
             <p className="sc-error">{error}</p>
+            {page ? (
+              <button
+                type="button"
+                className="sc-btn sc-btn-secondary"
+                onClick={() => {
+                  void apiOpenPdf(`/scripts/${scriptId}/pages/${page.id}/file`).catch(
+                    () => undefined
+                  );
+                }}
+              >
+                Open original paper
+              </button>
+            ) : null}
           </div>
         ) : (
           <div
