@@ -14,6 +14,7 @@ import {
   ScriptError,
   updateTeacherReviewMeta,
 } from "../services/scriptMarking";
+import { TeacherReviewValidationError } from "../services/teacherReviewValidation";
 import {
   getRubricMarksForScript,
   saveRubricMarks,
@@ -55,7 +56,12 @@ const upload = multer({
 });
 
 function handleError(res: Response, err: unknown) {
-  if (err instanceof ScriptError || err instanceof FeedbackError || err instanceof ResultsError) {
+  if (
+    err instanceof ScriptError ||
+    err instanceof FeedbackError ||
+    err instanceof ResultsError ||
+    err instanceof TeacherReviewValidationError
+  ) {
     return res.status(err.statusCode).json({ error: err.message });
   }
   console.error("[scripts]", err);
@@ -463,14 +469,8 @@ router.patch(
         req.auth!.userId,
         req.access!,
         {
-          flaggedForReview:
-            typeof req.body?.flaggedForReview === "boolean"
-              ? req.body.flaggedForReview
-              : undefined,
-          privateTeacherNotes:
-            req.body?.privateTeacherNotes === undefined
-              ? undefined
-              : req.body.privateTeacherNotes,
+          flaggedForReview: req.body?.flaggedForReview,
+          privateTeacherNotes: req.body?.privateTeacherNotes,
         }
       );
 

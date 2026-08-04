@@ -525,67 +525,67 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  memberships        WorkspaceMembership[]
-  createdAssessments              Assessment[]                    @relation("AssessmentCreator")
-  assignedAssessments             Assessment[]                    @relation("AssessmentAssignee")
-  moderationAudits                AssessmentModerationAudit[]
-  auditLogsAsActor                AuditLog[]                      @relation("AuditActor")
-  auditLogsAsTarget               AuditLog[]                      @relation("AuditTarget")
-  assessmentGenerationRequests    AssessmentGenerationRequest[]   @relation("GenerationRequestCreator")
-  generatedAssessments            GeneratedAssessment[]           @relation("GeneratedAssessmentAuthor")
-  questionBankItemsCreated        QuestionBankItem[]              @relation("QuestionBankCreator")
-  questionBankItemsApproved       QuestionBankItem[]              @relation("QuestionBankApprover")
-  assessmentTemplatesCreated      AssessmentTemplate[]            @relation("TemplateCreator")
-  scriptBatchesCreated            ScriptBatch[]                   @relation("ScriptBatchCreator")
-  teacherScriptMarks              ScriptQuestionMark[]            @relation("TeacherMarker")
-  hodScriptMarks                  ScriptQuestionMark[]            @relation("HodModerator")
-  scriptAnnotationLayers          ScriptAnnotationLayer[]         @relation("AnnotationAuthor")
-  learnerFeedbackAuthored         LearnerFeedback[]               @relation("FeedbackAuthor")
-  scriptPagesUploaded             ScriptPage[]                    @relation("ScriptPageUploader")
-  scriptsFinalised                LearnerScript[]                 @relation("ScriptFinaliser")
-  examSessionsCreated             ExamSession[]                   @relation("ExamSessionCreator")
-  workspaceSubjectsCreated        WorkspaceSubject[]              @relation("WorkspaceSubjectCreator")
-  rubricTemplatesCreated          RubricTemplate[]                @relation("RubricTemplateCreator")
-  rubricTemplatesApproved         RubricTemplate[]                @relation("RubricTemplateApprover")
-  learnerAssessmentMarksCaptured  LearnerAssessmentMark[]         @relation("MarkCaptureAuthor")
-  rubricTeacherMarks              ScriptRubricMark[]              @relation("RubricTeacherMarker")
-  rubricHodMarks                  ScriptRubricMark[]              @relation("RubricHodModerator")
-  paperVaultDocumentsUploaded     PaperVaultDocument[]            @relation("PaperVaultUploader")
-  interventionsCreated            LearnerIntervention[]           @relation("InterventionCreator")
-  interventionsUpdated            LearnerIntervention[]           @relation("InterventionUpdater")
-  examinationTimetablesCreated    ExaminationTimetable[]          @relation("ExamTimetableCreator")
-  examinationOpsSessionsCreated   ExaminationOpsSession[]         @relation("ExamOpsSessionCreator")
-  invigilatorAssignments          InvigilatorAssignment[]         @relation("InvigilatorUser")
-  invigilatorAssignmentsCreated   InvigilatorAssignment[]         @relation("InvigilatorAssigner")
-  seatingPlansCreated             SeatingPlan[]                   @relation("SeatingPlanCreator")
-  examinationIncidentsReported    ExaminationIncident[]           @relation("IncidentReporter")
-  aiAssessmentBuilderRequests     AiAssessmentBuilderRequest[]    @relation("AiBuilderCreator")
-  aiStudyMaterialsUploaded        AiStudyMaterial[]               @relation("AiMaterialUploader")
-  moderationCommentsAuthored      ModerationComment[]             @relation("ModerationCommentAuthor")
-  approvalRequestsCreated         ModerationApprovalRequest[]     @relation("ApprovalRequestCreator")
-  approvalRequestsResponded       ModerationApprovalRequest[]     @relation("ApprovalRequestResponder")
-  markAdjustmentsMade             MarkAdjustmentAudit[]           @relation("MarkAdjustmentAuthor")
-  intelligenceReportsGenerated    AssessmentIntelligenceReport[] @relation("IntelligenceGenerator")
-  betaFeedbackSubmitted         BetaFeedback[]                 @relation("BetaFeedbackAuthor")
-  teacherAssignments            TeacherAssignment[]            @relation("TimetableTeacher")
-  lessonTimetablesPublished     LessonTimetable[]              @relation("LessonTimetablePublisher")
-  lessonEntriesTaught           LessonEntry[]                  @relation("LessonEntryTeacher")
+  memberships                    WorkspaceMembership[]
+  createdAssessments             Assessment[]                   @relation("AssessmentCreator")
+  assignedAssessments            Assessment[]                   @relation("AssessmentAssignee")
+  moderationAudits               AssessmentModerationAudit[]
+  auditLogsAsActor               AuditLog[]                     @relation("AuditActor")
+  auditLogsAsTarget              AuditLog[]                     @relation("AuditTarget")
+  assessmentGenerationRequests   AssessmentGenerationRequest[]  @relation("GenerationRequestCreator")
+  generatedAssessments           GeneratedAssessment[]          @relation("GeneratedAssessmentAuthor")
+  questionBankItemsCreated       QuestionBankItem[]             @relation("QuestionBankCreator")
+  questionBankItemsApproved      QuestionBankItem[]             @relation("QuestionBankApprover")
+  assessmentTemplatesCreated     AssessmentTemplate[]           @relation("TemplateCreator")
+  scriptBatchesCreated           ScriptBatch[]                  @relation("ScriptBatchCreator")
+  teacherScriptMarks             ScriptQuestionMark[]           @relation("TeacherMarker")
+  hodScriptMarks                 ScriptQuestionMark[]           @relation("HodModerator")
+  scriptAnnotationLayers         ScriptAnnotationLayer[]        @relation("AnnotationAuthor")
+  learnerFeedbackAuthored        LearnerFeedback[]              @relation("FeedbackAuthor")
+  scriptPagesUploaded            ScriptPage[]                   @relation("ScriptPageUploader")
+  scriptsFinalised               LearnerScript[]                @relation("ScriptFinaliser")
+  examSessionsCreated            ExamSession[]                  @relation("ExamSessionCreator")
+  workspaceSubjectsCreated       WorkspaceSubject[]             @relation("WorkspaceSubjectCreator")
+  rubricTemplatesCreated         RubricTemplate[]               @relation("RubricTemplateCreator")
+  rubricTemplatesApproved        RubricTemplate[]               @relation("RubricTemplateApprover")
+  learnerAssessmentMarksCaptured LearnerAssessmentMark[]        @relation("MarkCaptureAuthor")
+  rubricTeacherMarks             ScriptRubricMark[]             @relation("RubricTeacherMarker")
+  rubricHodMarks                 ScriptRubricMark[]             @relation("RubricHodModerator")
+  paperVaultDocumentsUploaded    PaperVaultDocument[]           @relation("PaperVaultUploader")
+  interventionsCreated           LearnerIntervention[]          @relation("InterventionCreator")
+  interventionsUpdated           LearnerIntervention[]          @relation("InterventionUpdater")
+  examinationTimetablesCreated   ExaminationTimetable[]         @relation("ExamTimetableCreator")
+  examinationOpsSessionsCreated  ExaminationOpsSession[]        @relation("ExamOpsSessionCreator")
+  invigilatorAssignments         InvigilatorAssignment[]        @relation("InvigilatorUser")
+  invigilatorAssignmentsCreated  InvigilatorAssignment[]        @relation("InvigilatorAssigner")
+  seatingPlansCreated            SeatingPlan[]                  @relation("SeatingPlanCreator")
+  examinationIncidentsReported   ExaminationIncident[]          @relation("IncidentReporter")
+  aiAssessmentBuilderRequests    AiAssessmentBuilderRequest[]   @relation("AiBuilderCreator")
+  aiStudyMaterialsUploaded       AiStudyMaterial[]              @relation("AiMaterialUploader")
+  moderationCommentsAuthored     ModerationComment[]            @relation("ModerationCommentAuthor")
+  approvalRequestsCreated        ModerationApprovalRequest[]    @relation("ApprovalRequestCreator")
+  approvalRequestsResponded      ModerationApprovalRequest[]    @relation("ApprovalRequestResponder")
+  markAdjustmentsMade            MarkAdjustmentAudit[]          @relation("MarkAdjustmentAuthor")
+  intelligenceReportsGenerated   AssessmentIntelligenceReport[] @relation("IntelligenceGenerator")
+  betaFeedbackSubmitted          BetaFeedback[]                 @relation("BetaFeedbackAuthor")
+  teacherAssignments             TeacherAssignment[]            @relation("TimetableTeacher")
+  lessonTimetablesPublished      LessonTimetable[]              @relation("LessonTimetablePublisher")
+  lessonEntriesTaught            LessonEntry[]                  @relation("LessonEntryTeacher")
 }
 
 // ─── Workspace membership (user ↔ workspace) ────────────────────────────────
 
 model WorkspaceMembership {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   workspaceId String
-  isActive    Boolean  @default(true)
+  isActive    Boolean   @default(true)
   invitedAt   DateTime?
-  joinedAt    DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  joinedAt    DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   roles     MembershipRole[]
 
   @@unique([userId, workspaceId])
@@ -610,15 +610,15 @@ model MembershipRole {
 // ─── Audit log foundation ─────────────────────────────────────────────────────
 
 model AuditLog {
-  id            String      @id @default(cuid())
-  workspaceId   String?
-  actorId       String?
-  targetUserId  String?
-  action        AuditAction
-  metadata      Json?
-  ipAddress     String?
-  userAgent     String?
-  createdAt     DateTime    @default(now())
+  id           String      @id @default(cuid())
+  workspaceId  String?
+  actorId      String?
+  targetUserId String?
+  action       AuditAction
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime    @default(now())
 
   workspace  Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   actor      User?      @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
@@ -653,9 +653,9 @@ model Phase {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  curriculum  Curriculum   @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
-  grades      Grade[]
-  subjects    Subject[]
+  curriculum        Curriculum         @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  grades            Grade[]
+  subjects          Subject[]
   assessments       Assessment[]
   workspaceSubjects WorkspaceSubject[]
 
@@ -672,12 +672,12 @@ model Grade {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  phase       Phase         @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  assessments       Assessment[]
-  learners          Learner[]
-  workspaceSubjects WorkspaceSubject[]
-  examinationTimetables ExaminationTimetable[]
-  examinationSlots      ExaminationSlot[]
+  phase                  Phase                   @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  assessments            Assessment[]
+  learners               Learner[]
+  workspaceSubjects      WorkspaceSubject[]
+  examinationTimetables  ExaminationTimetable[]
+  examinationSlots       ExaminationSlot[]
   examinationOpsSessions ExaminationOpsSession[]
   examReadinessSnapshots ExamReadinessSnapshot[]
 
@@ -696,13 +696,13 @@ model Subject {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  curriculum  Curriculum   @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
-  phase       Phase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
-  assessments       Assessment[]
-  workspaceSubjects WorkspaceSubject[]
-  rubricTemplates   RubricTemplate[]
-  examinationTimetables ExaminationTimetable[]
-  examinationSlots      ExaminationSlot[]
+  curriculum             Curriculum              @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  phase                  Phase                   @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  assessments            Assessment[]
+  workspaceSubjects      WorkspaceSubject[]
+  rubricTemplates        RubricTemplate[]
+  examinationTimetables  ExaminationTimetable[]
+  examinationSlots       ExaminationSlot[]
   examinationOpsSessions ExaminationOpsSession[]
   examReadinessSnapshots ExamReadinessSnapshot[]
 
@@ -714,7 +714,7 @@ model Subject {
 // ─── Assessment (core entity — workspace-scoped, catalog-linked) ──────────────
 
 model Assessment {
-  id          String           @id @default(cuid())
+  id          String  @id @default(cuid())
   workspaceId String
   title       String
   description String?
@@ -733,15 +733,15 @@ model Assessment {
 
   questionCount       Int?
   pagesPerScript      Int?
-  memorandumAvailable Boolean  @default(false)
-  rubricAvailable     Boolean  @default(false)
-  setupComplete       Boolean  @default(false)
+  memorandumAvailable Boolean   @default(false)
+  rubricAvailable     Boolean   @default(false)
+  setupComplete       Boolean   @default(false)
   setupCompletedAt    DateTime?
 
-  assessmentDate      DateTime?
-  dueDate             DateTime?
-  markingDeadline     DateTime?
-  moderationDeadline  DateTime?
+  assessmentDate     DateTime?
+  dueDate            DateTime?
+  markingDeadline    DateTime?
+  moderationDeadline DateTime?
 
   rubricTemplateId String?
 
@@ -755,30 +755,30 @@ model Assessment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  workspace        Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  curriculum       Curriculum                  @relation(fields: [curriculumId], references: [id])
-  phase            Phase                       @relation(fields: [phaseId], references: [id])
-  grade            Grade                       @relation(fields: [gradeId], references: [id])
-  subject          Subject                     @relation(fields: [subjectId], references: [id])
-  creatorTeacher   User                        @relation("AssessmentCreator", fields: [creatorTeacherId], references: [id])
-  assignedUser     User?                       @relation("AssessmentAssignee", fields: [assignedUserId], references: [id])
-  moderationAudits    AssessmentModerationAudit[]
-  moderationComments  ModerationComment[]
-  approvalRequests    ModerationApprovalRequest[]
-  intelligenceReport  AssessmentIntelligenceReport?
-  markAdjustments     MarkAdjustmentAudit[]
-  questions           AssessmentQuestion[]
-  generatedVersions   GeneratedAssessment[]
-  scriptBatches       ScriptBatch[]
-  learnerScripts      LearnerScript[]
+  workspace              Workspace                     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  curriculum             Curriculum                    @relation(fields: [curriculumId], references: [id])
+  phase                  Phase                         @relation(fields: [phaseId], references: [id])
+  grade                  Grade                         @relation(fields: [gradeId], references: [id])
+  subject                Subject                       @relation(fields: [subjectId], references: [id])
+  creatorTeacher         User                          @relation("AssessmentCreator", fields: [creatorTeacherId], references: [id])
+  assignedUser           User?                         @relation("AssessmentAssignee", fields: [assignedUserId], references: [id])
+  moderationAudits       AssessmentModerationAudit[]
+  moderationComments     ModerationComment[]
+  approvalRequests       ModerationApprovalRequest[]
+  intelligenceReport     AssessmentIntelligenceReport?
+  markAdjustments        MarkAdjustmentAudit[]
+  questions              AssessmentQuestion[]
+  generatedVersions      GeneratedAssessment[]
+  scriptBatches          ScriptBatch[]
+  learnerScripts         LearnerScript[]
   examSessions           ExamSession[]
-  rubricTemplate         RubricTemplate?         @relation(fields: [rubricTemplateId], references: [id], onDelete: SetNull)
+  rubricTemplate         RubricTemplate?               @relation(fields: [rubricTemplateId], references: [id], onDelete: SetNull)
   learnerAssessmentMarks LearnerAssessmentMark[]
   paperVaultDocuments    PaperVaultDocument[]
   examinationSlots       ExaminationSlot[]
   examinationOpsSessions ExaminationOpsSession[]
 
-  aiBuilderRequest       AiAssessmentBuilderRequest?
+  aiBuilderRequest AiAssessmentBuilderRequest?
 
   analyticsSnapshot Json?
 
@@ -812,7 +812,7 @@ model AssessmentModerationAudit {
 }
 
 model AssessmentQuestion {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   assessmentId   String
   questionNumber String
   section        String?
@@ -831,7 +831,7 @@ model AssessmentQuestion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessment  Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   scriptMarks ScriptQuestionMark[]
 
   @@unique([assessmentId, orderIndex])
@@ -844,7 +844,7 @@ model AssessmentQuestion {
 // ─── AI assessment generation foundation ──────────────────────────────────────
 
 model AssessmentGenerationRequest {
-  id             String                   @id @default(cuid())
+  id             String                     @id @default(cuid())
   workspaceId    String
   createdById    String
   curriculumId   String
@@ -860,29 +860,29 @@ model AssessmentGenerationRequest {
   instructions   String?
   topics         Json
   status         AssessmentGenerationStatus @default(DRAFT)
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
 
-  workspace  Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy  User                  @relation("GenerationRequestCreator", fields: [createdById], references: [id])
-  generated  GeneratedAssessment[]
+  workspace Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User                  @relation("GenerationRequestCreator", fields: [createdById], references: [id])
+  generated GeneratedAssessment[]
 
   @@index([workspaceId, status])
   @@index([createdById, createdAt])
 }
 
 model GeneratedAssessment {
-  id                  String   @id @default(cuid())
-  requestId           String
-  assessmentId        String?
-  version             Int
-  generatedBy         String
-  generationMetadata  Json
-  createdAt           DateTime @default(now())
+  id                 String   @id @default(cuid())
+  requestId          String
+  assessmentId       String?
+  version            Int
+  generatedBy        String
+  generationMetadata Json
+  createdAt          DateTime @default(now())
 
-  request     AssessmentGenerationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  assessment  Assessment?                 @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
-  author      User                        @relation("GeneratedAssessmentAuthor", fields: [generatedBy], references: [id])
+  request    AssessmentGenerationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  assessment Assessment?                 @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  author     User                        @relation("GeneratedAssessmentAuthor", fields: [generatedBy], references: [id])
 
   @@unique([requestId, version])
   @@index([requestId, createdAt])
@@ -965,9 +965,9 @@ model AssessmentTemplate {
   createdAt    DateTime                 @default(now())
   updatedAt    DateTime                 @updatedAt
 
-  workspace  Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy  User                        @relation("TemplateCreator", fields: [createdById], references: [id])
-  questions  AssessmentTemplateQuestion[]
+  workspace Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User                         @relation("TemplateCreator", fields: [createdById], references: [id])
+  questions AssessmentTemplateQuestion[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, curriculumId, subjectId])
@@ -975,7 +975,7 @@ model AssessmentTemplate {
 }
 
 model AssessmentTemplateQuestion {
-  id             String @id @default(cuid())
+  id             String  @id @default(cuid())
   templateId     String
   questionText   String
   topic          String?
@@ -1007,18 +1007,18 @@ model Learner {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  grade              Grade               @relation(fields: [gradeId], references: [id])
-  learnerScripts          LearnerScript[]
-  examDeviceSessions      ExamDeviceSession[]
-  learnerAssessmentMarks  LearnerAssessmentMark[]
-  atRiskFlags             LearnerAtRiskFlag[]
-  interventions           LearnerIntervention[]
-  concessions             LearnerConcession[]
-  portalAccount           PortalAccount?
-  parentLinks             ParentLearnerLink[]
-  seatingAllocations      SeatingAllocation[]
-  examinationIncidents    ExaminationIncident[]
+  workspace              Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grade                  Grade                   @relation(fields: [gradeId], references: [id])
+  learnerScripts         LearnerScript[]
+  examDeviceSessions     ExamDeviceSession[]
+  learnerAssessmentMarks LearnerAssessmentMark[]
+  atRiskFlags            LearnerAtRiskFlag[]
+  interventions          LearnerIntervention[]
+  concessions            LearnerConcession[]
+  portalAccount          PortalAccount?
+  parentLinks            ParentLearnerLink[]
+  seatingAllocations     SeatingAllocation[]
+  examinationIncidents   ExaminationIncident[]
 
   @@unique([workspaceId, learnerNumber])
   @@index([workspaceId, active])
@@ -1026,14 +1026,14 @@ model Learner {
 }
 
 model ScriptBatch {
-  id            String            @id @default(cuid())
-  workspaceId   String
-  assessmentId  String
-  createdById   String
-  title         String
-  status        ScriptBatchStatus @default(DRAFT)
-  totalLearners Int               @default(0)
-  totalScripts  Int               @default(0)
+  id              String            @id @default(cuid())
+  workspaceId     String
+  assessmentId    String
+  createdById     String
+  title           String
+  status          ScriptBatchStatus @default(DRAFT)
+  totalLearners   Int               @default(0)
+  totalScripts    Int               @default(0)
   totalPages      Int               @default(0)
   examSessionMode Boolean           @default(false)
   createdAt       DateTime          @default(now())
@@ -1051,41 +1051,41 @@ model ScriptBatch {
 }
 
 model LearnerScript {
-  id               String              @id @default(cuid())
-  batchId          String
-  learnerId        String
-  assessmentId     String
-  scriptNumber     String
-  pageCount        Int                 @default(0)
-  status           LearnerScriptStatus @default(NOT_MARKED)
-  teacherTotal     Float?
-  hodTotal         Float?
-  finalTotal       Float?
-  confidence       Float?
-  submittedToHodAt   DateTime?
-  approvedAt       DateTime?
-  teacherLayerLocked Boolean             @default(false)
-  hodLayerLocked     Boolean             @default(false)
-  finalisedAt                DateTime?
-  finalisedById              String?
-  markDifference             Float?
-  teacherPercentage          Float?
-  hodPercentage              Float?
-  finalPercentage            Float?
-  moderationVariancePercent  Float?
-  varianceLevel              ModerationVarianceLevel @default(NONE)
-  flaggedForReview           Boolean                 @default(false)
-  privateTeacherNotes        String?
-  createdAt                  DateTime                @default(now())
-  updatedAt                  DateTime                @updatedAt
+  id                        String                  @id @default(cuid())
+  batchId                   String
+  learnerId                 String
+  assessmentId              String
+  scriptNumber              String
+  pageCount                 Int                     @default(0)
+  status                    LearnerScriptStatus     @default(NOT_MARKED)
+  teacherTotal              Float?
+  hodTotal                  Float?
+  finalTotal                Float?
+  confidence                Float?
+  submittedToHodAt          DateTime?
+  approvedAt                DateTime?
+  teacherLayerLocked        Boolean                 @default(false)
+  hodLayerLocked            Boolean                 @default(false)
+  finalisedAt               DateTime?
+  finalisedById             String?
+  markDifference            Float?
+  teacherPercentage         Float?
+  hodPercentage             Float?
+  finalPercentage           Float?
+  moderationVariancePercent Float?
+  varianceLevel             ModerationVarianceLevel @default(NONE)
+  flaggedForReview          Boolean                 @default(false)
+  privateTeacherNotes       String?
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
 
-  batch          ScriptBatch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  learner        Learner                @relation(fields: [learnerId], references: [id], onDelete: Cascade)
-  assessment     Assessment             @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  finalisedBy    User?                  @relation("ScriptFinaliser", fields: [finalisedById], references: [id])
-  questionMarks  ScriptQuestionMark[]
-  layers         ScriptAnnotationLayer[]
-  feedback       LearnerFeedback[]
+  batch                 ScriptBatch             @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  learner               Learner                 @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  assessment            Assessment              @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  finalisedBy           User?                   @relation("ScriptFinaliser", fields: [finalisedById], references: [id])
+  questionMarks         ScriptQuestionMark[]
+  layers                ScriptAnnotationLayer[]
+  feedback              LearnerFeedback[]
   pages                 ScriptPage[]
   learnerAssessmentMark LearnerAssessmentMark?
   rubricMarks           ScriptRubricMark[]
@@ -1243,15 +1243,15 @@ model WorkspaceSubject {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  curriculum     Curriculum  @relation(fields: [curriculumId], references: [id])
-  phase          Phase       @relation(fields: [phaseId], references: [id])
-  grade          Grade       @relation(fields: [gradeId], references: [id])
-  catalogSubject        Subject?              @relation(fields: [catalogSubjectId], references: [id], onDelete: SetNull)
-  createdBy             User                  @relation("WorkspaceSubjectCreator", fields: [createdById], references: [id])
-  teacherAssignments    TeacherAssignment[]
-  subjectRequirements   SubjectRequirement[]
-  lessonEntries         LessonEntry[]
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  curriculum          Curriculum           @relation(fields: [curriculumId], references: [id])
+  phase               Phase                @relation(fields: [phaseId], references: [id])
+  grade               Grade                @relation(fields: [gradeId], references: [id])
+  catalogSubject      Subject?             @relation(fields: [catalogSubjectId], references: [id], onDelete: SetNull)
+  createdBy           User                 @relation("WorkspaceSubjectCreator", fields: [createdById], references: [id])
+  teacherAssignments  TeacherAssignment[]
+  subjectRequirements SubjectRequirement[]
+  lessonEntries       LessonEntry[]
 
   @@unique([workspaceId, code])
   @@index([workspaceId, active])
@@ -1277,11 +1277,11 @@ model RubricTemplate {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
-  workspace  Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  subject    Subject?         @relation(fields: [subjectId], references: [id], onDelete: SetNull)
-  createdBy  User             @relation("RubricTemplateCreator", fields: [createdById], references: [id])
-  approvedBy User?            @relation("RubricTemplateApprover", fields: [approvedById], references: [id])
-  criteria   RubricCriterion[]
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  subject     Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  createdBy   User              @relation("RubricTemplateCreator", fields: [createdById], references: [id])
+  approvedBy  User?             @relation("RubricTemplateApprover", fields: [approvedById], references: [id])
+  criteria    RubricCriterion[]
   assessments Assessment[]
 
   @@index([workspaceId, status])
@@ -1290,14 +1290,14 @@ model RubricTemplate {
 }
 
 model RubricCriterion {
-  id               String @id @default(cuid())
+  id               String  @id @default(cuid())
   rubricTemplateId String
   name             String
   description      String?
   maxMarks         Int
   orderIndex       Int
 
-  template    RubricTemplate    @relation(fields: [rubricTemplateId], references: [id], onDelete: Cascade)
+  template    RubricTemplate     @relation(fields: [rubricTemplateId], references: [id], onDelete: Cascade)
   scriptMarks ScriptRubricMark[]
 
   @@unique([rubricTemplateId, orderIndex])
@@ -1461,10 +1461,10 @@ model ExaminationTimetable {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  grade     Grade?    @relation(fields: [gradeId], references: [id], onDelete: SetNull)
-  subject   Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
-  createdBy User      @relation("ExamTimetableCreator", fields: [createdById], references: [id])
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  grade     Grade?            @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  subject   Subject?          @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  createdBy User              @relation("ExamTimetableCreator", fields: [createdById], references: [id])
   slots     ExaminationSlot[]
 
   @@index([workspaceId, startDate, endDate])
@@ -1486,13 +1486,13 @@ model ExaminationSlot {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  workspace   Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  timetable   ExaminationTimetable? @relation(fields: [timetableId], references: [id], onDelete: SetNull)
-  grade       Grade?                @relation(fields: [gradeId], references: [id], onDelete: SetNull)
-  subject     Subject?              @relation(fields: [subjectId], references: [id], onDelete: SetNull)
-  assessment  Assessment?           @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
-  venue       ExamVenue?            @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  opsSession  ExaminationOpsSession?
+  workspace  Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  timetable  ExaminationTimetable?  @relation(fields: [timetableId], references: [id], onDelete: SetNull)
+  grade      Grade?                 @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  subject    Subject?               @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  assessment Assessment?            @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  venue      ExamVenue?             @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  opsSession ExaminationOpsSession?
 
   @@index([workspaceId, startTime, endTime])
   @@index([venueId, startTime])
@@ -1641,9 +1641,9 @@ model PaperVaultDocument {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  assessment  Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  uploadedBy  User       @relation("PaperVaultUploader", fields: [uploadedById], references: [id])
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  uploadedBy User       @relation("PaperVaultUploader", fields: [uploadedById], references: [id])
 
   @@unique([documentGroupId, versionNumber])
   @@index([workspaceId, assessmentId])
@@ -1655,16 +1655,16 @@ model PaperVaultDocument {
 // ─── Learner concessions register ─────────────────────────────────────────────
 
 model LearnerConcession {
-  id            String         @id @default(cuid())
-  workspaceId   String
-  learnerId     String
+  id             String         @id @default(cuid())
+  workspaceId    String
+  learnerId      String
   concessionType ConcessionType
-  description   String?
-  effectiveDate DateTime
-  expiryDate    DateTime?
-  active        Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  description    String?
+  effectiveDate  DateTime
+  expiryDate     DateTime?
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   learner   Learner   @relation(fields: [learnerId], references: [id], onDelete: Cascade)
@@ -1688,9 +1688,9 @@ model PortalAccount {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  learner     Learner?             @relation(fields: [learnerId], references: [id], onDelete: Cascade)
-  parentLinks ParentLearnerLink[]  @relation("ParentAccount")
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  learner     Learner?            @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  parentLinks ParentLearnerLink[] @relation("ParentAccount")
 
   @@unique([workspaceId, email])
   @@index([workspaceId, type, isActive])
@@ -1730,10 +1730,10 @@ model PortalOtp {
 // ─── AI Assessment Builder (material upload → generate → approve) ─────────────
 
 model AiAssessmentBuilderRequest {
-  id              String            @id @default(cuid())
-  workspaceId     String
-  createdById     String
-  status          AiBuilderStatus   @default(UPLOADING)
+  id          String          @id @default(cuid())
+  workspaceId String
+  createdById String
+  status      AiBuilderStatus @default(UPLOADING)
 
   curriculumId    String?
   phaseId         String?
@@ -1749,8 +1749,8 @@ model AiAssessmentBuilderRequest {
   bloomLevels     AiBloomLevel[]       @default([])
   instructions    String?
 
-  draftMetadata   Json?
-  qualityChecks   Json?
+  draftMetadata Json?
+  qualityChecks Json?
 
   sourceMode              AiBuilderSourceMode @default(STUDY_MATERIAL)
   selectedQuestionBankIds Json?
@@ -1758,30 +1758,30 @@ model AiAssessmentBuilderRequest {
   frameworkRequired       Boolean             @default(false)
   frameworkDetected       Boolean             @default(false)
 
-  assessmentId    String?           @unique
+  assessmentId String? @unique
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy   User              @relation("AiBuilderCreator", fields: [createdById], references: [id])
-  assessment  Assessment?       @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
-  materials   AiStudyMaterial[]
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy  User              @relation("AiBuilderCreator", fields: [createdById], references: [id])
+  assessment Assessment?       @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  materials  AiStudyMaterial[]
 
   @@index([workspaceId, status])
   @@index([createdById, createdAt])
 }
 
 model AiStudyMaterial {
-  id               String             @id @default(cuid())
-  requestId        String
-  workspaceId      String
+  id          String @id @default(cuid())
+  requestId   String
+  workspaceId String
 
-  fileType         AiMaterialType
-  fileName         String
-  storedKey        String
-  mimeType         String
-  fileSize         Int
+  fileType  AiMaterialType
+  fileName  String
+  storedKey String
+  mimeType  String
+  fileSize  Int
 
   uploadPurpose      AiUploadPurpose    @default(STUDY_MATERIAL)
   extractionStatus   AiExtractionStatus @default(PENDING)
@@ -1793,9 +1793,9 @@ model AiStudyMaterial {
   extractedQuestions Json?
   duplicateWarnings  Json?
 
-  uploadedById     String
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  uploadedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   request    AiAssessmentBuilderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   uploadedBy User                       @relation("AiMaterialUploader", fields: [uploadedById], references: [id])
@@ -1819,23 +1819,23 @@ model WorkspaceWorkflowConfig {
 // ─── Phase 2: Mark adjustment audit trail ─────────────────────────────────────
 
 model MarkAdjustmentAudit {
-  id                 String            @id @default(cuid())
-  workspaceId        String
-  assessmentId       String
-  learnerScriptId    String?
-  learnerId          String?
-  questionMarkId     String?
-  field              String
-  previousValue      Float?
-  newValue           Float?
-  reason             String?
-  adjustedById       String
-  source             MarkCaptureSource @default(SCRIPT_MARKING)
-  createdAt          DateTime          @default(now())
+  id              String            @id @default(cuid())
+  workspaceId     String
+  assessmentId    String
+  learnerScriptId String?
+  learnerId       String?
+  questionMarkId  String?
+  field           String
+  previousValue   Float?
+  newValue        Float?
+  reason          String?
+  adjustedById    String
+  source          MarkCaptureSource @default(SCRIPT_MARKING)
+  createdAt       DateTime          @default(now())
 
-  workspace    Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  assessment   Assessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  adjustedBy   User        @relation("MarkAdjustmentAuthor", fields: [adjustedById], references: [id])
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  adjustedBy User       @relation("MarkAdjustmentAuthor", fields: [adjustedById], references: [id])
 
   @@index([assessmentId, createdAt])
   @@index([learnerScriptId, createdAt])
@@ -1855,9 +1855,9 @@ model ModerationComment {
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
 
-  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  author     User               @relation("ModerationCommentAuthor", fields: [authorId], references: [id])
-  parent     ModerationComment? @relation("CommentThread", fields: [parentId], references: [id], onDelete: SetNull)
+  assessment Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  author     User                @relation("ModerationCommentAuthor", fields: [authorId], references: [id])
+  parent     ModerationComment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: SetNull)
   replies    ModerationComment[] @relation("CommentThread")
 
   @@index([assessmentId, createdAt])
@@ -2028,17 +2028,17 @@ model SchoolDayTemplate {
 }
 
 model PeriodDefinition {
-  id                   String     @id @default(cuid())
-  workspaceId          String
-  dayTemplateId        String
-  periodOrder          Int
-  label                String
-  startTime            String
-  endTime              String
-  periodType           PeriodType @default(TEACHING)
-  doublePeriodCapable  Boolean    @default(false)
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
+  id                  String     @id @default(cuid())
+  workspaceId         String
+  dayTemplateId       String
+  periodOrder         Int
+  label               String
+  startTime           String
+  endTime             String
+  periodType          PeriodType @default(TEACHING)
+  doublePeriodCapable Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   dayTemplate   SchoolDayTemplate @relation(fields: [dayTemplateId], references: [id], onDelete: Cascade)

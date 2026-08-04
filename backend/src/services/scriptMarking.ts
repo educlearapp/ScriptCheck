@@ -21,6 +21,7 @@ import { syncMarkFromScript } from "./markCapture";
 import { ensureRubricMarksForScript } from "./rubricMarking";
 import { trackQuestionMarkChanges } from "./marking/markAudit";
 import { isMarkingPackAssessment } from "./quickScanShared";
+import { parseTeacherReviewPatch, TeacherReviewValidationError } from "./teacherReviewValidation";
 
 export class ScriptError extends Error {
   constructor(
@@ -963,10 +964,20 @@ export async function updateTeacherReviewMeta(
   workspaceId: string,
   actorId: string,
   access: UserAccessContext,
-  data: { flaggedForReview?: boolean; privateTeacherNotes?: string | null }
+  data: { flaggedForReview?: unknown; privateTeacherNotes?: unknown }
 ) {
   if (!hasPermission(access, workspaceId, PERMISSIONS.SCRIPTS_MARK)) {
     throw new ScriptError("Insufficient permissions to update review tools", 403);
+  }
+
+  let patch;
+  try {
+    patch = parseTeacherReviewPatch(data);
+  } catch (err) {
+    if (err instanceof TeacherReviewValidationError) {
+      throw new ScriptError(err.message, err.statusCode);
+    }
+    throw err;
   }
 
   const script = await loadLearnerScript(scriptId, workspaceId);
@@ -977,16 +988,11 @@ export async function updateTeacherReviewMeta(
   await prisma.learnerScript.update({
     where: { id: scriptId },
     data: {
-      ...(typeof data.flaggedForReview === "boolean"
-        ? { flaggedForReview: data.flaggedForReview }
+      ...(patch.flaggedForReview !== undefined
+        ? { flaggedForReview: patch.flaggedForReview }
         : {}),
-      ...(data.privateTeacherNotes !== undefined
-        ? {
-            privateTeacherNotes:
-              data.privateTeacherNotes === null
-                ? null
-                : String(data.privateTeacherNotes).slice(0, 5000),
-          }
+      ...(patch.privateTeacherNotes !== undefined
+        ? { privateTeacherNotes: patch.privateTeacherNotes }
         : {}),
     },
   });
