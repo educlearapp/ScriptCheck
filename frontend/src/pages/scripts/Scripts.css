@@ -712,3 +712,161 @@
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
+
+/* Phase 1B — teacher golden-path script review */
+
+.sc-script-learner-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.sc-unsaved-banner {
+  margin: 0;
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--sc-radius-sm);
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: var(--sc-gold-light);
+  font-weight: 600;
+}
+
+.sc-mark-focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sc-mark-focus-input {
+  font-size: 1.35rem;
+  min-height: 2.75rem;
+  max-width: 8rem;
+}
+
+.sc-mark-focus-progress {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--sc-text-muted);
+}
+
+.sc-mark-focus-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.sc-mark-save-confirm {
+  margin: 0;
+  color: #3ecf8e;
+  font-weight: 600;
+}
+
+.sc-mark-more-toggle,
+.sc-audit-toggle {
+  align-self: flex-start;
+}
+
+.sc-mark-totals-compact {
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+}
+
+.sc-script-detail-teacher .sc-mark-table-advanced {
+  display: none;
+}
+
+.sc-script-detail-teacher .sc-script-sidebar {
+  order: 2;
+}
+
+.sc-script-detail-teacher .sc-script-viewer,
+.sc-script-detail-teacher .sc-script-canvas-wrap {
+  order: 1;
+}
+
+.sc-script-detail-teacher .sc-script-marking-panel {
+  order: 3;
+}
+
+@media (max-width: 1024px) {
+  .sc-script-detail-teacher .sc-script-workspace {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .sc-script-detail-teacher .sc-script-sidebar {
+    display: none;
+  }
+
+  .sc-script-detail-teacher .sc-script-viewer,
+  .sc-script-detail-teacher .sc-script-canvas-wrap {
+    grid-column: 1;
+  }
+
+  .sc-script-detail-teacher .sc-script-marking-panel {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 767px) {
+  .sc-script-detail {
+    height: auto;
+    min-height: 0;
+  }
+
+  .sc-script-detail-teacher .sc-script-workspace,
+  .sc-script-workspace {
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+  }
+
+  .sc-script-detail-teacher .sc-script-sidebar {
+    display: none;
+  }
+
+  .sc-script-detail-teacher .sc-script-marking-panel,
+  .sc-script-marking-panel {
+    max-width: 100%;
+  }
+
+  .sc-script-learner-nav {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .sc-script-learner-nav .sc-btn {
+    flex: 1;
+    min-height: 2.75rem;
+  }
+
+  .sc-mark-focus-input {
+    max-width: none;
+    width: 100%;
+  }
+
+  .sc-form-actions .sc-btn {
+    width: 100%;
+    min-height: 2.75rem;
+  }
+
+  .sc-workflow-actions {
+    flex-wrap: wrap;
+  }
+
+  .sc-workflow-actions .sc-btn {
+    flex: 1 1 100%;
+    min-height: 2.75rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .sc-script-detail-teacher {
+    height: auto;
+    min-height: 0;
+  }
+}

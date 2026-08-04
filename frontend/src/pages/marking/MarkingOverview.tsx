@@ -278,10 +278,34 @@ export default function MarkingOverview() {
     setActionBusy("dh");
     setError("");
     try {
+      const detail = await apiFetch<{
+        learnerScripts: Array<{ id: string; status: string }>;
+      }>(`/script-batches/${paperSet.id}`);
+      const scripts = detail.learnerScripts ?? [];
+      const unfinished = scripts.filter((s) => s.status !== "MARKED");
+      if (scripts.length === 0) {
+        setError("There are no learner papers to send yet.");
+        return;
+      }
+      if (unfinished.length > 0) {
+        setError(
+          `${unfinished.length} learner paper(s) still need to be finished. Open them and select “Finish This Learner” before sending.`
+        );
+        return;
+      }
+      const confirmed = window.confirm(
+        `Send ${scripts.length} completed learner paper(s) to the Department Head?`
+      );
+      if (!confirmed) return;
       await apiFetch(`/script-batches/${paperSet.id}/submit-to-hod`, { method: "POST" });
       await loadSelectedDetails(selectedId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send to the Department Head.");
+      const raw = err instanceof Error ? err.message : "Could not send to the Department Head.";
+      setError(
+        /must be marked|remaining/i.test(raw)
+          ? "Some learner papers still need to be finished. Open them and select “Finish This Learner” before sending."
+          : raw
+      );
     } finally {
       setActionBusy("");
     }

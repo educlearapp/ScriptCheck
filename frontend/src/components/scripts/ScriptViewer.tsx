@@ -336,7 +336,7 @@ export default function ScriptViewer({
                 : mode === "teacher"
                   ? "Teacher"
                   : mode === "hod"
-                    ? "DH"
+                    ? "Department Head"
                     : "All"}
             </button>
           ))}
@@ -390,17 +390,19 @@ export default function ScriptViewer({
             className="sc-btn sc-btn-ghost sc-btn-sm"
             disabled={activePageIndex <= 0}
             onClick={onPrevPage}
+            aria-label="Previous page"
           >
-            ← Prev
+            Previous page
           </button>
           <select
             className="sc-input sc-page-select"
             value={activePageIndex}
             onChange={(e) => onSelectPage(Number(e.target.value))}
+            aria-label={`Page ${activePageIndex + 1} of ${totalPages}`}
           >
             {Array.from({ length: totalPages }, (_, i) => (
               <option key={i} value={i}>
-                Page {i + 1}
+                Page {i + 1} of {totalPages}
               </option>
             ))}
           </select>
@@ -409,19 +411,25 @@ export default function ScriptViewer({
             className="sc-btn sc-btn-ghost sc-btn-sm"
             disabled={activePageIndex >= totalPages - 1}
             onClick={onNextPage}
+            aria-label="Next page"
           >
-            Next →
+            Next page
           </button>
         </div>
 
-        <div className="sc-viewer-toolbar-group">
-          <span className="sc-viewer-label">Zoom</span>
+        <div className="sc-viewer-toolbar-group" role="group" aria-label="Zoom">
+          <span className="sc-viewer-label" id="sc-zoom-label">
+            Zoom
+          </span>
           {ZOOM_LEVELS.map((z) => (
             <button
               key={z}
               type="button"
               className={`sc-btn sc-btn-ghost sc-btn-sm${zoom === z ? " sc-btn-active" : ""}`}
               onClick={() => setZoom(z)}
+              aria-pressed={zoom === z}
+              aria-labelledby="sc-zoom-label"
+              aria-label={`Zoom ${Math.round(z * 100)} percent`}
             >
               {Math.round(z * 100)}%
             </button>

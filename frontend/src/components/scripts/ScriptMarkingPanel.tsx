@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type {
   LearnerFeedbackEntry,
   LearnerScriptDetail,
@@ -12,6 +13,7 @@ type Props = {
   hodMode: boolean;
   saving: boolean;
   completing: boolean;
+  saveMessage?: string;
   onUpdateMark: (
     questionId: string,
     field: keyof ScriptQuestionMarkRow,
@@ -36,6 +38,8 @@ type Props = {
   feedbackError: string;
   onFeedbackFormChange: (field: string, value: string) => void;
   onSaveFeedback: () => void;
+  activeQuestionIndex?: number;
+  onActiveQuestionIndexChange?: (index: number) => void;
 };
 
 export default function ScriptMarkingPanel({
@@ -45,6 +49,7 @@ export default function ScriptMarkingPanel({
   hodMode,
   saving,
   completing,
+  saveMessage,
   onUpdateMark,
   onSave,
   onComplete,
@@ -60,40 +65,54 @@ export default function ScriptMarkingPanel({
   feedbackError,
   onFeedbackFormChange,
   onSaveFeedback,
+  activeQuestionIndex = 0,
+  onActiveQuestionIndexChange,
 }: Props) {
+  const [showMore, setShowMore] = useState(false);
+  const questions = script.questionMarks;
+  const questionIndex = Math.min(Math.max(activeQuestionIndex, 0), Math.max(questions.length - 1, 0));
+  const activeQuestion = questions[questionIndex] ?? null;
+
+  const missingMarks = useMemo(() => {
+    return questions.filter((q) => {
+      const m = marks[q.assessmentQuestionId] ?? q;
+      const value = hodMode ? m.hodMark : m.teacherMark;
+      return value == null || value === ("" as unknown);
+    });
+  }, [questions, marks, hodMode]);
+
   return (
     <aside className="sc-script-marking-panel">
-      <h3 className="sc-script-panel-title">Question Marks</h3>
+      <h3 className="sc-script-panel-title">Review marks</h3>
 
       <div className="sc-mark-totals sc-mark-totals-compact">
         <div className="sc-mark-total-card">
-          <div className="sc-detail-label">Teacher</div>
+          <div className="sc-detail-label">Your total</div>
           <div className="sc-mark-total-value">{script.teacherTotal ?? "—"}</div>
           {script.teacherPercentage != null ? (
             <div className="sc-mark-total-pct">{script.teacherPercentage}%</div>
           ) : null}
         </div>
-        <div className="sc-mark-total-card">
-          <div className="sc-detail-label">DH</div>
-          <div className="sc-mark-total-value">{script.hodTotal ?? "—"}</div>
-          {script.hodPercentage != null ? (
-            <div className="sc-mark-total-pct">{script.hodPercentage}%</div>
-          ) : null}
-        </div>
-        <div className="sc-mark-total-card">
-          <div className="sc-detail-label">Difference</div>
-          <div className="sc-mark-total-value">{script.markDifference ?? "—"}</div>
-        </div>
+        {hodMode || showMore ? (
+          <div className="sc-mark-total-card">
+            <div className="sc-detail-label">Department Head</div>
+            <div className="sc-mark-total-value">{script.hodTotal ?? "—"}</div>
+            {script.hodPercentage != null ? (
+              <div className="sc-mark-total-pct">{script.hodPercentage}%</div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="sc-mark-total-card sc-card-gold">
           <div className="sc-detail-label">Final</div>
-          <div className="sc-mark-total-value">{script.finalTotal ?? 0}</div>
+          <div className="sc-mark-total-value">{script.finalTotal ?? "—"}</div>
           <div className="sc-mark-total-pct">
-            {script.finalPercentage ?? script.percentage}% / {script.outOf}
+            {script.finalPercentage ?? script.percentage ?? "—"}
+            {script.finalPercentage != null || script.percentage != null ? "%" : ""} / {script.outOf}
           </div>
         </div>
       </div>
 
-      {script.varianceLevel ? (
+      {script.varianceLevel && (hodMode || showMore) ? (
         <div className="sc-variance-row">
           <MarkVarianceBadge
             level={script.varianceLevel}
@@ -102,18 +121,81 @@ export default function ScriptMarkingPanel({
         </div>
       ) : null}
 
-      <div className="sc-table-wrap sc-mark-capture-table">
+      {activeQuestion && teacherMode && !hodMode ? (
+        <div className="sc-mark-focus-card" aria-label="Current question">
+          <p className="sc-mark-focus-progress">
+            Question {questionIndex + 1} of {questions.length}
+          </p>
+          <p className="sc-marking-q-num">Q{activeQuestion.questionNumber}</p>
+          {activeQuestion.questionText ? (
+            <p className="sc-mark-comment-read">{activeQuestion.questionText}</p>
+          ) : null}
+          <label className="sc-label" htmlFor={`mark-input-${activeQuestion.assessmentQuestionId}`}>
+            Mark out of {activeQuestion.maxMarks}
+          </label>
+          <input
+            id={`mark-input-${activeQuestion.assessmentQuestionId}`}
+            className="sc-input sc-mark-focus-input"
+            type="number"
+            min={0}
+            max={activeQuestion.maxMarks}
+            step={0.5}
+            value={marks[activeQuestion.assessmentQuestionId]?.teacherMark ?? activeQuestion.teacherMark ?? ""}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw !== "" && Number(raw) > activeQuestion.maxMarks) return;
+              onUpdateMark(activeQuestion.assessmentQuestionId, "teacherMark", raw);
+            }}
+            aria-describedby={`mark-help-${activeQuestion.assessmentQuestionId}`}
+          />
+          <p id={`mark-help-${activeQuestion.assessmentQuestionId}`} className="sc-mark-pages-hint">
+            Enter 0 up to {activeQuestion.maxMarks}. Leave blank if not marked yet.
+          </p>
+          <label className="sc-label" htmlFor={`comment-${activeQuestion.assessmentQuestionId}`}>
+            Comment (optional)
+          </label>
+          <input
+            id={`comment-${activeQuestion.assessmentQuestionId}`}
+            className="sc-input"
+            placeholder="Comment"
+            value={marks[activeQuestion.assessmentQuestionId]?.teacherComment ?? activeQuestion.teacherComment ?? ""}
+            onChange={(e) =>
+              onUpdateMark(activeQuestion.assessmentQuestionId, "teacherComment", e.target.value)
+            }
+          />
+          <div className="sc-form-actions sc-mark-focus-nav">
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              disabled={questionIndex <= 0}
+              onClick={() => onActiveQuestionIndexChange?.(questionIndex - 1)}
+            >
+              Previous question
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              disabled={questionIndex >= questions.length - 1}
+              onClick={() => onActiveQuestionIndexChange?.(questionIndex + 1)}
+            >
+              Next question
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className={`sc-table-wrap sc-mark-capture-table${teacherMode && !hodMode ? " sc-mark-table-advanced" : ""}`}>
         <table className="sc-table sc-table-compact">
           <thead>
             <tr>
               <th>Q</th>
               <th>Max</th>
-              <th>{hodMode ? "DH" : teacherMode ? "Awarded" : "Final"}</th>
+              <th>{hodMode ? "Department Head" : teacherMode ? "Awarded" : "Final"}</th>
               <th>Comment</th>
             </tr>
           </thead>
           <tbody>
-            {script.questionMarks.map((q) => {
+            {script.questionMarks.map((q, index) => {
               const m = marks[q.assessmentQuestionId] ?? q;
               const awardedValue = hodMode
                 ? m.hodMark
@@ -127,14 +209,18 @@ export default function ScriptMarkingPanel({
                   : q.teacherComment ?? q.hodComment;
 
               return (
-                <tr key={q.id}>
+                <tr
+                  key={q.id}
+                  className={index === questionIndex ? "is-active-question" : undefined}
+                  onClick={() => onActiveQuestionIndexChange?.(index)}
+                >
                   <td>
                     <span className="sc-marking-q-num">Q{q.questionNumber}</span>
                     {q.questionText ? (
                       <p className="sc-mark-comment-read">{q.questionText}</p>
                     ) : null}
-                    {q.expectedAnswer ? (
-                      <p className="sc-mark-comment-read">Memo: {q.expectedAnswer}</p>
+                    {q.expectedAnswer && (hodMode || showMore) ? (
+                      <p className="sc-mark-comment-read">Model answer: {q.expectedAnswer}</p>
                     ) : null}
                   </td>
                   <td>{q.maxMarks}</td>
@@ -146,10 +232,13 @@ export default function ScriptMarkingPanel({
                         min={0}
                         max={q.maxMarks}
                         step={0.5}
+                        aria-label={`Mark for question ${q.questionNumber}, maximum ${q.maxMarks}`}
                         value={m.teacherMark ?? ""}
-                        onChange={(e) =>
-                          onUpdateMark(q.assessmentQuestionId, "teacherMark", e.target.value)
-                        }
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw !== "" && Number(raw) > q.maxMarks) return;
+                          onUpdateMark(q.assessmentQuestionId, "teacherMark", raw);
+                        }}
                       />
                     ) : hodMode ? (
                       <input
@@ -158,6 +247,7 @@ export default function ScriptMarkingPanel({
                         min={0}
                         max={q.maxMarks}
                         step={0.5}
+                        aria-label={`Department Head mark for question ${q.questionNumber}`}
                         value={m.hodMark ?? ""}
                         onChange={(e) =>
                           onUpdateMark(q.assessmentQuestionId, "hodMark", e.target.value)
@@ -172,6 +262,7 @@ export default function ScriptMarkingPanel({
                       <input
                         className="sc-input sc-input-sm"
                         placeholder="Comment"
+                        aria-label={`Comment for question ${q.questionNumber}`}
                         value={m.teacherComment ?? ""}
                         onChange={(e) =>
                           onUpdateMark(q.assessmentQuestionId, "teacherComment", e.target.value)
@@ -198,28 +289,48 @@ export default function ScriptMarkingPanel({
       </div>
 
       {(teacherMode || hodMode) ? (
-        <div className="sc-form-actions">
+        <div className="sc-form-actions sc-mark-primary-actions">
           <button
             type="button"
             className="sc-btn sc-btn-primary"
-            disabled={saving}
+            disabled={saving || completing}
             onClick={onSave}
           >
-            {saving ? "Saving…" : "Save marks"}
+            {saving ? "Saving…" : "Save Mark"}
           </button>
           {teacherMode && script.status !== "MARKED" ? (
             <button
               type="button"
-              className="sc-btn sc-btn-ghost"
-              disabled={completing}
-              onClick={onComplete}
+              className="sc-btn sc-btn-secondary"
+              disabled={completing || saving}
+              onClick={() => {
+                if (missingMarks.length > 0) {
+                  const ok = window.confirm(
+                    `${missingMarks.length} question(s) still have no mark. Finish this learner anyway?`
+                  );
+                  if (!ok) return;
+                }
+                onComplete();
+              }}
             >
-              {completing ? "Completing…" : "Mark complete"}
+              {completing ? "Finishing…" : "Finish This Learner"}
             </button>
           ) : null}
+          {saveMessage ? <p className="sc-mark-save-confirm" role="status">{saveMessage}</p> : null}
         </div>
       ) : null}
 
+      <button
+        type="button"
+        className="sc-btn sc-btn-ghost sc-mark-more-toggle"
+        onClick={() => setShowMore((v) => !v)}
+        aria-expanded={showMore}
+      >
+        {showMore ? "Hide more actions" : "More actions"}
+      </button>
+
+      {showMore ? (
+        <>
       {canGenerateReports ? (
         <div className="sc-marking-section">
           <h4 className="sc-marking-section-title">Learner Report</h4>
@@ -308,6 +419,8 @@ export default function ScriptMarkingPanel({
             <p className="sc-script-empty">No feedback yet.</p>
           )}
         </div>
+      ) : null}
+        </>
       ) : null}
     </aside>
   );

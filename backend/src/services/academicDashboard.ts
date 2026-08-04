@@ -25,6 +25,11 @@ import {
 } from "./portalReports";
 import { deriveAcademicSnapshot, getSchoolAcademicTrends } from "./academicTrends";
 import { getLatestExamReadiness } from "./examReadiness";
+import {
+  derivePublishStatus,
+  loadAssessmentResultsSummaries,
+  mergeLiveSummaryWithSnapshot,
+} from "./resultsListSummary";
 
 const assessmentListInclude = {
   grade: { select: { id: true, name: true } },
@@ -38,8 +43,31 @@ type AssessmentListItem = Prisma.AssessmentGetPayload<{
   include: typeof assessmentListInclude;
 }>;
 
-function serializeAssessmentBrief(assessment: AssessmentListItem) {
+function serializeAssessmentBrief(
+  assessment: AssessmentListItem,
+  liveSummary?: {
+    learnerPaperCount: number;
+    markedCount: number;
+    awaitingReviewCount: number;
+    classAverage: number | null;
+    highestMark: number | null;
+    lowestMark: number | null;
+    markUnit: "percentage";
+  }
+) {
   const snapshot = parseAnalyticsSnapshot(assessment.analyticsSnapshot);
+  const merged = liveSummary
+    ? mergeLiveSummaryWithSnapshot(liveSummary, snapshot)
+    : {
+        learnerPaperCount: snapshot?.learnerCount ?? 0,
+        markedCount: 0,
+        awaitingReviewCount: 0,
+        classAverage: snapshot?.classAverage ?? null,
+        highestMark: null as number | null,
+        lowestMark: null as number | null,
+        markUnit: "percentage" as const,
+      };
+
   return {
     id: assessment.id,
     title: assessment.title,
@@ -52,10 +80,18 @@ function serializeAssessmentBrief(assessment: AssessmentListItem) {
     creatorTeacher: assessment.creatorTeacher,
     publishedAt: assessment.publishedAt,
     resultsPublishRequestedAt: assessment.resultsPublishRequestedAt,
-    classAverage: snapshot?.classAverage ?? null,
+    classAverage: merged.classAverage,
     passRate: snapshot?.passRate ?? null,
-    learnerCount: snapshot?.learnerCount ?? null,
+    learnerCount: merged.learnerPaperCount > 0 ? merged.learnerPaperCount : snapshot?.learnerCount ?? null,
     learnersAtRiskCount: snapshot?.learnersAtRiskCount ?? null,
+    learnerPaperCount: merged.learnerPaperCount,
+    markedCount: merged.markedCount,
+    awaitingReviewCount: merged.awaitingReviewCount,
+    highestMark: merged.highestMark,
+    lowestMark: merged.lowestMark,
+    markUnit: merged.markUnit,
+    resultStatus: assessment.status,
+    publishStatus: derivePublishStatus(assessment),
   };
 }
 
@@ -312,16 +348,16 @@ export async function getTeacherDashboard(
     },
     recentImports,
     portalActivity,
-    awaitingMarking: awaitingMarking.map(serializeAssessmentBrief),
-    submittedToHod: submittedToHod.map(serializeAssessmentBrief),
-    recentlyPublished: recentlyPublished.map(serializeAssessmentBrief),
+    awaitingMarking: awaitingMarking.map((a) => serializeAssessmentBrief(a)),
+    submittedToHod: submittedToHod.map((a) => serializeAssessmentBrief(a)),
+    recentlyPublished: recentlyPublished.map((a) => serializeAssessmentBrief(a)),
     moderationPending: moderationPending.map((batch) => ({
       id: batch.id,
       title: batch.title,
       status: batch.status,
       assessment: batch.assessment,
     })),
-    overdueAssessments: overdueAssessments.map(serializeAssessmentBrief),
+    overdueAssessments: overdueAssessments.map((a) => serializeAssessmentBrief(a)),
     upcomingDeadlines: upcomingDeadlines.map((a) => ({
       ...serializeAssessmentBrief(a),
       dueDate: a.dueDate?.toISOString() ?? null,
@@ -555,7 +591,7 @@ export async function getHodDashboard(workspaceId: string, access: UserAccessCon
     examReadiness: readiness,
     recentImports,
     portalActivity,
-    resultsAwaitingPublish: resultsAwaitingPublish.map(serializeAssessmentBrief),
+    resultsAwaitingPublish: resultsAwaitingPublish.map((a) => serializeAssessmentBrief(a)),
     weakTopics,
     moderationQueue: moderationQueue.map((batch) => ({
       id: batch.id,
@@ -723,7 +759,7 @@ export async function getPrincipalDashboard(workspaceId: string) {
       .sort((a, b) => (b.gradeAverage ?? 0) - (a.gradeAverage ?? 0)),
     trends,
     examReadiness: readiness,
-    recentPublished: published.slice(0, 8).map(serializeAssessmentBrief),
+    recentPublished: published.slice(0, 8).map((a) => serializeAssessmentBrief(a)),
     generatedAt: now.toISOString(),
   };
 }
@@ -789,5 +825,6 @@ export async function listDepartmentResults(
     orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
   });
 
-  return assessments.map(serializeAssessmentBrief);
+  const liveMap = await loadAssessmentResultsSummaries(assessments.map((a) => a.id));
+  return assessments.map((a) => serializeAssessmentBrief(a, liveMap.get(a.id)));
 }

@@ -3,10 +3,10 @@ import type { ScriptWorkflowInfo, WorkflowDisplayStatus } from "../../types";
 const STATUS_LABELS: Record<WorkflowDisplayStatus, string> = {
   UPLOADED: "Uploaded",
   MARKING: "Marking",
-  MARKED: "Marked",
-  MODERATION: "Moderation",
-  MODERATED: "Moderated",
-  FINALISED: "Finalised",
+  MARKED: "Finished",
+  MODERATION: "With Department Head",
+  MODERATED: "Reviewed",
+  FINALISED: "Locked",
   RETURNED: "Returned",
 };
 
@@ -51,7 +51,7 @@ export default function ScriptWorkflowBar({
           <span className="sc-lock-badge sc-lock-badge-teacher">Teacher layer locked</span>
         ) : null}
         {workflow.hodLayerLocked ? (
-          <span className="sc-lock-badge sc-lock-badge-hod">DH layer locked</span>
+          <span className="sc-lock-badge sc-lock-badge-hod">Department Head review locked</span>
         ) : null}
         {workflow.examSessionMode ? (
           <span className="sc-lock-badge sc-lock-badge-exam">Exam session mode</span>
@@ -66,7 +66,7 @@ export default function ScriptWorkflowBar({
             disabled={busy}
             onClick={onComplete}
           >
-            Mark complete
+            {busy ? "Saving…" : "Finish This Learner"}
           </button>
         ) : null}
         {actions.has("submit_moderation") && onSubmitModeration ? (
@@ -76,7 +76,7 @@ export default function ScriptWorkflowBar({
             disabled={busy}
             onClick={onSubmitModeration}
           >
-            Submit for moderation
+            Send to Department Head
           </button>
         ) : null}
         {actions.has("start_review") && onStartReview ? (
@@ -96,7 +96,7 @@ export default function ScriptWorkflowBar({
             disabled={busy}
             onClick={onApprove}
           >
-            Approve moderation
+            Approve
           </button>
         ) : null}
         {actions.has("return_to_teacher") && onReturn ? (

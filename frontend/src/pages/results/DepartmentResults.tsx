@@ -11,12 +11,13 @@ import type {
   DepartmentResultItem,
 } from "../../types";
 import { formatStatusLabel } from "../../utils/statusLabels";
+import {
+  formatResultsCount as formatCount,
+  formatResultsPct as formatPct,
+  formatResultsPublishStatus,
+  markedProgressLabel,
+} from "../../utils/resultsSummaryDisplay";
 import "./DepartmentResults.css";
-
-function formatPct(value: number | null | undefined): string {
-  if (value == null) return "—";
-  return `${value}%`;
-}
 
 function averageOf(values: number[]): number | null {
   if (!values.length) return null;
@@ -27,6 +28,10 @@ function averageOf(values: number[]): number | null {
 function pctClass(value: number | null | undefined, threshold = 50): string {
   if (value == null) return "";
   return value < threshold ? "sc-dept-pct-low" : "sc-dept-pct-high";
+}
+
+function formatPublishStatus(item: DepartmentResultItem): string {
+  return formatResultsPublishStatus(item);
 }
 
 export default function DepartmentResults() {
@@ -357,7 +362,44 @@ export default function DepartmentResults() {
                   )}
                 </div>
               ) : (
-                <div className="sc-table-wrap">
+                <>
+                <div className="sc-results-card-list" aria-label="Assessment results cards">
+                  {items.map((item) => {
+                    const papers = item.learnerPaperCount ?? item.learnerCount;
+                    const marked = item.markedCount;
+                    return (
+                      <article key={item.id} className="sc-card sc-results-mobile-card">
+                        <h3>{item.title}</h3>
+                        <p className="sc-results-mobile-meta">
+                          {item.grade.name} · {item.subject.name}
+                        </p>
+                        <p>
+                          {marked != null && papers != null
+                            ? markedProgressLabel(marked, papers)
+                            : papers != null
+                              ? `${papers} learner papers`
+                              : "No learner papers yet"}
+                        </p>
+                        <p>Class average: {formatPct(item.classAverage)}</p>
+                        <p>
+                          Highest: {formatPct(item.highestMark ?? null)} · Lowest:{" "}
+                          {formatPct(item.lowestMark ?? null)}
+                        </p>
+                        <p>
+                          {formatStatusLabel(item.resultStatus ?? item.status)} ·{" "}
+                          {formatPublishStatus(item)}
+                        </p>
+                        <Link
+                          to={`/assessments/${item.id}/results`}
+                          className="sc-btn sc-btn-primary sc-results-open-btn"
+                        >
+                          Open Results
+                        </Link>
+                      </article>
+                    );
+                  })}
+                </div>
+                <div className="sc-table-wrap sc-results-desktop-table">
                   <table className="sc-table">
                     <thead>
                       <tr>
@@ -365,7 +407,11 @@ export default function DepartmentResults() {
                         <th>Grade</th>
                         <th>Subject</th>
                         <th>Learner papers</th>
+                        <th>Marked</th>
+                        <th>Waiting for review</th>
                         <th>Class average</th>
+                        <th>Highest</th>
+                        <th>Lowest</th>
                         <th>Status</th>
                         <th>Publish status</th>
                         <th></th>
@@ -377,16 +423,14 @@ export default function DepartmentResults() {
                           <td>{item.title}</td>
                           <td>{item.grade.name}</td>
                           <td>{item.subject.name}</td>
-                          <td>{item.learnerCount ?? "—"}</td>
+                          <td>{formatCount(item.learnerPaperCount ?? item.learnerCount)}</td>
+                          <td>{formatCount(item.markedCount)}</td>
+                          <td>{formatCount(item.awaitingReviewCount)}</td>
                           <td className={pctClass(item.classAverage)}>{formatPct(item.classAverage)}</td>
-                          <td>{formatStatusLabel(item.status)}</td>
-                          <td>
-                            {item.publishedAt
-                              ? "Published"
-                              : item.resultsPublishRequestedAt
-                                ? "Asked to publish"
-                                : "Not published"}
-                          </td>
+                          <td>{formatPct(item.highestMark ?? null)}</td>
+                          <td>{formatPct(item.lowestMark ?? null)}</td>
+                          <td>{formatStatusLabel(item.resultStatus ?? item.status)}</td>
+                          <td>{formatPublishStatus(item)}</td>
                           <td>
                             <Link
                               to={`/assessments/${item.id}/results`}
@@ -400,6 +444,7 @@ export default function DepartmentResults() {
                     </tbody>
                   </table>
                 </div>
+                </>
               )}
             </div>
           </section>

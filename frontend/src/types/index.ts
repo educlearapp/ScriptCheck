@@ -1099,6 +1099,14 @@ export type DepartmentResultItem = {
   passRate: number | null;
   learnerCount: number | null;
   learnersAtRiskCount: number | null;
+  learnerPaperCount?: number;
+  markedCount?: number;
+  awaitingReviewCount?: number;
+  highestMark?: number | null;
+  lowestMark?: number | null;
+  markUnit?: "percentage";
+  resultStatus?: AssessmentStatus | string;
+  publishStatus?: "PUBLISHED" | "REQUESTED" | "NOT_PUBLISHED";
 };
 
 export type DashboardBatchItem = {

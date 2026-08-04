@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiDownload, apiFetch, apiOpenPdf, apiUpload } from "../../api";
 import { useTrialGate } from "../../trial/TrialGateContext";
 import ScriptAuditTimeline from "../../components/scripts/ScriptAuditTimeline";
@@ -10,11 +10,12 @@ import ScriptViewer from "../../components/scripts/ScriptViewer";
 import ScriptWorkflowBar from "../../components/scripts/ScriptWorkflowBar";
 import ConcessionAlerts from "../../components/concessions/ConcessionAlerts";
 import { useAuth } from "../../auth/AuthContext";
-import { hasPermission, isHodDashboard } from "../../auth/permissions";
+import { hasPermission, isHodDashboard, usesTeacherGoldenPathNav } from "../../auth/permissions";
 import type {
   AnnotationTool,
   LearnerFeedbackEntry,
   LearnerScriptDetail,
+  LearnerScriptSummary,
   ScriptAuditEntry,
   ScriptLayerDetail,
   ScriptPageInfo,
@@ -32,8 +33,10 @@ import "./Scripts.css";
 
 export default function LearnerScriptDetailPage() {
   const { scriptId } = useParams<{ scriptId: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { gateProductionAction } = useTrialGate();
+  const teacherSimple = usesTeacherGoldenPathNav(user);
 
   const [script, setScript] = useState<LearnerScriptDetail | null>(null);
   const [pages, setPages] = useState<ScriptPageInfo[]>([]);
@@ -45,10 +48,14 @@ export default function LearnerScriptDetailPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState("");
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [siblingScripts, setSiblingScripts] = useState<LearnerScriptSummary[]>([]);
+  const [showAudit, setShowAudit] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [activeTool, setActiveTool] = useState<AnnotationTool>("draw");
   const [feedback, setFeedback] = useState<LearnerFeedbackEntry[]>([]);
@@ -68,6 +75,7 @@ export default function LearnerScriptDetailPage() {
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [escalateRole, setEscalateRole] = useState<WorkspaceRole>("MODERATOR");
   const [escalateComment, setEscalateComment] = useState("");
+  const [dirty, setDirty] = useState(false);
 
   const canMark = hasPermission(user, "scripts.mark");
   const canEscalate = hasPermission(user, "moderation.request_approval");
@@ -112,18 +120,31 @@ export default function LearnerScriptDetailPage() {
     ];
 
     Promise.all(requests)
-      .then(([data, layerData, workflowData, auditData, feedbackData]) => {
+      .then(async ([data, layerData, workflowData, auditData, feedbackData]) => {
         setScript(data);
         setPages(data.pages ?? []);
         setLayers(layerData);
         setWorkflow(workflowData);
         setAuditTimeline(auditData);
+        setActiveQuestionIndex(0);
+        setSaveMessage("");
+        setDirty(false);
+        setShowAudit(false);
         const initial: Record<string, Partial<ScriptQuestionMarkRow>> = {};
         for (const m of data.questionMarks) {
           initial[m.assessmentQuestionId] = { ...m };
         }
         setMarks(initial);
         if (feedbackData) setFeedback(feedbackData);
+
+        try {
+          const batch = await apiFetch<{ learnerScripts: LearnerScriptSummary[] }>(
+            `/script-batches/${data.batchId}`
+          );
+          setSiblingScripts(batch.learnerScripts ?? []);
+        } catch {
+          setSiblingScripts([]);
+        }
 
         if (data.assessment.rubricTemplateId) {
           apiFetch<RubricMarksResponse>(`/scripts/${scriptId}/rubric-marks`)
@@ -155,11 +176,23 @@ export default function LearnerScriptDetailPage() {
     else if (teacherMode) setViewMode("teacher");
   }, [hodMode, teacherMode]);
 
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
   const updateMark = (
     questionId: string,
     field: keyof ScriptQuestionMarkRow,
     value: string
   ) => {
+    setDirty(true);
+    setSaveMessage("");
     setMarks((prev) => ({
       ...prev,
       [questionId]: {
@@ -223,9 +256,10 @@ export default function LearnerScriptDetailPage() {
   };
 
   const handleSave = async () => {
-    if (!scriptId) return;
+    if (!scriptId || saving) return;
     setSaving(true);
     setError("");
+    setSaveMessage("");
     try {
       const payload = Object.entries(marks).map(([assessmentQuestionId, m]) => ({
         assessmentQuestionId,
@@ -250,6 +284,8 @@ export default function LearnerScriptDetailPage() {
         body: JSON.stringify({ marks: payload }),
       });
       setScript(updated);
+      setDirty(false);
+      setSaveMessage("Mark saved.");
       const auditData = await apiFetch<ScriptAuditEntry[]>(
         `/scripts/${scriptId}/audit-timeline`
       );
@@ -259,6 +295,16 @@ export default function LearnerScriptDetailPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const confirmLeaveIfDirty = () => {
+    if (!dirty) return true;
+    return window.confirm("You have unsaved mark changes. Leave without saving?");
+  };
+
+  const goToSibling = (targetId: string) => {
+    if (!confirmLeaveIfDirty()) return;
+    navigate(`/scripts/${targetId}`);
   };
 
   const handleSaveFeedback = async () => {
@@ -356,7 +402,7 @@ export default function LearnerScriptDetailPage() {
   };
 
   const handleComplete = async () => {
-    if (!scriptId) return;
+    if (!scriptId || completing) return;
     setCompleting(true);
     setError("");
     try {
@@ -365,12 +411,26 @@ export default function LearnerScriptDetailPage() {
         method: "POST",
       });
       setScript(updated);
+      setDirty(false);
+      setSaveMessage("Learner finished.");
       await refreshWorkflow();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Complete failed");
+      setError(err instanceof Error ? err.message : "Could not finish this learner");
     } finally {
       setCompleting(false);
     }
+  };
+
+  const handleSubmitModerationSafe = async () => {
+    if (!script?.batchId) return;
+    const unfinished = siblingScripts.filter((s) => s.status !== "MARKED");
+    if (unfinished.length > 0) {
+      setError(
+        `${unfinished.length} learner paper(s) still need to be finished. Open them and select “Finish This Learner” before sending.`
+      );
+      return;
+    }
+    await runBatchAction("/submit-to-hod");
   };
 
   const runBatchAction = async (
@@ -394,7 +454,9 @@ export default function LearnerScriptDetailPage() {
     }
   };
 
-  const handleSubmitModeration = () => runBatchAction("/submit-to-hod");
+  const handleSubmitModeration = () => {
+    void handleSubmitModerationSafe();
+  };
   const handleStartReview = () => runBatchAction("/review");
   const handleApprove = () => runBatchAction("/approve");
 
@@ -455,13 +517,15 @@ export default function LearnerScriptDetailPage() {
     }
   };
 
-  if (loading) return <p>Loading script…</p>;
+  if (loading) return <p>Opening learner paper…</p>;
 
   if (error && !script) {
     return (
       <div>
         <p className="sc-error">{error}</p>
-        <Link to="/assessments" className="sc-btn sc-btn-ghost">Back</Link>
+        <Link to={teacherSimple ? "/marking" : "/assessments"} className="sc-btn sc-btn-ghost">
+          {teacherSimple ? "Back to Mark Papers" : "Back"}
+        </Link>
       </div>
     );
   }
@@ -469,22 +533,64 @@ export default function LearnerScriptDetailPage() {
   if (!script || !scriptId) return null;
 
   const activePage = pages[activePageIndex] ?? null;
+  const siblingIndex = siblingScripts.findIndex((s) => s.id === scriptId);
+  const prevSibling = siblingIndex > 0 ? siblingScripts[siblingIndex - 1] : null;
+  const nextSibling =
+    siblingIndex >= 0 && siblingIndex < siblingScripts.length - 1
+      ? siblingScripts[siblingIndex + 1]
+      : null;
+  const finishedCount = siblingScripts.filter((s) => s.status === "MARKED").length;
 
   return (
-    <div className="sc-script-detail">
+    <div className={`sc-script-detail${teacherSimple ? " sc-script-detail-teacher" : ""}`}>
       <header className="sc-script-header">
-        <Link to={`/assessments/${script.assessment.id}/scripts`} className="sc-detail-back">
-          ← Scripts
+        <Link
+          to={teacherSimple ? "/marking" : `/assessments/${script.assessment.id}/scripts`}
+          className="sc-detail-back"
+          onClick={(e) => {
+            if (!confirmLeaveIfDirty()) e.preventDefault();
+          }}
+        >
+          {teacherSimple ? "← Back to Mark Papers" : "← Scripts"}
         </Link>
-        <div>
+        <div className="sc-script-header-main">
           <h1 className="sc-page-title">
             {script.learner.firstName} {script.learner.lastName}
           </h1>
           <p className="sc-page-subtitle">
-            {script.assessment.title} · Script #{script.scriptNumber}
-            {script.pageCount > 0 ? ` · ${script.pageCount} pages` : ""}
+            {script.assessment.title}
+            {siblingScripts.length > 0 ? (
+              <>
+                {" "}
+                · Learner {siblingIndex >= 0 ? siblingIndex + 1 : "—"} of {siblingScripts.length}
+                {" "}
+                · {finishedCount} of {siblingScripts.length} learners completed
+              </>
+            ) : (
+              <> · Script #{script.scriptNumber}</>
+            )}
           </p>
         </div>
+        {siblingScripts.length > 1 ? (
+          <div className="sc-script-learner-nav" role="group" aria-label="Learner navigation">
+            <button
+              type="button"
+              className="sc-btn sc-btn-secondary"
+              disabled={!prevSibling}
+              onClick={() => prevSibling && goToSibling(prevSibling.id)}
+            >
+              Previous learner
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn-secondary"
+              disabled={!nextSibling}
+              onClick={() => nextSibling && goToSibling(nextSibling.id)}
+            >
+              Next learner
+            </button>
+          </div>
+        ) : null}
       </header>
 
       {hasPermission(user, "concessions.view") ? (
@@ -526,7 +632,7 @@ export default function LearnerScriptDetailPage() {
           setShowReturnModal(false);
           setReturnComment("");
         }}
-        title="Return Script Batch to Teacher"
+        title="Return learner papers to teacher"
         confirmLabel="Return to teacher"
         placeholder="Reason for returning to teacher…"
       />
@@ -546,11 +652,16 @@ export default function LearnerScriptDetailPage() {
         }}
       />
 
-      {error ? <p className="sc-error">{error}</p> : null}
+      {error ? <p className="sc-error" role="alert">{error}</p> : null}
+      {dirty ? (
+        <p className="sc-unsaved-banner" role="status">
+          You have unsaved mark changes.
+        </p>
+      ) : null}
 
       {isReadOnly ? (
         <div className="sc-readonly-banner">
-          This script is finalised and read-only. Annotations and marks cannot be changed.
+          This learner paper is locked. Marks cannot be changed.
         </div>
       ) : null}
 
@@ -611,6 +722,7 @@ export default function LearnerScriptDetailPage() {
             hodMode={Boolean(hodMode)}
             saving={saving}
             completing={completing}
+            saveMessage={saveMessage}
             onUpdateMark={updateMark}
             onSave={handleSave}
             onComplete={handleComplete}
@@ -628,13 +740,27 @@ export default function LearnerScriptDetailPage() {
               setFeedbackForm((f) => ({ ...f, [field]: value }))
             }
             onSaveFeedback={handleSaveFeedback}
+            activeQuestionIndex={activeQuestionIndex}
+            onActiveQuestionIndexChange={setActiveQuestionIndex}
           />
         )}
       </div>
 
       <div className="sc-card sc-audit-panel">
-        <h3 className="sc-script-panel-title">Audit Timeline</h3>
-        <ScriptAuditTimeline entries={auditTimeline} />
+        <button
+          type="button"
+          className="sc-btn sc-btn-ghost sc-audit-toggle"
+          aria-expanded={showAudit}
+          onClick={() => setShowAudit((v) => !v)}
+        >
+          {showAudit ? "Hide history" : "More actions · History"}
+        </button>
+        {showAudit ? (
+          <>
+            <h3 className="sc-script-panel-title">History</h3>
+            <ScriptAuditTimeline entries={auditTimeline} />
+          </>
+        ) : null}
       </div>
     </div>
   );
