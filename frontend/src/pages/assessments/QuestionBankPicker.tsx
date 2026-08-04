@@ -197,7 +197,7 @@ export default function QuestionBankPicker({
                       </td>
                       <td>
                         {item.status === "APPROVED" ? (
-                          <span className="sc-hod-badge">✓ DH Approved</span>
+                          <span className="sc-hod-badge">✓ Department approved</span>
                         ) : (
                           <span className="sc-badge sc-badge-muted">{item.status}</span>
                         )}

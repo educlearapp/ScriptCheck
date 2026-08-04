@@ -1,0 +1,65 @@
+.sc-advanced-tools {
+  max-width: 960px;
+}
+
+.sc-advanced-tools-header {
+  margin-bottom: 1.5rem;
+}
+
+.sc-advanced-tools-section {
+  margin-bottom: 1.75rem;
+}
+
+.sc-advanced-tools-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  color: var(--sc-gold-light, #d4af37);
+}
+
+.sc-advanced-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+.sc-advanced-tools-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  text-decoration: none;
+  min-height: 6.5rem;
+}
+
+.sc-advanced-tools-card:hover,
+.sc-advanced-tools-card:focus-visible {
+  border-color: var(--sc-gold, #d4af37);
+  outline: none;
+}
+
+.sc-advanced-tools-card span {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.sc-advanced-tools-card p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+@media (max-width: 600px) {
+  .sc-advanced-tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-advanced-tools-card {
+    min-height: 5.5rem;
+    padding: 1.1rem 1rem;
+  }
+}

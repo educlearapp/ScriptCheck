@@ -40,6 +40,8 @@ export default function DepartmentResults() {
   const [loading, setLoading] = useState(true);
   const [trendsLoading, setTrendsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [showMoreAnalytics, setShowMoreAnalytics] = useState(false);
 
   const [selectedAnalysisId, setSelectedAnalysisId] = useState("");
   const [questionAnalysis, setQuestionAnalysis] = useState<AssessmentResults["questionAnalysis"]>([]);
@@ -201,12 +203,12 @@ export default function DepartmentResults() {
     <div className="sc-dept-results">
       <header className="sc-dept-header">
         <h1 className="sc-page-title">
-          {isDepartmentView ? "Department Results & Analytics" : "My Results & Analytics"}
+          {isDepartmentView ? "Department Results" : "My Results"}
         </h1>
         <p className="sc-page-subtitle">
           {isDepartmentView
-            ? "Class averages, pass rates, question performance and trends across your department."
-            : "Track class performance, pass rates and question-level insights for your assessments."}
+            ? "See how assessments are doing across your department."
+            : "See your assessments, class averages, and publish status."}
         </p>
         <span className="sc-badge sc-badge-gold sc-dept-scope-badge">
           {isDepartmentView ? "Department view" : "Teacher view"}
@@ -214,7 +216,16 @@ export default function DepartmentResults() {
       </header>
 
       <div className="sc-card sc-dept-filters" style={{ padding: "1rem" }}>
-        <div className="sc-dept-filters-grid">
+        <button
+          type="button"
+          className="sc-btn sc-btn-ghost"
+          onClick={() => setShowMoreFilters((v) => !v)}
+          aria-expanded={showMoreFilters}
+        >
+          {showMoreFilters ? "Hide More Options" : "More Options"}
+        </button>
+        {showMoreFilters ? (
+        <div className="sc-dept-filters-grid" style={{ marginTop: "0.85rem" }}>
           <label>
             Curriculum
             <select
@@ -280,7 +291,7 @@ export default function DepartmentResults() {
               <option value="">All results</option>
               <option value="MARKING">Marking</option>
               <option value="MARKED">Marked</option>
-              <option value="HOD_REVIEW">DH Review</option>
+              <option value="HOD_REVIEW">Department Review</option>
               <option value="APPROVED">Approved</option>
               <option value="PUBLISHED">Published</option>
             </select>
@@ -301,6 +312,7 @@ export default function DepartmentResults() {
             </label>
           ) : null}
         </div>
+        ) : null}
       </div>
 
       {loading ? <p>Loading results…</p> : null}
@@ -308,6 +320,103 @@ export default function DepartmentResults() {
 
       {!loading && !error ? (
         <>
+          <section className="sc-dept-section">
+            <h2 className="sc-dept-section-title">Assessment Results</h2>
+            <div className="sc-card sc-dept-table-wrap">
+              {items.length === 0 ? (
+                <div className="sc-dept-empty">
+                  {showEmptyWorkspace ? (
+                    <>
+                      <div className="sc-dept-empty-icon" aria-hidden>📊</div>
+                      <h3>No results yet</h3>
+                      <p>
+                        {isDepartmentView
+                          ? "When teachers mark and publish assessments, department results will appear here."
+                          : "Mark learner scripts and ask to publish results to see class averages here."}
+                      </p>
+                      <div className="sc-dept-empty-actions">
+                        <Link to="/marking" className="sc-btn sc-btn-primary">Start Marking</Link>
+                        <Link to="/assessments/new" className="sc-btn sc-btn-ghost">Create Assessment</Link>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="sc-dept-empty-icon" aria-hidden>🔍</div>
+                      <h3>No results match your filters</h3>
+                      <p>Try clearing filters or selecting a different grade, subject or status.</p>
+                      <div className="sc-dept-empty-actions">
+                        <button
+                          type="button"
+                          className="sc-btn sc-btn-ghost"
+                          onClick={() => setSearchParams(new URLSearchParams())}
+                        >
+                          Clear filters
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="sc-table-wrap">
+                  <table className="sc-table">
+                    <thead>
+                      <tr>
+                        <th>Assessment</th>
+                        <th>Grade</th>
+                        <th>Subject</th>
+                        <th>Learner papers</th>
+                        <th>Class average</th>
+                        <th>Status</th>
+                        <th>Publish status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.title}</td>
+                          <td>{item.grade.name}</td>
+                          <td>{item.subject.name}</td>
+                          <td>{item.learnerCount ?? "—"}</td>
+                          <td className={pctClass(item.classAverage)}>{formatPct(item.classAverage)}</td>
+                          <td>{formatStatusLabel(item.status)}</td>
+                          <td>
+                            {item.publishedAt
+                              ? "Published"
+                              : item.resultsPublishRequestedAt
+                                ? "Asked to publish"
+                                : "Not published"}
+                          </td>
+                          <td>
+                            <Link
+                              to={`/assessments/${item.id}/results`}
+                              className="sc-btn sc-btn-ghost sc-dept-table-btn"
+                            >
+                              Open
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <div style={{ margin: "1rem 0" }}>
+            <button
+              type="button"
+              className="sc-btn sc-btn-ghost"
+              onClick={() => setShowMoreAnalytics((v) => !v)}
+              aria-expanded={showMoreAnalytics}
+            >
+              {showMoreAnalytics ? "Hide detailed analytics" : "More Options — detailed analytics"}
+            </button>
+          </div>
+
+          {showMoreAnalytics ? (
+            <>
           <section className="sc-dept-summary" aria-label="Summary statistics">
             <div className="sc-card sc-card-gold sc-dept-stat-card">
               <div className="sc-dept-stat-label">Class average</div>
@@ -504,40 +613,11 @@ export default function DepartmentResults() {
           </section>
 
           <section className="sc-dept-section">
-            <h2 className="sc-dept-section-title">Assessment Results</h2>
+            <h2 className="sc-dept-section-title">Detailed Assessment Table</h2>
             <div className="sc-card sc-dept-table-wrap">
               {items.length === 0 ? (
                 <div className="sc-dept-empty">
-                  {showEmptyWorkspace ? (
-                    <>
-                      <div className="sc-dept-empty-icon" aria-hidden>📊</div>
-                      <h3>No results yet</h3>
-                      <p>
-                        {isDepartmentView
-                          ? "When teachers mark and publish assessments, department results will appear here."
-                          : "Mark learner scripts and publish results to see class averages and analytics."}
-                      </p>
-                      <div className="sc-dept-empty-actions">
-                        <Link to="/marking" className="sc-btn sc-btn-primary">Start Marking</Link>
-                        <Link to="/assessments" className="sc-btn sc-btn-ghost">View Assessments</Link>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="sc-dept-empty-icon" aria-hidden>🔍</div>
-                      <h3>No results match your filters</h3>
-                      <p>Try clearing filters or selecting a different grade, subject or status.</p>
-                      <div className="sc-dept-empty-actions">
-                        <button
-                          type="button"
-                          className="sc-btn sc-btn-ghost"
-                          onClick={() => setSearchParams(new URLSearchParams())}
-                        >
-                          Clear filters
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <p>No assessments in this detailed view.</p>
                 </div>
               ) : (
                 <div className="sc-table-wrap">
@@ -622,6 +702,8 @@ export default function DepartmentResults() {
               )}
             </div>
           </section>
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

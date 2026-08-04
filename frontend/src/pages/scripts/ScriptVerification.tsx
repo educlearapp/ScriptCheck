@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { apiFetch } from "../../api";
 import {
   confirmScriptVerification,
   getScriptVerification,
@@ -7,6 +8,12 @@ import {
   resplitLearnerAnswers,
   type ScriptVerificationResult,
 } from "../../services/assessmentSetupApi";
+import type { Assessment } from "../../types";
+import {
+  markingConfirmBusyLabel,
+  markingConfirmButtonLabel,
+  shouldPrepareMarkingJob,
+} from "../../utils/markingPrep";
 
 function parsePagesDraft(draft: string): number | null {
   const trimmed = draft.trim();
@@ -24,6 +31,7 @@ export default function ScriptVerification() {
   const [verification, setVerification] = useState<ScriptVerificationResult | null>(
     (location.state as { verification?: ScriptVerificationResult } | null)?.verification ?? null
   );
+  const [isMarkingPack, setIsMarkingPack] = useState<boolean | null>(null);
   const [pagesDraft, setPagesDraft] = useState("");
   const [loading, setLoading] = useState(!verification);
   const [resplitting, setResplitting] = useState(false);
@@ -34,6 +42,13 @@ export default function ScriptVerification() {
   useEffect(() => {
     verificationRef.current = verification;
   }, [verification]);
+
+  useEffect(() => {
+    if (!assessmentId) return;
+    apiFetch<Assessment>(`/assessments/${assessmentId}`)
+      .then((assessment) => setIsMarkingPack(assessment.isMarkingPack === true))
+      .catch(() => setIsMarkingPack(false));
+  }, [assessmentId]);
 
   const applyVerification = useCallback((data: ScriptVerificationResult) => {
     setVerification(data);
@@ -60,6 +75,7 @@ export default function ScriptVerification() {
   const parsedPages = parsePagesDraft(pagesDraft);
   const savedPages = verification?.expectedPagesPerScript ?? null;
   const pagesChanged = parsedPages != null && savedPages != null && parsedPages !== savedPages;
+  const prepareJob = shouldPrepareMarkingJob(isMarkingPack);
 
   const handleResplit = async () => {
     if (!batchId || parsedPages == null) {
@@ -88,7 +104,9 @@ export default function ScriptVerification() {
         applyVerification(data);
       }
       const confirmed = await confirmScriptVerification(batchId);
-      await prepareMarkingJob(batchId);
+      if (shouldPrepareMarkingJob(isMarkingPack)) {
+        await prepareMarkingJob(batchId);
+      }
       const scriptId =
         confirmed.scripts[0]?.scriptId ??
         verificationRef.current?.scripts[0]?.scriptId;
@@ -104,7 +122,7 @@ export default function ScriptVerification() {
     }
   };
 
-  if (loading) return <p>Checking learner papers...</p>;
+  if (loading || isMarkingPack === null) return <p>Checking learner papers...</p>;
   if (!verification) {
     return (
       <div>
@@ -248,9 +266,16 @@ export default function ScriptVerification() {
           disabled={confirming || resplitting}
           onClick={() => void handleConfirm()}
         >
-          {confirming ? "ScriptCheck is marking..." : "Looks right, let ScriptCheck mark"}
+          {confirming
+            ? markingConfirmBusyLabel(prepareJob)
+            : markingConfirmButtonLabel(prepareJob)}
         </button>
       </div>
+      {!prepareJob ? (
+        <p className="sc-page-subtitle" style={{ marginTop: "0.75rem" }}>
+          Next you will review and enter marks yourself. ScriptCheck will open the first learner paper.
+        </p>
+      ) : null}
     </div>
   );
 }

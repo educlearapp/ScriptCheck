@@ -26,6 +26,8 @@ import BetaFeedbackPage from "./pages/settings/BetaFeedbackPage";
 import BetaChecklistPage from "./pages/settings/BetaChecklistPage";
 import AssessmentsList from "./pages/assessments/AssessmentsList";
 import CreateAssessment from "./pages/assessments/CreateAssessment";
+import CreateAssessmentChooser from "./pages/assessments/CreateAssessmentChooser";
+import AdvancedToolsPage from "./pages/advanced/AdvancedToolsPage";
 import GenerateAssessment from "./pages/assessments/GenerateAssessment";
 import AiAssessmentBuilder from "./pages/assessments/AiAssessmentBuilder";
 import GenerationPreview from "./pages/assessments/GenerationPreview";
@@ -119,6 +121,7 @@ function AppRoutes() {
             <Route path="/settings/workflow" element={<WorkflowSettings />} />
             <Route path="/settings/subscription" element={<SubscriptionSettings />} />
             <Route path="/settings/beta-checklist" element={<BetaChecklistPage />} />
+            <Route path="/advanced-tools" element={<AdvancedToolsPage />} />
             <Route element={<RequirePermission permission="betaFeedback.view" />}>
               <Route path="/settings/beta-feedback" element={<BetaFeedbackPage />} />
             </Route>
@@ -166,7 +169,8 @@ function AppRoutes() {
             <Route element={<RequirePermission permission="assessments.create" />}>
               <Route path="/ai-assessment-builder" element={<AiAssessmentBuilder />} />
               <Route path="/ai-assessment-builder/:requestId" element={<AiAssessmentBuilder />} />
-              <Route path="/assessments/new" element={<CreateAssessment />} />
+              <Route path="/assessments/new" element={<CreateAssessmentChooser />} />
+              <Route path="/assessments/new/build" element={<CreateAssessment />} />
               <Route path="/assessments/generate" element={<GenerateAssessment />} />
               <Route
                 path="/assessments/generate/:requestId"

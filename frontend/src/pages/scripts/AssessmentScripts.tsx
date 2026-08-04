@@ -135,7 +135,7 @@ export default function AssessmentScripts() {
       loadBatchDetail(activeBatch.id);
       loadBatches();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Could not send to DH");
+      setActionError(err instanceof Error ? err.message : "Could not send to the Department Head");
     } finally {
       setSubmitting(false);
     }
@@ -267,7 +267,7 @@ export default function AssessmentScripts() {
                       disabled={submitting}
                       onClick={handleSubmitBatch}
                     >
-                      {submitting ? "Sending…" : "Send to DH"}
+                      {submitting ? "Sending…" : "Send to Department Head"}
                     </button>
                   ) : null}
                 </div>

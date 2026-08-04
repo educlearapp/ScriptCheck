@@ -97,7 +97,7 @@ export default function AssessmentCommandCentre({ assessmentId }: Props) {
     workflow.currentStage?.label ?? assessment?.status.replaceAll("_", " ") ?? "";
   const moderationStatus =
     assessment?.status === "SUBMITTED_TO_HOD" || assessment?.status === "HOD_REVIEW"
-      ? "DH Review"
+      ? "Department Review"
       : assessment?.status === "APPROVED"
         ? "Approved"
         : assessment?.status === "PUBLISHED"
@@ -122,7 +122,7 @@ export default function AssessmentCommandCentre({ assessmentId }: Props) {
   };
 
   if (loading && !assessment) {
-    return <p>Loading assessment command centre…</p>;
+    return <p>Loading assessment…</p>;
   }
 
   if (error || !assessment) {
@@ -140,7 +140,7 @@ export default function AssessmentCommandCentre({ assessmentId }: Props) {
 
   return (
     <div className="sc-assessment-detail">
-      <BetaBanner note="Assessment Command Centre — ScriptCheck Beta testing version." />
+      <BetaBanner note="Assessment — ScriptCheck Beta testing version." />
       <div className="sc-assessment-command-header">
         <div>
           <Link to="/assessments" className="sc-detail-back">← Assessments</Link>
@@ -166,7 +166,7 @@ export default function AssessmentCommandCentre({ assessmentId }: Props) {
           ) : null}
           {hasPermission(user, "paperVault.view") ? (
             <Link to={`/assessments/${assessmentId}/paper-vault`} className="sc-btn sc-btn-ghost">
-              Paper Vault
+              Paper Files
             </Link>
           ) : null}
           {hasPermission(user, "export.assessment_pack") ? (
@@ -230,7 +230,7 @@ export default function AssessmentCommandCentre({ assessmentId }: Props) {
       />
 
       <div className="sc-card sc-card-padded" style={{ marginBottom: "1rem" }}>
-        <h3 style={{ marginTop: 0 }}>Quick Workflow</h3>
+        <h3 style={{ marginTop: 0 }}>Next steps</h3>
         <WorkflowActions
           availableActions={workflow.availableActions}
           transitioning={workflow.transitioning}

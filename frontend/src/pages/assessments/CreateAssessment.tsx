@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { apiDownload, apiFetch } from "../../api";
 import type {
   Assessment,
@@ -498,7 +498,7 @@ export default function CreateAssessment() {
       await apiFetch(`/assessments/${createdAssessment.id}/submit-to-hod`, { method: "POST" });
     } catch (err) {
       console.error(err);
-      setError("I could not send this to DH. Please try again.");
+      setError("I could not send this to the Department Head. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -519,14 +519,17 @@ export default function CreateAssessment() {
 
   async function saveToQuestionBank() {
     if (!createdAssessment) return;
-    setError("Save to Question Library happens when your DH approves the assessment.");
+    setError("Save to Question Library happens when your Department Head approves the assessment.");
   }
 
   return (
     <div className="sc-builder-shell">
+      <Link to="/assessments/new" className="sc-detail-back">
+        ← Back to Create Assessment
+      </Link>
       {step !== "loading" ? (
         <div className="sc-builder-step-note">
-          <span>Assessment Builder</span>
+          <span>Create an Assessment</span>
           <strong>
             {step === "details"
               ? "Tell us about your assessment."
@@ -928,7 +931,7 @@ export default function CreateAssessment() {
               Download PDF
             </button>
             <button type="button" className="sc-btn sc-btn-secondary" disabled={busy} onClick={() => void sendToDh()}>
-              Send to DH
+              Send to Department Head
             </button>
             <button type="button" className="sc-btn sc-btn-secondary" onClick={() => void saveToQuestionBank()}>
               Save to Question Library

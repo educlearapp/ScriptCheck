@@ -13,12 +13,12 @@ const TABS: { id: AssessmentTab; label: string }[] = [
   { id: "assessment", label: "Assessment" },
   { id: "memorandum", label: "Memorandum" },
   { id: "rubric", label: "Rubric" },
-  { id: "intelligence", label: "Intelligence" },
-  { id: "workflow", label: "Workflow" },
-  { id: "moderation", label: "Moderation" },
+  { id: "intelligence", label: "Insights" },
+  { id: "workflow", label: "Progress" },
+  { id: "moderation", label: "Department Review" },
   { id: "marking", label: "Marking" },
   { id: "files", label: "Files" },
-  { id: "audit", label: "Audit Trail" },
+  { id: "audit", label: "History" },
 ];
 
 type Props = {

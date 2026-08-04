@@ -40,6 +40,9 @@ export default function QuestionBank() {
   const [subjectId, setSubjectId] = useState("");
   const [topicFilter, setTopicFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<QuestionBankStatus | "">("");
+  const [searchText, setSearchText] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showFormAdvanced, setShowFormAdvanced] = useState(false);
 
   const [items, setItems] = useState<QuestionBankItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,7 +53,12 @@ export default function QuestionBank() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    apiFetch<CurriculumRef[]>("/curriculum").then(setCurriculums).catch(() => {});
+    apiFetch<CurriculumRef[]>("/curriculum")
+      .then((list) => {
+        setCurriculums(list);
+        if (list.length === 1) setCurriculumId(list[0].id);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -186,7 +194,7 @@ export default function QuestionBank() {
         <div>
           <h1 className="sc-page-title">Question Library</h1>
           <p className="sc-page-subtitle">
-            Reusable questions from teacher work, AI generation, and DH-approved assessments.
+            Reusable questions from teacher work, helper-built papers, and department-approved assessments.
           </p>
         </div>
         {hasPermission(user, "questionBank.create") ? (
@@ -197,6 +205,45 @@ export default function QuestionBank() {
       </div>
 
       <div className="sc-card sc-card-gold sc-qb-filters" style={{ padding: "1rem", marginTop: "1rem" }}>
+        <div>
+          <label className="sc-label">Search</label>
+          <input
+            className="sc-input"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search question text"
+          />
+        </div>
+        <div>
+          <label className="sc-label">Grade</label>
+          <select className="sc-select" value={gradeId} onChange={(e) => setGradeId(e.target.value)} disabled={!phaseId && grades.length === 0}>
+            <option value="">All</option>
+            {grades.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="sc-label">Subject</label>
+          <select className="sc-select" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} disabled={!phaseId && subjects.length === 0}>
+            <option value="">All</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost"
+            onClick={() => setShowAdvancedFilters((v) => !v)}
+            aria-expanded={showAdvancedFilters}
+          >
+            {showAdvancedFilters ? "Hide Advanced Filters" : "Advanced Filters"}
+          </button>
+        </div>
+        {showAdvancedFilters ? (
+          <>
         <div>
           <label className="sc-label">Curriculum</label>
           <select className="sc-select" value={curriculumId} onChange={(e) => setCurriculumId(e.target.value)}>
@@ -216,36 +263,20 @@ export default function QuestionBank() {
           </select>
         </div>
         <div>
-          <label className="sc-label">Grade</label>
-          <select className="sc-select" value={gradeId} onChange={(e) => setGradeId(e.target.value)} disabled={!phaseId}>
-            <option value="">All</option>
-            {grades.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="sc-label">Subject</label>
-          <select className="sc-select" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} disabled={!phaseId}>
-            <option value="">All</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
           <label className="sc-label">Topic</label>
           <input className="sc-input" value={topicFilter} onChange={(e) => setTopicFilter(e.target.value)} placeholder="Filter topic" />
         </div>
         <div>
-          <label className="sc-label">Status</label>
+          <label className="sc-label">Approval status</label>
           <select className="sc-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as QuestionBankStatus | "")}>
             <option value="">All</option>
             {STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{s === "APPROVED" ? "Department approved" : s === "DRAFT" ? "Draft" : "Archived"}</option>
             ))}
           </select>
         </div>
+          </>
+        ) : null}
       </div>
 
       {showForm ? (
@@ -312,11 +343,22 @@ export default function QuestionBank() {
               <label className="sc-label">Difficulty</label>
               <input className="sc-input" value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })} />
             </div>
+          </div>
+          <button
+            type="button"
+            className="sc-btn sc-btn-ghost"
+            onClick={() => setShowFormAdvanced((v) => !v)}
+          >
+            {showFormAdvanced ? "Hide Advanced Options" : "Advanced Options"}
+          </button>
+          {showFormAdvanced ? (
+            <div className="sc-form-grid sc-form-grid-2" style={{ marginTop: "0.75rem" }}>
             <div>
-              <label className="sc-label">Cognitive level</label>
+              <label className="sc-label">Thinking level</label>
               <input className="sc-input" value={form.cognitiveLevel} onChange={(e) => setForm({ ...form, cognitiveLevel: e.target.value })} />
             </div>
-          </div>
+            </div>
+          ) : null}
           <div className="sc-form-actions">
             <button type="button" className="sc-btn sc-btn-primary" disabled={saving} onClick={handleSave}>
               {saving ? "Saving…" : "Save"}
@@ -345,7 +387,6 @@ export default function QuestionBank() {
                   <th>Topic</th>
                   <th>Marks</th>
                   <th>Difficulty</th>
-                  <th>Cognitive</th>
                   <th>Source</th>
                   <th>Status</th>
                   <th>Used</th>
@@ -353,19 +394,24 @@ export default function QuestionBank() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {items
+                  .filter((item) =>
+                    !searchText.trim()
+                      ? true
+                      : item.questionText.toLowerCase().includes(searchText.trim().toLowerCase())
+                  )
+                  .map((item) => (
                   <tr key={item.id}>
                     <td className="sc-qb-question-preview" title={item.questionText}>{item.questionText}</td>
                     <td>{item.topic || "—"}</td>
                     <td>{item.marks}</td>
                     <td>{item.difficulty || "—"}</td>
-                    <td>{item.cognitiveLevel || "—"}</td>
                     <td><span className="sc-badge sc-badge-muted">{item.source.replaceAll("_", " ")}</span></td>
                     <td>
                       {item.status === "APPROVED" ? (
-                        <span className="sc-hod-badge">✓ DH Approved</span>
+                        <span className="sc-hod-badge">✓ Department approved</span>
                       ) : (
-                        <span className="sc-badge sc-badge-gold">{item.status}</span>
+                        <span className="sc-badge sc-badge-gold">{item.status === "DRAFT" ? "Draft" : item.status}</span>
                       )}
                     </td>
                     <td>{item.usageCount}</td>

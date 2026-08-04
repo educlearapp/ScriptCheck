@@ -1709,7 +1709,7 @@ export type NavItem = {
 
 export const NAV_SECTION_LABELS: Record<NavSection, string> = {
   assessment: "Assessment Management",
-  ai: "AI Tools",
+  ai: "Paper Tools",
   admin: "Administration",
 };
 

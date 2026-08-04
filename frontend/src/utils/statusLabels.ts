@@ -1,12 +1,12 @@
 /** User-facing status labels. Internal enum values are preserved for migration compatibility. */
 
 const STATUS_OVERRIDES: Record<string, string> = {
-  SUBMITTED_TO_HOD: "Submitted to DH",
-  HOD_REVIEW: "Submitted to DH",
+  SUBMITTED_TO_HOD: "Sent to Department Head",
+  HOD_REVIEW: "Sent to Department Head",
   RETURNED_TO_TEACHER: "Returned",
   APPROVED: "Approved",
-  HOD_GREEN: "DH Layer",
-  HOD_APPROVED: "DH Approved",
+  HOD_GREEN: "Department Head review",
+  HOD_APPROVED: "Approved by Department Head",
 };
 
 export function formatStatusLabel(status: string): string {
@@ -14,6 +14,6 @@ export function formatStatusLabel(status: string): string {
 }
 
 export function formatLayerLabel(layer: string): string {
-  if (layer === "HOD_GREEN") return "DH";
+  if (layer === "HOD_GREEN") return "Department Head";
   return formatStatusLabel(layer);
 }

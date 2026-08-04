@@ -24,7 +24,7 @@ export function getModerationJourneyStatus(
     return { key: "returned", label: "Returned" };
   }
   if (normalized === "SUBMITTED_TO_HOD" || normalized === "HOD_REVIEW") {
-    return { key: "submitted_to_dh", label: "Submitted to DH" };
+    return { key: "submitted_to_dh", label: "Sent to Department Head" };
   }
 
   return { key: "not_submitted", label: "Not submitted" };

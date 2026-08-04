@@ -158,7 +158,7 @@ export default function AssessmentResultsPage() {
     setActionMessage("");
     try {
       await apiFetch(`/assessments/${id}/request-publish`, { method: "POST" });
-      setActionMessage("Publish request sent to DH.");
+      setActionMessage("Your request was sent to the Department Head.");
       await loadResults();
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : "Request failed");
@@ -251,7 +251,7 @@ export default function AssessmentResultsPage() {
               disabled={publishing}
               onClick={handleRequestPublish}
             >
-              Request publish
+              Ask to Publish
             </button>
           ) : null}
           {results.publishing.canPublish ? (
@@ -359,7 +359,7 @@ export default function AssessmentResultsPage() {
       {exportMessage ? <p className="sc-page-subtitle">{exportMessage}</p> : null}
       {results.publishing.isReadOnly ? (
         <p className="sc-page-subtitle" style={{ color: "var(--sc-gold-light)" }}>
-          Published results are read-only. DH or admin can reopen if changes are needed.
+          Published results are read-only. A Department Head or admin can reopen if changes are needed.
         </p>
       ) : null}
 

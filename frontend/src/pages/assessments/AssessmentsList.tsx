@@ -127,7 +127,7 @@ export default function AssessmentsList() {
                             disabled={submittingId === item.id}
                             onClick={() => handleSubmitToHod(item)}
                           >
-                            {submittingId === item.id ? "Submitting…" : "Submit to DH"}
+                            {submittingId === item.id ? "Sending…" : "Send to Department Head"}
                           </button>
                         ) : (
                           "—"

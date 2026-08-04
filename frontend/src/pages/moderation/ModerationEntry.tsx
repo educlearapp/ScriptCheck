@@ -147,7 +147,7 @@ function TeacherModerationOverview() {
       },
       {
         n: 4,
-        label: "Submit to DH",
+        label: "Send to Department Head",
         done:
           selectedJourney?.key === "submitted_to_dh" ||
           selectedJourney?.key === "approved" ||
@@ -165,7 +165,7 @@ function TeacherModerationOverview() {
         <div>
           <h1 className="sc-page-title">Moderation</h1>
           <p className="sc-page-subtitle">
-            Select an assessment, upload your moderation sample, review it, then submit to your DH.
+            Select an assessment, upload your moderation sample, review it, then send to your Department Head.
           </p>
         </div>
         {trackedAssessments.length > 0 ? (
@@ -272,7 +272,7 @@ function TeacherModerationOverview() {
           <div className="sc-card sc-card-padded sc-mod-workflow-card">
             <p className="sc-mod-hint" style={{ marginTop: 0 }}>
               Review uploaded documents for <strong>{selectedAssessment?.title}</strong> before
-              submitting to your DH.
+              sending to your Department Head.
             </p>
             {setupStatus ? (
               <ul className="sc-dash-list sc-dash-list-compact" style={{ margin: "0.75rem 0" }}>
@@ -303,7 +303,7 @@ function TeacherModerationOverview() {
       <section>
         <h2 className="sc-mod-panel-title">
           <span className="sc-mod-panel-step">4</span>
-          Submit to DH
+          Send to Department Head
         </h2>
 
         {canSubmitSelected ? (
@@ -318,13 +318,13 @@ function TeacherModerationOverview() {
               disabled={submittingId === selectedId}
               onClick={() => void handleSubmitToHod(selectedId)}
             >
-              {submittingId === selectedId ? "Submitting…" : "Submit to DH"}
+              {submittingId === selectedId ? "Submitting…" : "Send to Department Head"}
             </button>
           </div>
         ) : selectedJourney?.key === "submitted_to_dh" || selectedJourney?.key === "escalated" ? (
           <div className="sc-card sc-card-padded sc-mod-workflow-card">
             <p className="sc-mod-hint" style={{ marginTop: 0 }}>
-              <strong>{selectedAssessment?.title}</strong> is with your DH (
+              <strong>{selectedAssessment?.title}</strong> is with your Department Head (
               <span
                 className={`sc-mod-status ${moderationJourneyStatusClass(selectedJourney.key)}`}
               >
@@ -336,7 +336,7 @@ function TeacherModerationOverview() {
         ) : selectedJourney?.key === "returned" ? (
           <div className="sc-card sc-card-padded sc-mod-workflow-card">
             <p className="sc-mod-hint" style={{ marginTop: 0 }}>
-              <strong>{selectedAssessment?.title}</strong> was returned by your DH. Update your
+              <strong>{selectedAssessment?.title}</strong> was returned by your Department Head. Update your
               sample and submit again.
             </p>
             {canSubmitSelected ? (
@@ -347,7 +347,7 @@ function TeacherModerationOverview() {
                 disabled={submittingId === selectedId}
                 onClick={() => void handleSubmitToHod(selectedId)}
               >
-                {submittingId === selectedId ? "Submitting…" : "Resubmit to DH"}
+                {submittingId === selectedId ? "Submitting…" : "Send again to Department Head"}
               </button>
             ) : (
               <Link to={setupBase} className="sc-btn sc-btn-primary" style={{ marginTop: "0.75rem" }}>
@@ -358,7 +358,7 @@ function TeacherModerationOverview() {
         ) : selectedJourney?.key === "approved" ? (
           <div className="sc-card sc-card-padded sc-mod-workflow-card">
             <p className="sc-mod-hint" style={{ marginTop: 0 }}>
-              <strong>{selectedAssessment?.title}</strong> has been approved by your DH.
+              <strong>{selectedAssessment?.title}</strong> has been approved by your Department Head.
             </p>
           </div>
         ) : readyToSubmit.length > 0 ? (
@@ -395,7 +395,7 @@ function TeacherModerationOverview() {
                             disabled={submittingId === item.id}
                             onClick={() => void handleSubmitToHod(item.id)}
                           >
-                            {submittingId === item.id ? "Submitting…" : "Submit to DH"}
+                            {submittingId === item.id ? "Submitting…" : "Send to Department Head"}
                           </button>
                         </td>
                       </tr>
@@ -458,7 +458,7 @@ function TeacherModerationOverview() {
           </div>
         ) : (
           <div className="sc-card sc-card-padded">
-            <p className="sc-dash-empty">No assessments submitted to DH yet.</p>
+            <p className="sc-dash-empty">No assessments sent to the Department Head yet.</p>
           </div>
         )}
       </section>

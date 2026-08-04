@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../../api";
 import {
   bulkUploadScripts,
@@ -29,8 +29,10 @@ type Step = 1 | 2 | 3;
 export default function AssessmentSetupWizard() {
   const { id: assessmentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromHavePaper = searchParams.get("from") === "have-paper";
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>(fromHavePaper ? 2 : 1);
   const [assessment, setAssessment] = useState<AssessmentDetail | null>(null);
   const [setupStatus, setSetupStatus] = useState<AssessmentSetupStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,12 +189,19 @@ export default function AssessmentSetupWizard() {
 
   return (
     <div className="sc-setup-wizard">
-      <Link to={`/assessments/${assessmentId}`} className="sc-detail-back">
-        ← Assessment Command Centre
+      <Link
+        to={fromHavePaper ? "/assessments/new" : `/assessments/${assessmentId}`}
+        className="sc-detail-back"
+      >
+        {fromHavePaper ? "← Back to Create Assessment" : "← Back to Assessment"}
       </Link>
-      <h1 className="sc-page-title">Assessment Setup Wizard</h1>
+      <h1 className="sc-page-title">
+        {fromHavePaper ? "Upload Your Paper" : "Assessment Setup"}
+      </h1>
       <p className="sc-page-subtitle">
-        Configure assessment details and upload master files before marking or moderation.
+        {fromHavePaper
+          ? "Upload your question paper and memorandum (if you have one). Then go to Mark Papers."
+          : "Add assessment details and upload your paper files before marking."}
       </p>
 
       <div className="sc-setup-steps">
@@ -318,10 +327,11 @@ export default function AssessmentSetupWizard() {
 
       {step === 2 ? (
         <div className="sc-card sc-card-padded">
-          <h2>Step 2 — Master Assessment Upload</h2>
+          <h2>{fromHavePaper ? "Upload question paper and memorandum" : "Step 2 — Upload paper files"}</h2>
           <p className="sc-page-subtitle">
-            Upload master files for this assessment. These become the authoritative documents for marking and moderation.{" "}
-            {UPLOAD_FILES_HINT}
+            {fromHavePaper
+              ? `Choose your question paper file, and your memorandum if you have one. ${UPLOAD_FILES_HINT}`
+              : `Upload the main paper files for this assessment. ${UPLOAD_FILES_HINT}`}
           </p>
           <div className="sc-setup-upload-grid">
             {(
@@ -364,17 +374,35 @@ export default function AssessmentSetupWizard() {
             ))}
           </div>
           <div className="sc-form-actions">
-            <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setStep(1)}>
-              Back
-            </button>
-            <button
-              type="button"
-              className="sc-btn sc-btn-primary"
-              disabled={saving}
-              onClick={() => void handleCompleteMaster()}
-            >
-              {saving ? "Completing…" : "Continue to Bulk Script Upload"}
-            </button>
+            {!fromHavePaper ? (
+              <button type="button" className="sc-btn sc-btn-ghost" onClick={() => setStep(1)}>
+                Back
+              </button>
+            ) : null}
+            {fromHavePaper ? (
+              <Link to="/marking" className="sc-btn sc-btn-primary">
+                Go to Mark Papers
+              </Link>
+            ) : (
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary"
+                disabled={saving}
+                onClick={() => void handleCompleteMaster()}
+              >
+                {saving ? "Completing…" : "Continue to learner paper upload"}
+              </button>
+            )}
+            {fromHavePaper ? (
+              <button
+                type="button"
+                className="sc-btn sc-btn-ghost"
+                disabled={saving}
+                onClick={() => void handleCompleteMaster()}
+              >
+                {saving ? "Saving…" : "Also upload learner papers"}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

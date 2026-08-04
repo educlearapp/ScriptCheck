@@ -67,6 +67,16 @@ export function isHodDashboard(user: AuthUser | null | undefined): boolean {
   );
 }
 
+/** Teachers on the golden-path home (not HOD / Principal / Moderator / Exam Body). */
+export function usesTeacherGoldenPathNav(user: AuthUser | null | undefined): boolean {
+  if (!user) return false;
+  if (isExamBodyDashboard(user)) return false;
+  if (isPrincipalDashboard(user)) return false;
+  if (isHodDashboard(user)) return false;
+  if (isModeratorDashboard(user)) return false;
+  return true;
+}
+
 export function canSubmitAssessment(
   user: AuthUser | null | undefined,
   creatorTeacherId: string,

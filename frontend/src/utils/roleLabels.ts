@@ -3,7 +3,7 @@ import type { WorkspaceRole } from "../types";
 /** User-facing role labels. Internal enum values (e.g. HOD) are preserved for migration compatibility. */
 export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
   TEACHER: "Teacher",
-  HOD: "DH",
+  HOD: "Department Head",
   MODERATOR: "Moderator",
   EXAMINATION_OFFICER: "Examination Officer",
   PRINCIPAL: "Principal",

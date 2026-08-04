@@ -1,86 +1,14 @@
 import { NavLink } from "react-router-dom";
 import BrandLogo from "../brand/BrandLogo";
-import { formatRoles, hasPermission, isSuperAdmin } from "../../auth/permissions";
+import { formatRoles } from "../../auth/permissions";
 import { useAuth } from "../../auth/AuthContext";
-import type { NavItem, NavSection } from "../../types";
 import { NAV_SECTION_LABELS } from "../../types";
+import { SECTION_ORDER, getSidebarNavItems } from "../../nav/sidebarNav";
 import "./Sidebar.css";
-
-const MAIN_NAV: NavItem[] = [
-  { to: "/dashboard", label: "Home", icon: "◆", section: "assessment" },
-  {
-    to: "/assessments/new",
-    label: "Create Assessment",
-    icon: "▣",
-    permission: "assessments.view",
-    section: "assessment",
-  },
-  {
-    to: "/question-bank",
-    label: "Question Library",
-    icon: "□",
-    permission: "questionBank.view",
-    section: "assessment",
-  },
-  {
-    to: "/marking",
-    label: "Mark Papers",
-    icon: "✎",
-    permission: "assessments.view",
-    section: "assessment",
-  },
-  {
-    to: "/moderation",
-    label: "DH Review",
-    icon: "⚖",
-    section: "assessment",
-  },
-  {
-    to: "/results",
-    label: "Results",
-    icon: "◉",
-    permission: "results.view",
-    section: "assessment",
-  },
-  {
-    to: "/ai-assessment-builder",
-    label: "Assessment Builder",
-    icon: "✦",
-    permission: "assessments.create",
-    section: "ai",
-  },
-  {
-    to: "/assessments/generate",
-    label: "Create Paper",
-    icon: "◇",
-    permission: "assessments.create",
-    section: "ai",
-  },
-  {
-    to: "/settings",
-    label: "Settings",
-    icon: "⚙",
-    section: "admin",
-  },
-  {
-    to: "/super-admin",
-    label: "Super Admin",
-    icon: "⬡",
-    superAdminOnly: true,
-    section: "admin",
-  },
-];
-
-const SECTION_ORDER: NavSection[] = ["assessment", "ai", "admin"];
 
 export default function Sidebar() {
   const { user } = useAuth();
-
-  const navItems = MAIN_NAV.filter((item) => {
-    if (item.superAdminOnly && !isSuperAdmin(user)) return false;
-    if (item.permission && !hasPermission(user, item.permission)) return false;
-    return true;
-  });
+  const navItems = getSidebarNavItems(user);
 
   const grouped = SECTION_ORDER.map((section) => ({
     section,
@@ -94,10 +22,12 @@ export default function Sidebar() {
         <BrandLogo variant="sidebar" showGroup />
       </div>
 
-      <nav className="sc-sidebar-nav">
+      <nav className="sc-sidebar-nav" aria-label="Main">
         {grouped.map((group) => (
           <div key={group.section} className="sc-sidebar-section">
-            <div className="sc-sidebar-section-label">{group.label}</div>
+            {grouped.length > 1 ? (
+              <div className="sc-sidebar-section-label">{group.label}</div>
+            ) : null}
             {group.items.map((item) => (
               <NavLink
                 key={item.to}
@@ -107,7 +37,9 @@ export default function Sidebar() {
                   `sc-sidebar-link${isActive ? " is-active" : ""}`
                 }
               >
-                <span className="sc-sidebar-link-icon">{item.icon}</span>
+                <span className="sc-sidebar-link-icon" aria-hidden>
+                  {item.icon}
+                </span>
                 {item.label}
               </NavLink>
             ))}

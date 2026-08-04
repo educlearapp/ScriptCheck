@@ -281,7 +281,7 @@ export default function MarkingOverview() {
       await apiFetch(`/script-batches/${paperSet.id}/submit-to-hod`, { method: "POST" });
       await loadSelectedDetails(selectedId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send to DH.");
+      setError(err instanceof Error ? err.message : "Could not send to the Department Head.");
     } finally {
       setActionBusy("");
     }
@@ -456,7 +456,7 @@ export default function MarkingOverview() {
               disabled={actionBusy === "dh"}
               onClick={() => void sendToDh()}
             >
-              {actionBusy === "dh" ? "Sending..." : "Send to DH"}
+              {actionBusy === "dh" ? "Sending..." : "Send to Department Head"}
             </button>
             <button type="button" className="sc-btn sc-btn-secondary" onClick={() => window.print()}>
               Print
