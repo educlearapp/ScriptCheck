@@ -1,0 +1,160 @@
+=== PART3A: Reproduce push-based state on sandbox A ===
+CMD: DATABASE_URL=scriptcheck_phase1g_a prisma db push --skip-generate --accept-data-loss
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+🚀  Your database is now in sync with your Prisma schema. Done in 252ms
+
+=== Verify pre-baseline state ===
+{
+  "has_prisma_migrations": false,
+  "present": {
+    "SchoolClass": true,
+    "LessonTimetable": true,
+    "LearnerScript": true
+  },
+  "cols": [
+    {
+      "column_name": "flaggedForReview",
+      "data_type": "boolean",
+      "is_nullable": "NO",
+      "column_default": "false"
+    },
+    {
+      "column_name": "privateTeacherNotes",
+      "data_type": "text",
+      "is_nullable": "YES",
+      "column_default": null
+    }
+  ]
+}
+=== Naive migrate deploy BEFORE resolve (expect FAIL) ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Error: P3005
+
+The database schema is not empty. Read more about how to baseline an existing production database: https://pris.ly/d/migrate-baseline
+
+=== Object verification before resolve (must pass) ===
+{
+  "ok": true,
+  "checks": {
+    "SchoolClass": true,
+    "TimetableRoom": true,
+    "SchoolDayTemplate": true,
+    "PeriodDefinition": true,
+    "TeacherAssignment": true,
+    "SubjectRequirement": true,
+    "LessonTimetable": true,
+    "LessonEntry": true
+  },
+  "reviewColumns": [
+    "flaggedForReview",
+    "privateTeacherNotes"
+  ],
+  "enums": [
+    "TimetableRoomType",
+    "PeriodType",
+    "LessonTimetableStatus",
+    "DayOfWeek"
+  ]
+}
+=== Stage3 baseline: migrate resolve --applied (order) AFTER verification ===
+CMD: prisma migrate resolve --applied 20250612120000_timetable_foundation
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+Migration 20250612120000_timetable_foundation marked as applied.
+
+CMD: prisma migrate resolve --applied 20250612140000_lesson_timetable_builder
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+Migration 20250612140000_lesson_timetable_builder marked as applied.
+
+CMD: prisma migrate resolve --applied 20260804122500_add_script_teacher_review_fields
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+Migration 20260804122500_add_script_teacher_review_fields marked as applied.
+
+=== migrate status after resolve ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Database schema is up to date!
+=== _prisma_migrations rows ===
+[
+  {
+    "migration_name": "20250612120000_timetable_foundation",
+    "checksum": "f7b004b21cdbd29b1cc52d934a9e12d1f35c577891b53465ee4d58d50b00d440",
+    "finished": true,
+    "rolled_back": false,
+    "started_at": "2026-08-04T11:04:29.401Z",
+    "applied_steps_count": 0
+  },
+  {
+    "migration_name": "20250612140000_lesson_timetable_builder",
+    "checksum": "e784435d7a1c22950d70cdcc9a5f49d88a0293ed5ba790494132f7685ba6675c",
+    "finished": true,
+    "rolled_back": false,
+    "started_at": "2026-08-04T11:04:29.615Z",
+    "applied_steps_count": 0
+  },
+  {
+    "migration_name": "20260804122500_add_script_teacher_review_fields",
+    "checksum": "77925c3843a0dad8faf786a79e61c121d620f47e55c952050dfe87b2f8c07400",
+    "finished": true,
+    "rolled_back": false,
+    "started_at": "2026-08-04T11:04:29.831Z",
+    "applied_steps_count": 0
+  }
+]
+{
+  "count": 3,
+  "unique": 3,
+  "order": [
+    "20250612120000_timetable_foundation",
+    "20250612140000_lesson_timetable_builder",
+    "20260804122500_add_script_teacher_review_fields"
+  ],
+  "noDuplicates": true,
+  "allFinished": true,
+  "noneRolledBack": true
+}
+=== migrate diff both directions ===
+-- from DB to schema --
+-- This is an empty migration.
+
+-- from schema to DB --
+-- This is an empty migration.
+
+=== migrate deploy after baseline (expect no-op) ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+
+No pending migrations to apply.
+=== second migrate deploy (expect no-op again) ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+
+No pending migrations to apply.

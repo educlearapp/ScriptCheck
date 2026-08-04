@@ -1,0 +1,6 @@
+{
+  "after": true,
+  "database": "scriptcheck",
+  "has_prisma_migrations": false,
+  "tableCount": 64
+}

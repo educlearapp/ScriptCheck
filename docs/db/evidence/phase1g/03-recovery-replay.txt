@@ -1,0 +1,28 @@
+=== PART8 recovery replay on B ===
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_b", schema "public" at "localhost:5432"
+
+🚀  Your database is now in sync with your Prisma schema. Done in 224ms
+
+verified [ { n: 2 } ] [ { n: 2 } ]
+Migration 20250612120000_timetable_foundation marked as applied.
+
+Migration 20250612140000_lesson_timetable_builder marked as applied.
+
+Migration 20260804122500_add_script_teacher_review_fields marked as applied.
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_b", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Database schema is up to date!
+-- This is an empty migration.
+
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_b", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+
+No pending migrations to apply.

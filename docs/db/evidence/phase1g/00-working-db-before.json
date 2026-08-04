@@ -1,0 +1,7 @@
+{
+  "before": true,
+  "database": "scriptcheck",
+  "host": "localhost",
+  "has_prisma_migrations": false,
+  "tableCount": 64
+}

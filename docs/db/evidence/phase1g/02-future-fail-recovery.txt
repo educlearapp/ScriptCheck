@@ -1,0 +1,150 @@
+=== PART6: Future migration deploy on baselined sandbox A (isolated copy; repo untouched) ===
+CMD: migrate deploy with future probe migration
+Environment variables loaded from .env
+Prisma schema loaded from ../../../../tmp/phase1g-future/prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+4 migrations found in prisma/migrations
+
+Applying migration `20260804140000_phase1g_future_probe`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20260804140000_phase1g_future_probe/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+{
+  "probeColumn": [
+    {
+      "column_name": "phase1gProbe",
+      "data_type": "boolean",
+      "is_nullable": "NO",
+      "column_default": "false"
+    }
+  ],
+  "migrations": [
+    "20250612120000_timetable_foundation",
+    "20250612140000_lesson_timetable_builder",
+    "20260804122500_add_script_teacher_review_fields",
+    "20260804140000_phase1g_future_probe"
+  ]
+}
+second deploy future (no-op)
+Environment variables loaded from .env
+Prisma schema loaded from ../../../../tmp/phase1g-future/prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_a", schema "public" at "localhost:5432"
+
+4 migrations found in prisma/migrations
+
+
+No pending migrations to apply.
+=== PART3B: Empty sandbox B — migrate deploy alone ===
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_b", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Applying migration `20250612120000_timetable_foundation`
+Error: P3018
+
+A migration failed to apply. New migrations cannot be applied before the error is recovered from. Read more about how to resolve migration issues in a production database: https://pris.ly/d/migrate-resolve
+
+Migration name: 20250612120000_timetable_foundation
+
+Database error code: 42P01
+
+Database error:
+ERROR: relation "Workspace" does not exist
+
+DbError { severity: "ERROR", parsed_severity: Some(Error), code: SqlState(E42P01), message: "relation \"Workspace\" does not exist", detail: None, hint: None, position: None, where_: None, schema: None, table: None, column: None, datatype: None, constraint: None, file: Some("namespace.c"), line: Some(639), routine: Some("RangeVarGetRelidExtended") }
+
+
+=== B recovery: push then verify then resolve ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_b", schema "public" at "localhost:5432"
+
+🚀  Your database is now in sync with your Prisma schema. Done in 251ms
+
+
+Migration 20250612120000_timetable_foundation marked as applied.
+
+
+Migration 20250612140000_lesson_timetable_builder marked as applied.
+
+
+Migration 20260804122500_add_script_teacher_review_fields marked as applied.
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_b", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Database schema is up to date!
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_b", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+
+No pending migrations to apply.
+=== PART7: Failure tests on sandbox C ===
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_c", schema "public" at "localhost:5432"
+
+🚀  Your database is now in sync with your Prisma schema. Done in 300ms
+
+-- C deploy without resolve --
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_c", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Error: P3005
+
+The database schema is not empty. Read more about how to baseline an existing production database: https://pris.ly/d/migrate-baseline
+
+Migration 20250612120000_timetable_foundation marked as applied.
+
+Migration 20250612140000_lesson_timetable_builder marked as applied.
+
+Migration 20260804122500_add_script_teacher_review_fields marked as applied.
+
+-- C duplicate resolve --
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_c", schema "public" at "localhost:5432"
+Error: P3008
+
+The migration `20260804122500_add_script_teacher_review_fields` is already recorded as applied in the database.
+
+-- C corrupt checksum then status/deploy --
+checksum corrupted for phase1e migration
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_c", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Database schema is up to date!
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1g_c", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+
+No pending migrations to apply.
+-- C introduce drift and migrate diff --
+removed probe column from A for drift demo
+dropped privateTeacherNotes on C to create drift
+-- diff C (DB missing privateTeacherNotes) to schema --
+-- AlterTable
+ALTER TABLE "LearnerScript" ADD COLUMN     "privateTeacherNotes" TEXT;
+
