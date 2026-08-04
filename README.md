@@ -156,8 +156,13 @@ npm install
 cp backend/.env.example backend/.env
 # Edit DATABASE_URL and JWT_SECRET
 
-# Push schema
-npm run db:push --workspace=backend
+# Push schema (disposable local DBs only — never working/production)
+export DISPOSABLE_DB_ACK=I_UNDERSTAND_THIS_IS_DISPOSABLE
+# Point DATABASE_URL at a disposable DB name (e.g. scriptcheck_phase1h_a), not `scriptcheck`
+npm run db:push:disposable --workspace=backend
+# Prefer reviewed migrations once a database is baselined:
+# npm run db:verify-integrity --workspace=backend
+# npm run db:migrate:deploy --workspace=backend
 
 # Seed demo data
 npm run seed --workspace=backend

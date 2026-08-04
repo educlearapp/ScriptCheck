@@ -1,0 +1,14 @@
+=== RELEASE GATE ===
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
+=== Database release readiness (read-only) ===
+Target: postgresql://dasilvaacademy@localhost:5432/scriptcheck_phase1h_a?schema=public
+Host/DB: localhost / scriptcheck_phase1h_a
+Migration integrity: HEALTHY (healthy)
+Target: postgresql://dasilvaacademy@localhost:5432/scriptcheck_phase1h_a?schema=public
+Repository migrations: 3
+Applied (successful): 3
+Pending: 0
+prisma validate: OK
+GATE: PASS
+Phase 1H gate does not authorise production migration or baselining. Pending migrations require an authorised, separate deploy step.
+exit_code=0

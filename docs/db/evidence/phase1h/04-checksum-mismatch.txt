@@ -1,0 +1,21 @@
+=== CHECKSUM MISMATCH (independent verifier) ===
+Migration integrity: BLOCKED (checksum_mismatch)
+Target: postgresql://dasilvaacademy@localhost:5432/scriptcheck_phase1h_a?schema=public
+Repository migrations: 3
+Applied (successful): 3
+Pending: 0
+Issues:
+  - [checksum_mismatch] Checksum mismatch for "20260804122500_add_script_teacher_review_fields"
+Action: restore the original migration.sql or investigate history corruption. Do not bypass with db push.
+Exit code: 11
+verifier_exit_code=11
+=== PRISMA MIGRATE STATUS (weak behaviour) ===
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm.
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "scriptcheck_phase1h_a", schema "public" at "localhost:5432"
+
+3 migrations found in prisma/migrations
+
+Database schema is up to date!
+prisma_status_exit_code=0

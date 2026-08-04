@@ -1,0 +1,21 @@
+=== BETA BOOTSTRAP HEALTHY (integrity only; seed may run) ===
+[bootstrap] Beta environment — verifying migration integrity (read-only)…
+Migration integrity: HEALTHY (healthy)
+Target: postgresql://dasilvaacademy@localhost:5432/scriptcheck_phase1h_a?schema=public
+Repository migrations: 3
+Applied (successful): 3
+Pending: 0
+Exit code: 0
+[bootstrap] Migration integrity OK — seeding curriculum catalog and beta test users…
+Beta test workspace seeded:
+  Workspace: scriptcheck-beta-test (PAID — marking export enabled)
+  Assessments: 3 ([TEST DATA ONLY] prefix)
+  Beta HOD logins (password: ScriptCheckBeta2026!):
+    hod.foundation@scriptcheck-beta.school — HOD + TEACHER
+    hod.math@scriptcheck-beta.school — HOD + TEACHER
+    hod.english@scriptcheck-beta.school — HOD + TEACHER
+    hod.science@scriptcheck-beta.school — HOD + TEACHER
+    teacher.beta@scriptcheck-beta.school — TEACHER
+[bootstrap] Beta bootstrap complete
+BOOTSTRAP_OK
+exit_code=0

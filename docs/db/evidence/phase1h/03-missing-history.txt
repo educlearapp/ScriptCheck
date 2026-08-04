@@ -1,0 +1,12 @@
+=== MISSING HISTORY ===
+Migration integrity: BLOCKED (missing_history)
+Target: postgresql://dasilvaacademy@localhost:5432/scriptcheck_phase1h_c?schema=public
+Repository migrations: 3
+Applied (successful): 0
+Pending: 3 [20250612120000_timetable_foundation, 20250612140000_lesson_timetable_builder, 20260804122500_add_script_teacher_review_fields]
+Issues:
+  - [missing_history] Table _prisma_migrations does not exist. Baselining is required before migrate deploy. Do not run migrate deploy automatically.
+Action: complete a reviewed baselining phase. Do not run prisma migrate deploy automatically from application startup.
+Exit code: 10
+exit_code=10
+has_prisma_migrations=false

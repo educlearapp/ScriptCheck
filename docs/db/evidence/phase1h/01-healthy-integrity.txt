@@ -1,0 +1,8 @@
+=== HEALTHY INTEGRITY ===
+Migration integrity: HEALTHY (healthy)
+Target: postgresql://dasilvaacademy@localhost:5432/scriptcheck_phase1h_a?schema=public
+Repository migrations: 3
+Applied (successful): 3
+Pending: 0
+Exit code: 0
+exit_code=0

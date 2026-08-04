@@ -1,0 +1,5 @@
+=== UNSAFE TARGET REFUSED ===
+Refusing mutating database helper for postgresql://dasilvaacademy@localhost:5432/scriptcheck?schema=public:
+- database name "scriptcheck" is forbidden (working/production marker)
+- database name "scriptcheck" does not look disposable (expected scriptcheck_phase*, *disposable*, *sandbox*, or *_tmp*)
+exit_code=20
