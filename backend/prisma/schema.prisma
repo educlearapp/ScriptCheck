@@ -1074,6 +1074,8 @@ model LearnerScript {
   finalPercentage            Float?
   moderationVariancePercent  Float?
   varianceLevel              ModerationVarianceLevel @default(NONE)
+  flaggedForReview           Boolean                 @default(false)
+  privateTeacherNotes        String?
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
 

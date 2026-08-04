@@ -784,6 +784,9 @@ export type LearnerScriptSummary = {
   teacherTotal: number | null;
   hodTotal: number | null;
   finalTotal: number | null;
+  flaggedForReview?: boolean;
+  privateTeacherNotes?: string | null;
+  submittedToHodAt?: string | null;
   learner: {
     id: string;
     learnerNumber: string;
@@ -877,6 +880,11 @@ export type LearnerScriptDetail = {
   finalPercentage?: number | null;
   moderationVariancePercent?: number | null;
   varianceLevel?: ModerationVarianceLevel;
+  confidence?: number | null;
+  flaggedForReview?: boolean;
+  privateTeacherNotes?: string | null;
+  submittedToHodAt?: string | null;
+  approvedAt?: string | null;
   percentage: number;
   outOf: number;
   learner: {
@@ -925,6 +933,22 @@ export type BatchModerationAnalytics = {
     moderation: number;
     moderated: number;
     finalised: number;
+    notStarted?: number;
+    inProgress?: number;
+    submitted?: number;
+  };
+  teacherDashboard?: {
+    totalScripts: number;
+    notStarted: number;
+    inProgress: number;
+    marked: number;
+    submitted: number;
+    averageMark: number | null;
+    progressPercent: number;
+    completedCount: number;
+    flaggedForReview: number;
+    nextUnfinishedScriptId: string | null;
+    allMarked: boolean;
   };
   marks: {
     average: number | null;
@@ -951,6 +975,9 @@ export type BatchModerationAnalytics = {
     moderationVariancePercent: number | null;
     varianceLevel: ModerationVarianceLevel;
     varianceLabel: string;
+    flaggedForReview?: boolean;
+    privateTeacherNotes?: string | null;
+    submittedToHodAt?: string | null;
   }[];
 };
 

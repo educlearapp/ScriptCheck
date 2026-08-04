@@ -115,6 +115,13 @@ export default function BatchModerationDashboard() {
             <span className="sc-variance-critical">{analytics.varianceCounts.critical} crit</span>
           </div>
         </div>
+        <div className="sc-analytics-card">
+          <div className="sc-analytics-value">
+            {analytics.teacherDashboard?.flaggedForReview ??
+              analytics.scripts.filter((s) => s.flaggedForReview).length}
+          </div>
+          <div className="sc-analytics-label">Teacher review flags</div>
+        </div>
       </div>
 
       {canExport ? (
@@ -124,6 +131,48 @@ export default function BatchModerationDashboard() {
           </button>
         </div>
       ) : null}
+
+      <div className="sc-card" style={{ marginTop: "1rem", padding: "1rem" }}>
+        <h3 className="sc-script-panel-title">Teacher notes & flags</h3>
+        <div className="sc-table-wrap">
+          <table className="sc-table sc-table-compact">
+            <thead>
+              <tr>
+                <th>Learner</th>
+                <th>Flag</th>
+                <th>Private teacher notes</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {analytics.scripts.every(
+                (s) => !s.flaggedForReview && !s.privateTeacherNotes?.trim()
+              ) ? (
+                <tr>
+                  <td colSpan={4}>No teacher flags or private notes on this batch.</td>
+                </tr>
+              ) : (
+                analytics.scripts
+                  .filter((s) => s.flaggedForReview || s.privateTeacherNotes?.trim())
+                  .map((s) => (
+                    <tr key={s.id}>
+                      <td>
+                        <Link to={`/scripts/${s.id}`}>{s.learnerName}</Link>
+                      </td>
+                      <td>{s.flaggedForReview ? "⭐ Flagged" : "—"}</td>
+                      <td>{s.privateTeacherNotes?.trim() || "—"}</td>
+                      <td>
+                        {s.submittedToHodAt
+                          ? new Date(s.submittedToHodAt).toLocaleString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="sc-card" style={{ marginTop: "1rem", padding: "1rem" }}>
         <h3 className="sc-script-panel-title">Marker Performance</h3>

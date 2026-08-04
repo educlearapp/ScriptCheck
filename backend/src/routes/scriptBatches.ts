@@ -11,6 +11,7 @@ import {
   getScriptBatch,
   listScriptModerationQueue,
   returnScriptBatch,
+  returnSelectedScripts,
   ScriptError,
   startHodReview,
   submitBatchToHod,
@@ -373,6 +374,43 @@ router.post(
         actorId: req.auth!.userId,
         workspaceId: req.auth!.workspaceId,
         metadata: { batchId: result.batchId, comment: result.comment },
+        ...auditRequestMeta(req),
+      });
+
+      return res.json(result);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.post(
+  "/:id/return-selected",
+  requireAuth,
+  requirePermission(PERMISSIONS.SCRIPTS_MODERATE),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const scriptIds = Array.isArray(req.body?.scriptIds)
+        ? req.body.scriptIds.map(String)
+        : [];
+      const result = await returnSelectedScripts(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.auth!.userId,
+        scriptIds,
+        String(req.body?.comment ?? "")
+      );
+
+      await logAudit({
+        action: "SCRIPT_BATCH_RETURNED",
+        actorId: req.auth!.userId,
+        workspaceId: req.auth!.workspaceId,
+        metadata: {
+          batchId: result.batchId,
+          comment: result.comment,
+          returnedScriptIds: result.returnedScriptIds,
+          returnedEntireBatch: result.returnedEntireBatch,
+        },
         ...auditRequestMeta(req),
       });
 

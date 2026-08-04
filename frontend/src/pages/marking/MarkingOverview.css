@@ -598,3 +598,112 @@
     justify-content: center;
   }
 }
+
+.sc-batch-dashboard {
+  margin: 1rem 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-sm);
+  background: var(--sc-surface);
+}
+
+.sc-batch-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.75rem;
+}
+
+.sc-batch-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.sc-batch-stat-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--sc-gold-light, var(--sc-gold));
+}
+
+.sc-batch-stat-label {
+  font-size: 0.75rem;
+  color: var(--sc-text-muted);
+}
+
+.sc-batch-progress {
+  margin-top: 1rem;
+}
+
+.sc-batch-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.sc-batch-progress-track {
+  height: 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.sc-batch-progress-fill {
+  height: 100%;
+  background: var(--sc-gold);
+  border-radius: 999px;
+}
+
+.sc-btn-continue-marking {
+  width: 100%;
+  margin-bottom: 0.75rem;
+  min-height: 3rem;
+  font-size: 1.05rem;
+}
+
+.sc-batch-complete-banner {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-radius: var(--sc-radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sc-batch-complete-banner p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.sc-submit-review-panel {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid rgba(220, 80, 80, 0.35);
+  border-radius: var(--sc-radius-sm);
+  background: rgba(220, 80, 80, 0.06);
+}
+
+.sc-submit-review-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.sc-submit-review-panel ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+}
+
+@media (max-width: 430px) {
+  .sc-batch-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sc-batch-complete-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -13,7 +13,8 @@ import {
   type AssessmentSetupStatus,
   type MarkingOverviewItem,
 } from "../../services/assessmentSetupApi";
-import type { Assessment } from "../../types";
+import type { Assessment, BatchModerationAnalytics } from "../../types";
+import { validateBatchBeforeHodSubmit } from "../../utils/submitValidation";
 import "../dashboard/Dashboard.css";
 import "./MarkingOverview.css";
 
@@ -124,6 +125,9 @@ export default function MarkingOverview() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [actionBusy, setActionBusy] = useState("");
   const [error, setError] = useState("");
+  const [batchAnalytics, setBatchAnalytics] = useState<BatchModerationAnalytics | null>(null);
+  const [submitIssues, setSubmitIssues] = useState<string[]>([]);
+  const [showSubmitOverride, setShowSubmitOverride] = useState(false);
 
   const selectedAssessment = useMemo(
     () => assessments.find((assessment) => assessment.id === selectedId) ?? null,
@@ -184,10 +188,32 @@ export default function MarkingOverview() {
       setPaperSet(emptyPaperSet());
       setPagesInput("");
       setFiles([]);
+      setBatchAnalytics(null);
       return;
     }
     void loadSelectedDetails(selectedId);
   }, [selectedId, loadSelectedDetails]);
+
+  useEffect(() => {
+    if (!paperSet.id || !papersChecked) {
+      setBatchAnalytics(null);
+      return;
+    }
+    let cancelled = false;
+    apiFetch<BatchModerationAnalytics>(`/script-batches/${paperSet.id}/analytics`)
+      .then((data) => {
+        if (!cancelled) setBatchAnalytics(data);
+      })
+      .catch(() => {
+        if (!cancelled) setBatchAnalytics(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [paperSet.id, papersChecked, paperSet.paperCount]);
+
+  const teacherDash = batchAnalytics?.teacherDashboard;
+  const allMarked = Boolean(teacherDash?.allMarked);
 
   const pickFiles = (incoming: FileList | File[]) => {
     const picked = Array.from(incoming);
@@ -252,17 +278,28 @@ export default function MarkingOverview() {
     }
   };
 
-  const openReview = async () => {
+  const openReview = async (preferUnfinished = true) => {
     if (!paperSet.id || !selectedAssessment) return;
     setActionBusy("review");
     setError("");
     try {
-      const detail = await apiFetch<{ learnerScripts: Array<{ id: string }> }>(
-        `/script-batches/${paperSet.id}`
-      );
-      const firstPaperId = detail.learnerScripts[0]?.id;
-      if (firstPaperId) {
-        navigate(`/scripts/${firstPaperId}`);
+      const [detail, analytics] = await Promise.all([
+        apiFetch<{ learnerScripts: Array<{ id: string; status: string }> }>(
+          `/script-batches/${paperSet.id}`
+        ),
+        apiFetch<BatchModerationAnalytics>(`/script-batches/${paperSet.id}/analytics`).catch(
+          () => null
+        ),
+      ]);
+      if (analytics) setBatchAnalytics(analytics);
+      const unfinishedId =
+        analytics?.teacherDashboard?.nextUnfinishedScriptId ??
+        detail.learnerScripts.find((s) => s.status !== "MARKED")?.id;
+      const targetId = preferUnfinished
+        ? unfinishedId ?? detail.learnerScripts[0]?.id
+        : detail.learnerScripts[0]?.id;
+      if (targetId) {
+        navigate(`/scripts/${targetId}`);
       } else {
         navigate(`/assessments/${selectedAssessment.id}/scripts`);
       }
@@ -273,7 +310,23 @@ export default function MarkingOverview() {
     }
   };
 
-  const sendToDh = async () => {
+  const performSubmitToHod = async (scriptCount: number) => {
+    if (!paperSet.id) return;
+    const confirmed = window.confirm(
+      `Send ${scriptCount} completed learner paper(s) to the Department Head?`
+    );
+    if (!confirmed) return;
+    await apiFetch(`/script-batches/${paperSet.id}/submit-to-hod`, { method: "POST" });
+    setSubmitIssues([]);
+    setShowSubmitOverride(false);
+    await loadSelectedDetails(selectedId);
+    const analytics = await apiFetch<BatchModerationAnalytics>(
+      `/script-batches/${paperSet.id}/analytics`
+    ).catch(() => null);
+    if (analytics) setBatchAnalytics(analytics);
+  };
+
+  const sendToDh = async (force = false) => {
     if (!paperSet.id) return;
     setActionBusy("dh");
     setError("");
@@ -282,23 +335,42 @@ export default function MarkingOverview() {
         learnerScripts: Array<{ id: string; status: string }>;
       }>(`/script-batches/${paperSet.id}`);
       const scripts = detail.learnerScripts ?? [];
-      const unfinished = scripts.filter((s) => s.status !== "MARKED");
       if (scripts.length === 0) {
         setError("There are no learner papers to send yet.");
         return;
       }
-      if (unfinished.length > 0) {
-        setError(
-          `${unfinished.length} learner paper(s) still need to be finished. Open them and select “Finish This Learner” before sending.`
+
+      if (!force) {
+        const scriptsForValidation = await Promise.all(
+          scripts.map(async (s) => {
+            const full = await apiFetch<{
+              teacherTotal: number | null;
+              status: string;
+              questionMarks: Array<{
+                questionNumber: string;
+                maxMarks: number;
+                teacherMark: number | null;
+              }>;
+              learner: { firstName: string; lastName: string };
+            }>(`/scripts/${s.id}`);
+            return {
+              id: s.id,
+              learnerName: `${full.learner.firstName} ${full.learner.lastName}`,
+              status: full.status,
+              teacherTotal: full.teacherTotal,
+              questionMarks: full.questionMarks,
+            };
+          })
         );
-        return;
+        const validation = validateBatchBeforeHodSubmit({ scripts: scriptsForValidation });
+        if (!validation.ok) {
+          setSubmitIssues(validation.issues.map((i) => i.message));
+          setShowSubmitOverride(true);
+          return;
+        }
       }
-      const confirmed = window.confirm(
-        `Send ${scripts.length} completed learner paper(s) to the Department Head?`
-      );
-      if (!confirmed) return;
-      await apiFetch(`/script-batches/${paperSet.id}/submit-to-hod`, { method: "POST" });
-      await loadSelectedDetails(selectedId);
+
+      await performSubmitToHod(scripts.length);
     } catch (err) {
       const raw = err instanceof Error ? err.message : "Could not send to the Department Head.";
       setError(
@@ -464,24 +536,140 @@ export default function MarkingOverview() {
             </p>
           ) : null}
 
-          <button
-            type="button"
-            className="sc-btn sc-btn-primary"
-            disabled={actionBusy === "review"}
-            onClick={() => void openReview()}
-          >
-            {actionBusy === "review" ? "Opening..." : "Review marks"}
-          </button>
+          {teacherDash ? (
+            <div className="sc-batch-dashboard" aria-label="Batch marking dashboard">
+              <div className="sc-batch-dashboard-grid">
+                <div className="sc-batch-stat">
+                  <span className="sc-batch-stat-value">{teacherDash.totalScripts}</span>
+                  <span className="sc-batch-stat-label">Total scripts</span>
+                </div>
+                <div className="sc-batch-stat">
+                  <span className="sc-batch-stat-value">{teacherDash.notStarted}</span>
+                  <span className="sc-batch-stat-label">Not Started</span>
+                </div>
+                <div className="sc-batch-stat">
+                  <span className="sc-batch-stat-value">{teacherDash.inProgress}</span>
+                  <span className="sc-batch-stat-label">In Progress</span>
+                </div>
+                <div className="sc-batch-stat">
+                  <span className="sc-batch-stat-value">{teacherDash.marked}</span>
+                  <span className="sc-batch-stat-label">Marked</span>
+                </div>
+                <div className="sc-batch-stat">
+                  <span className="sc-batch-stat-value">{teacherDash.submitted}</span>
+                  <span className="sc-batch-stat-label">Submitted</span>
+                </div>
+                <div className="sc-batch-stat">
+                  <span className="sc-batch-stat-value">{teacherDash.averageMark ?? "—"}</span>
+                  <span className="sc-batch-stat-label">Average mark</span>
+                </div>
+                <div className="sc-batch-stat">
+                  <span className="sc-batch-stat-value">{teacherDash.flaggedForReview}</span>
+                  <span className="sc-batch-stat-label">Flagged for review</span>
+                </div>
+              </div>
+              <div className="sc-batch-progress">
+                <div className="sc-batch-progress-meta">
+                  <span>Progress</span>
+                  <strong>{teacherDash.progressPercent}%</strong>
+                </div>
+                <div
+                  className="sc-batch-progress-track"
+                  role="progressbar"
+                  aria-valuenow={teacherDash.progressPercent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <div
+                    className="sc-batch-progress-fill"
+                    style={{ width: `${Math.min(100, Math.max(0, teacherDash.progressPercent))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
 
-          <div className="sc-teacher-final-actions" aria-label="Final actions">
+          {allMarked ? (
+            <div className="sc-batch-complete-banner">
+              <p>All learner scripts have been marked.</p>
+              <button
+                type="button"
+                className="sc-btn sc-btn-primary"
+                disabled={actionBusy === "dh"}
+                onClick={() => void sendToDh(false)}
+              >
+                {actionBusy === "dh" ? "Sending..." : "Submit to HOD"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary sc-btn-continue-marking"
+              disabled={actionBusy === "review"}
+              onClick={() => void openReview(true)}
+            >
+              {actionBusy === "review" ? "Opening..." : "Continue Marking"}
+            </button>
+          )}
+
+          {!allMarked ? (
             <button
               type="button"
               className="sc-btn sc-btn-secondary"
-              disabled={actionBusy === "dh"}
-              onClick={() => void sendToDh()}
+              disabled={actionBusy === "review"}
+              onClick={() => void openReview(true)}
             >
-              {actionBusy === "dh" ? "Sending..." : "Send to Department Head"}
+              {actionBusy === "review" ? "Opening..." : "Review marks"}
             </button>
+          ) : null}
+
+          {showSubmitOverride && submitIssues.length > 0 ? (
+            <div className="sc-submit-review-panel" role="region" aria-label="Submit validation">
+              <h3>Review before Submit to HOD</h3>
+              <ul>
+                {submitIssues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+              <div className="sc-form-actions">
+                <button
+                  type="button"
+                  className="sc-btn sc-btn-secondary"
+                  onClick={() => {
+                    setShowSubmitOverride(false);
+                    void openReview(true);
+                  }}
+                >
+                  Return to marking
+                </button>
+                <button
+                  type="button"
+                  className="sc-btn sc-btn-primary"
+                  disabled={actionBusy === "dh"}
+                  onClick={() => {
+                    const ok = window.confirm(
+                      "Override validation issues and submit to HOD anyway? This is recorded in your confirmation."
+                    );
+                    if (ok) void sendToDh(true);
+                  }}
+                >
+                  Override and submit
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="sc-teacher-final-actions" aria-label="Final actions">
+            {!allMarked ? (
+              <button
+                type="button"
+                className="sc-btn sc-btn-secondary"
+                disabled={actionBusy === "dh"}
+                onClick={() => void sendToDh(false)}
+              >
+                {actionBusy === "dh" ? "Sending..." : "Send to Department Head"}
+              </button>
+            ) : null}
             <button type="button" className="sc-btn sc-btn-secondary" onClick={() => window.print()}>
               Print
             </button>

@@ -24,6 +24,7 @@ import "./ModerationWorkflow.css";
 type ScriptQueueItem = ScriptBatchSummary & {
   learnerScripts: LearnerScriptSummary[];
   assessment: { id: string; title: string; totalMarks: number };
+  updatedAt?: string;
 };
 
 type ReturnTarget =
@@ -44,6 +45,7 @@ export default function HodModerationQueue() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [returnTarget, setReturnTarget] = useState<ReturnTarget | null>(null);
   const [returnComment, setReturnComment] = useState("");
+  const [selectedReturnIds, setSelectedReturnIds] = useState<Record<string, Set<string>>>({});
   const [saveToBank, setSaveToBank] = useState(true);
   const [approveTarget, setApproveTarget] = useState<Assessment | null>(null);
   const [approveBatchTarget, setApproveBatchTarget] = useState<ScriptQueueItem | null>(null);
@@ -149,19 +151,42 @@ export default function HodModerationQueue() {
           body: JSON.stringify({ comment: returnComment }),
         });
       } else {
-        await apiFetch(`/script-batches/${returnTarget.batchId}/return`, {
-          method: "POST",
-          body: JSON.stringify({ comment: returnComment }),
-        });
+        const selected = [...(selectedReturnIds[returnTarget.batchId] ?? [])];
+        if (selected.length > 0) {
+          await apiFetch(`/script-batches/${returnTarget.batchId}/return-selected`, {
+            method: "POST",
+            body: JSON.stringify({ comment: returnComment, scriptIds: selected }),
+          });
+        } else {
+          await apiFetch(`/script-batches/${returnTarget.batchId}/return`, {
+            method: "POST",
+            body: JSON.stringify({ comment: returnComment }),
+          });
+        }
       }
       setReturnTarget(null);
       setReturnComment("");
+      setSelectedReturnIds((prev) => {
+        if (returnTarget.kind !== "batch") return prev;
+        const next = { ...prev };
+        delete next[returnTarget.batchId];
+        return next;
+      });
       loadQueue();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Return failed");
     } finally {
       setBusyId(null);
     }
+  };
+
+  const toggleReturnSelection = (batchId: string, scriptId: string) => {
+    setSelectedReturnIds((prev) => {
+      const current = new Set(prev[batchId] ?? []);
+      if (current.has(scriptId)) current.delete(scriptId);
+      else current.add(scriptId);
+      return { ...prev, [batchId]: current };
+    });
   };
 
   const handleEscalate = async () => {
@@ -413,13 +438,35 @@ export default function HodModerationQueue() {
                 batch.status,
                 escalatedIds.has(batch.assessment.id)
               );
+              const totals = batch.learnerScripts
+                .map((s) => s.finalTotal ?? s.teacherTotal)
+                .filter((n): n is number => typeof n === "number");
+              const averageMark = totals.length
+                ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10
+                : null;
+              const flaggedCount = batch.learnerScripts.filter((s) => s.flaggedForReview).length;
+              const submissionTimes = batch.learnerScripts
+                .map((s) => s.submittedToHodAt)
+                .filter((t): t is string => Boolean(t))
+                .sort();
+              const submittedAt = submissionTimes[0] ?? batch.updatedAt ?? null;
+              const selectedCount = selectedReturnIds[batch.id]?.size ?? 0;
               return (
               <div key={batch.id} style={{ padding: "1rem", borderTop: "1px solid var(--sc-border)" }}>
                 <div className="sc-mod-section-header" style={{ padding: 0 }}>
                   <div>
                     <strong>{batch.title}</strong>
                     <div style={{ fontSize: "0.85rem", color: "var(--sc-text-muted)" }}>
-                      {batch.assessment?.title} · {batch.learnerScripts.length} scripts ·{" "}
+                      Teacher: {batch.createdBy?.fullName ?? "—"} · Scripts:{" "}
+                      {batch.learnerScripts.length} · Avg: {averageMark ?? "—"} · Flags:{" "}
+                      {flaggedCount}
+                      {submittedAt ? (
+                        <>
+                          {" "}
+                          · Submitted: {new Date(submittedAt).toLocaleString()}
+                        </>
+                      ) : null}{" "}
+                      · {batch.assessment?.title} ·{" "}
                       <span
                         className={`sc-mod-status ${moderationJourneyStatusClass(journey.key)}`}
                       >
@@ -444,7 +491,10 @@ export default function HodModerationQueue() {
                       setReturnTarget({
                         kind: "batch",
                         batchId: batch.id,
-                        title: batch.title,
+                        title:
+                          selectedCount > 0
+                            ? `${batch.title} (${selectedCount} selected)`
+                            : batch.title,
                       })
                     }
                     onEscalate={
@@ -454,12 +504,25 @@ export default function HodModerationQueue() {
                     }
                   />
                 </div>
+                {selectedCount > 0 ? (
+                  <p className="sc-mod-hint" style={{ margin: "0.5rem 0 0" }}>
+                    Return will apply to {selectedCount} selected learner(s). Clear selection to
+                    return the entire batch.
+                  </p>
+                ) : (
+                  <p className="sc-mod-hint" style={{ margin: "0.5rem 0 0" }}>
+                    Return without selection returns the entire batch.
+                  </p>
+                )}
                 <div className="sc-table-wrap" style={{ marginTop: "0.75rem" }}>
                   <table className="sc-table">
                     <thead>
                       <tr>
+                        <th>Return</th>
                         <th>Learner</th>
                         <th>Teacher total</th>
+                        <th>Flags</th>
+                        <th>Teacher notes</th>
                         <th>DH total</th>
                         <th>Final</th>
                         <th></th>
@@ -468,8 +531,22 @@ export default function HodModerationQueue() {
                     <tbody>
                       {batch.learnerScripts.map((s) => (
                         <tr key={s.id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(selectedReturnIds[batch.id]?.has(s.id))}
+                              onChange={() => toggleReturnSelection(batch.id, s.id)}
+                              aria-label={`Select ${s.learner.firstName} ${s.learner.lastName}`}
+                            />
+                          </td>
                           <td>{s.learner.firstName} {s.learner.lastName}</td>
                           <td>{s.teacherTotal ?? "—"}</td>
+                          <td>{s.flaggedForReview ? "⭐ Flagged" : "—"}</td>
+                          <td>
+                            {s.privateTeacherNotes?.trim()
+                              ? s.privateTeacherNotes.trim().slice(0, 80)
+                              : "—"}
+                          </td>
                           <td>{s.hodTotal ?? "—"}</td>
                           <td>{s.finalTotal ?? "—"}</td>
                           <td>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiDownload, apiFetch, apiOpenPdf, apiUpload } from "../../api";
 import { useTrialGate } from "../../trial/TrialGateContext";
@@ -26,6 +26,7 @@ import type {
   ViewMode,
   WorkspaceRole,
 } from "../../types";
+import { validateScriptMarks } from "../../utils/submitValidation";
 import ModerationEscalateModal from "../moderation/shared/ModerationEscalateModal";
 import ModerationReturnModal from "../moderation/shared/ModerationReturnModal";
 import "../moderation/ModerationWorkflow.css";
@@ -76,6 +77,22 @@ export default function LearnerScriptDetailPage() {
   const [escalateRole, setEscalateRole] = useState<WorkspaceRole>("MODERATOR");
   const [escalateComment, setEscalateComment] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState<"idle" | "saving" | "saved" | "offline">(
+    "idle"
+  );
+  const [flaggedForReview, setFlaggedForReview] = useState(false);
+  const [privateTeacherNotes, setPrivateTeacherNotes] = useState("");
+  const [notesDirty, setNotesDirty] = useState(false);
+  const [submitIssues, setSubmitIssues] = useState<string[]>([]);
+  const [showSubmitOverride, setShowSubmitOverride] = useState(false);
+
+  const marksRef = useRef(marks);
+  const dirtyRef = useRef(dirty);
+  const notesDirtyRef = useRef(notesDirty);
+  const savingRef = useRef(false);
+  marksRef.current = marks;
+  dirtyRef.current = dirty;
+  notesDirtyRef.current = notesDirty;
 
   const canMark = hasPermission(user, "scripts.mark");
   const canEscalate = hasPermission(user, "moderation.request_approval");
@@ -129,7 +146,13 @@ export default function LearnerScriptDetailPage() {
         setActiveQuestionIndex(0);
         setSaveMessage("");
         setDirty(false);
+        setNotesDirty(false);
+        setFlaggedForReview(Boolean(data.flaggedForReview));
+        setPrivateTeacherNotes(data.privateTeacherNotes ?? "");
+        setAutosaveStatus("idle");
         setShowAudit(false);
+        setSubmitIssues([]);
+        setShowSubmitOverride(false);
         const initial: Record<string, Partial<ScriptQuestionMarkRow>> = {};
         for (const m of data.questionMarks) {
           initial[m.assessmentQuestionId] = { ...m };
@@ -178,14 +201,148 @@ export default function LearnerScriptDetailPage() {
 
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!dirty) return;
+      if (!dirty && !notesDirty) return;
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
+  }, [dirty, notesDirty]);
 
+  useEffect(() => {
+    const onOnline = () => {
+      if (dirtyRef.current || notesDirtyRef.current) {
+        void handleSave({ silent: true }).then(() => {
+          if (notesDirtyRef.current) void persistTeacherReviewMeta();
+        });
+      } else {
+        setAutosaveStatus((s) => (s === "offline" ? "saved" : s));
+      }
+    };
+    const onOffline = () => setAutosaveStatus("offline");
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- silent autosave wiring
+  }, [scriptId]);
+
+  useEffect(() => {
+    if (!dirty || (!teacherMode && !hodMode)) return;
+    if (!navigator.onLine) {
+      setAutosaveStatus("offline");
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void handleSave({ silent: true });
+    }, 1800);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, marks, teacherMode, hodMode]);
+
+  useEffect(() => {
+    if (!notesDirty || !teacherMode) return;
+    if (!navigator.onLine) {
+      setAutosaveStatus("offline");
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void persistTeacherReviewMeta();
+    }, 2000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notesDirty, privateTeacherNotes, teacherMode]);
+
+  useEffect(() => {
+    if (!dirty && !notesDirty) return;
+    const interval = window.setInterval(() => {
+      if (!navigator.onLine) {
+        setAutosaveStatus("offline");
+        return;
+      }
+      if (dirtyRef.current) void handleSave({ silent: true });
+      if (notesDirtyRef.current) void persistTeacherReviewMeta();
+    }, 8000);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, notesDirty, scriptId]);
+
+  useEffect(() => {
+    if (!pages.length) return;
+    const synced = Math.min(activeQuestionIndex, pages.length - 1);
+    setActivePageIndex(synced);
+  }, [activeQuestionIndex, pages.length]);
+
+  useEffect(() => {
+    const isTypingTarget = (el: EventTarget | null) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showReturnModal) {
+          setShowReturnModal(false);
+          e.preventDefault();
+        } else if (showEscalateModal) {
+          setShowEscalateModal(false);
+          e.preventDefault();
+        } else if (showSubmitOverride) {
+          setShowSubmitOverride(false);
+          e.preventDefault();
+        }
+        return;
+      }
+
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        void handleSave({ silent: false });
+        if (notesDirtyRef.current) void persistTeacherReviewMeta();
+        return;
+      }
+
+      if (isTypingTarget(e.target)) return;
+      if (mod) return;
+
+      const idx = siblingScripts.findIndex((s) => s.id === scriptId);
+      const prev = idx > 0 ? siblingScripts[idx - 1] : null;
+      const next =
+        idx >= 0 && idx < siblingScripts.length - 1 ? siblingScripts[idx + 1] : null;
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (prev) void goToSibling(prev.id);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (next) void goToSibling(next.id);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveQuestionIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveQuestionIndex((i) =>
+          Math.min(Math.max((script?.questionMarks.length ?? 1) - 1, 0), i + 1)
+        );
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    showReturnModal,
+    showEscalateModal,
+    showSubmitOverride,
+    siblingScripts,
+    scriptId,
+    script?.questionMarks.length,
+  ]);
+
+  // Marks update helpers continue below — handleSave is defined later and called via effects after mount.
   const updateMark = (
     questionId: string,
     field: keyof ScriptQuestionMarkRow,
@@ -255,13 +412,20 @@ export default function LearnerScriptDetailPage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!scriptId || saving) return;
+  const handleSave = async (opts?: { silent?: boolean }) => {
+    if (!scriptId || savingRef.current) return false;
+    if (!navigator.onLine) {
+      setAutosaveStatus("offline");
+      return false;
+    }
+    savingRef.current = true;
     setSaving(true);
-    setError("");
-    setSaveMessage("");
+    if (!opts?.silent) setError("");
+    setAutosaveStatus("saving");
+    if (!opts?.silent) setSaveMessage("");
     try {
-      const payload = Object.entries(marks).map(([assessmentQuestionId, m]) => ({
+      const currentMarks = marksRef.current;
+      const payload = Object.entries(currentMarks).map(([assessmentQuestionId, m]) => ({
         assessmentQuestionId,
         ...(teacherMode
           ? {
@@ -285,25 +449,61 @@ export default function LearnerScriptDetailPage() {
       });
       setScript(updated);
       setDirty(false);
-      setSaveMessage("Mark saved.");
+      setAutosaveStatus("saved");
+      if (!opts?.silent) setSaveMessage("Mark saved.");
       const auditData = await apiFetch<ScriptAuditEntry[]>(
         `/scripts/${scriptId}/audit-timeline`
       );
       setAuditTimeline(auditData);
+      return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      if (!navigator.onLine) setAutosaveStatus("offline");
+      else if (!opts?.silent) setError(err instanceof Error ? err.message : "Save failed");
+      return false;
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
-  const confirmLeaveIfDirty = () => {
-    if (!dirty) return true;
-    return window.confirm("You have unsaved mark changes. Leave without saving?");
+  const persistTeacherReviewMeta = async (next?: {
+    flaggedForReview?: boolean;
+    privateTeacherNotes?: string;
+  }) => {
+    if (!scriptId || !teacherMode) return;
+    if (!navigator.onLine) {
+      setAutosaveStatus("offline");
+      return;
+    }
+    try {
+      setAutosaveStatus("saving");
+      const updated = await apiFetch<LearnerScriptDetail>(`/scripts/${scriptId}/teacher-review`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          flaggedForReview: next?.flaggedForReview ?? flaggedForReview,
+          privateTeacherNotes: next?.privateTeacherNotes ?? privateTeacherNotes,
+        }),
+      });
+      setScript(updated);
+      setFlaggedForReview(Boolean(updated.flaggedForReview));
+      setPrivateTeacherNotes(updated.privateTeacherNotes ?? "");
+      setNotesDirty(false);
+      setAutosaveStatus("saved");
+    } catch {
+      if (!navigator.onLine) setAutosaveStatus("offline");
+    }
   };
 
-  const goToSibling = (targetId: string) => {
-    if (!confirmLeaveIfDirty()) return;
+  const confirmLeaveIfDirty = async () => {
+    if (!dirtyRef.current && !notesDirtyRef.current) return true;
+    const saved = await handleSave({ silent: true });
+    if (notesDirtyRef.current) await persistTeacherReviewMeta();
+    return saved || (!dirtyRef.current && !notesDirtyRef.current);
+  };
+
+  const goToSibling = async (targetId: string) => {
+    const ok = await confirmLeaveIfDirty();
+    if (!ok) return;
     navigate(`/scripts/${targetId}`);
   };
 
@@ -421,15 +621,38 @@ export default function LearnerScriptDetailPage() {
     }
   };
 
-  const handleSubmitModerationSafe = async () => {
+  const handleSubmitModerationSafe = async (force = false) => {
     if (!script?.batchId) return;
     const unfinished = siblingScripts.filter((s) => s.status !== "MARKED");
-    if (unfinished.length > 0) {
+    if (unfinished.length > 0 && !force) {
       setError(
         `${unfinished.length} learner paper(s) still need to be finished. Open them and select “Finish This Learner” before sending.`
       );
       return;
     }
+
+    if (!force) {
+      const questionMarks = script.questionMarks.map((q) => {
+        const m = marks[q.assessmentQuestionId] ?? q;
+        return {
+          questionNumber: q.questionNumber,
+          maxMarks: q.maxMarks,
+          teacherMark: m.teacherMark ?? null,
+        };
+      });
+      const validation = validateScriptMarks({
+        questionMarks,
+        teacherTotal: script.teacherTotal,
+      });
+      if (!validation.ok) {
+        setSubmitIssues(validation.issues.map((i) => i.message));
+        setShowSubmitOverride(true);
+        return;
+      }
+    }
+
+    setShowSubmitOverride(false);
+    setSubmitIssues([]);
     await runBatchAction("/submit-to-hod");
   };
 
@@ -548,7 +771,12 @@ export default function LearnerScriptDetailPage() {
           to={teacherSimple ? "/marking" : `/assessments/${script.assessment.id}/scripts`}
           className="sc-detail-back"
           onClick={(e) => {
-            if (!confirmLeaveIfDirty()) e.preventDefault();
+            e.preventDefault();
+            void confirmLeaveIfDirty().then((ok) => {
+              if (ok) {
+                navigate(teacherSimple ? "/marking" : `/assessments/${script.assessment.id}/scripts`);
+              }
+            });
           }}
         >
           {teacherSimple ? "← Back to Mark Papers" : "← Scripts"}
@@ -616,6 +844,38 @@ export default function LearnerScriptDetailPage() {
         }
         onFinalise={handleFinalise}
       />
+
+      {showSubmitOverride && submitIssues.length > 0 ? (
+        <div className="sc-submit-review-panel" role="region" aria-label="Submit validation">
+          <h3>Review before Submit to HOD</h3>
+          <ul>
+            {submitIssues.map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+          <div className="sc-form-actions">
+            <button
+              type="button"
+              className="sc-btn sc-btn-secondary"
+              onClick={() => setShowSubmitOverride(false)}
+            >
+              Return to marking
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary"
+              onClick={() => {
+                const ok = window.confirm(
+                  "Override validation issues and submit to HOD anyway?"
+                );
+                if (ok) void handleSubmitModerationSafe(true);
+              }}
+            >
+              Override and submit
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <ModerationReturnModal
         open={showReturnModal}
@@ -723,8 +983,9 @@ export default function LearnerScriptDetailPage() {
             saving={saving}
             completing={completing}
             saveMessage={saveMessage}
+            autosaveStatus={autosaveStatus}
             onUpdateMark={updateMark}
-            onSave={handleSave}
+            onSave={() => void handleSave()}
             onComplete={handleComplete}
             canGenerateReports={canGenerateReports}
             onDownloadPdf={handleDownloadLearnerPdf}
@@ -742,6 +1003,20 @@ export default function LearnerScriptDetailPage() {
             onSaveFeedback={handleSaveFeedback}
             activeQuestionIndex={activeQuestionIndex}
             onActiveQuestionIndexChange={setActiveQuestionIndex}
+            flaggedForReview={flaggedForReview}
+            privateTeacherNotes={privateTeacherNotes}
+            canUseTeacherReviewTools={Boolean(teacherMode)}
+            onToggleFlag={() => {
+              if (!teacherMode) return;
+              const next = !flaggedForReview;
+              setFlaggedForReview(next);
+              void persistTeacherReviewMeta({ flaggedForReview: next });
+            }}
+            onPrivateNotesChange={(value) => {
+              if (!teacherMode) return;
+              setPrivateTeacherNotes(value);
+              setNotesDirty(true);
+            }}
           />
         )}
       </div>

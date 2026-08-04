@@ -412,6 +412,8 @@ function serializeScriptDetail(
     moderationVariancePercent: script.moderationVariancePercent,
     varianceLevel: script.varianceLevel,
     confidence: script.confidence,
+    flaggedForReview: script.flaggedForReview,
+    privateTeacherNotes: script.privateTeacherNotes,
     submittedToHodAt: script.submittedToHodAt,
     approvedAt: script.approvedAt,
     learner: {
@@ -896,4 +898,100 @@ export async function returnScriptBatch(
   await applyReturnToTeacherUnlocks(batchId, workspaceId, actorId);
 
   return { batchId, comment: trimmed };
+}
+
+export async function returnSelectedScripts(
+  batchId: string,
+  workspaceId: string,
+  actorId: string,
+  scriptIds: string[],
+  comment: string
+) {
+  const trimmed = comment?.trim();
+  if (!trimmed) {
+    throw new ScriptError("A comment is required when returning selected learners", 400);
+  }
+  if (!Array.isArray(scriptIds) || scriptIds.length === 0) {
+    throw new ScriptError("Select at least one learner script to return", 400);
+  }
+
+  const batch = await prisma.scriptBatch.findFirst({
+    where: { id: batchId, workspaceId },
+    include: { learnerScripts: { select: { id: true } } },
+  });
+
+  if (!batch) throw new ScriptError("Script batch not found", 404);
+
+  if (
+    batch.status !== ScriptBatchStatus.SUBMITTED_TO_HOD &&
+    batch.status !== ScriptBatchStatus.HOD_REVIEW
+  ) {
+    throw new ScriptError("Batch cannot be returned in current status", 400);
+  }
+
+  const allowed = new Set(batch.learnerScripts.map((s) => s.id));
+  const selected = [...new Set(scriptIds)].filter((id) => allowed.has(id));
+  if (selected.length === 0) {
+    throw new ScriptError("No matching learner scripts found in this batch", 400);
+  }
+
+  const returningAll = selected.length === batch.learnerScripts.length;
+  if (returningAll) {
+    await prisma.scriptBatch.update({
+      where: { id: batchId },
+      data: { status: ScriptBatchStatus.RETURNED_TO_TEACHER },
+    });
+  } else if (batch.status === ScriptBatchStatus.SUBMITTED_TO_HOD) {
+    await prisma.scriptBatch.update({
+      where: { id: batchId },
+      data: { status: ScriptBatchStatus.HOD_REVIEW },
+    });
+  }
+
+  await applyReturnToTeacherUnlocks(batchId, workspaceId, actorId, selected);
+
+  return {
+    batchId,
+    comment: trimmed,
+    returnedScriptIds: selected,
+    returnedEntireBatch: returningAll,
+  };
+}
+
+export async function updateTeacherReviewMeta(
+  scriptId: string,
+  workspaceId: string,
+  actorId: string,
+  access: UserAccessContext,
+  data: { flaggedForReview?: boolean; privateTeacherNotes?: string | null }
+) {
+  if (!hasPermission(access, workspaceId, PERMISSIONS.SCRIPTS_MARK)) {
+    throw new ScriptError("Insufficient permissions to update review tools", 403);
+  }
+
+  const script = await loadLearnerScript(scriptId, workspaceId);
+  if (!canEditTeacherLayer(script)) {
+    throw new ScriptError("Teacher review tools are locked for this script", 403);
+  }
+
+  await prisma.learnerScript.update({
+    where: { id: scriptId },
+    data: {
+      ...(typeof data.flaggedForReview === "boolean"
+        ? { flaggedForReview: data.flaggedForReview }
+        : {}),
+      ...(data.privateTeacherNotes !== undefined
+        ? {
+            privateTeacherNotes:
+              data.privateTeacherNotes === null
+                ? null
+                : String(data.privateTeacherNotes).slice(0, 5000),
+          }
+        : {}),
+    },
+  });
+
+  void actorId;
+
+  return getLearnerScript(scriptId, workspaceId);
 }

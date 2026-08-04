@@ -4,6 +4,7 @@ import type {
   LearnerScriptDetail,
   ScriptQuestionMarkRow,
 } from "../../types";
+import { resolveAiConfidence } from "../../utils/aiConfidence";
 import MarkVarianceBadge from "./MarkVarianceBadge";
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
   saving: boolean;
   completing: boolean;
   saveMessage?: string;
+  autosaveStatus?: "idle" | "saving" | "saved" | "offline";
   onUpdateMark: (
     questionId: string,
     field: keyof ScriptQuestionMarkRow,
@@ -40,6 +42,11 @@ type Props = {
   onSaveFeedback: () => void;
   activeQuestionIndex?: number;
   onActiveQuestionIndexChange?: (index: number) => void;
+  flaggedForReview?: boolean;
+  privateTeacherNotes?: string;
+  onToggleFlag?: () => void;
+  onPrivateNotesChange?: (value: string) => void;
+  canUseTeacherReviewTools?: boolean;
 };
 
 export default function ScriptMarkingPanel({
@@ -50,6 +57,7 @@ export default function ScriptMarkingPanel({
   saving,
   completing,
   saveMessage,
+  autosaveStatus = "idle",
   onUpdateMark,
   onSave,
   onComplete,
@@ -67,11 +75,26 @@ export default function ScriptMarkingPanel({
   onSaveFeedback,
   activeQuestionIndex = 0,
   onActiveQuestionIndexChange,
+  flaggedForReview = false,
+  privateTeacherNotes = "",
+  onToggleFlag,
+  onPrivateNotesChange,
+  canUseTeacherReviewTools = false,
 }: Props) {
   const [showMore, setShowMore] = useState(false);
   const questions = script.questionMarks;
   const questionIndex = Math.min(Math.max(activeQuestionIndex, 0), Math.max(questions.length - 1, 0));
   const activeQuestion = questions[questionIndex] ?? null;
+
+  const activeConfidence = useMemo(() => {
+    if (!activeQuestion) return null;
+    const m = marks[activeQuestion.assessmentQuestionId] ?? activeQuestion;
+    return resolveAiConfidence({
+      confidence: script.confidence,
+      teacherComment: m.teacherComment ?? activeQuestion.teacherComment,
+      hodComment: m.hodComment ?? activeQuestion.hodComment,
+    });
+  }, [activeQuestion, marks, script.confidence]);
 
   const missingMarks = useMemo(() => {
     return questions.filter((q) => {
@@ -83,7 +106,43 @@ export default function ScriptMarkingPanel({
 
   return (
     <aside className="sc-script-marking-panel">
-      <h3 className="sc-script-panel-title">Review marks</h3>
+      <div className="sc-script-panel-header-row">
+        <h3 className="sc-script-panel-title">Review marks</h3>
+        <span className="sc-autosave-status" aria-live="polite">
+          {autosaveStatus === "saving"
+            ? "Saving…"
+            : autosaveStatus === "saved"
+              ? "Saved"
+              : autosaveStatus === "offline"
+                ? "Offline – changes will save when connection returns."
+                : saveMessage || ""}
+        </span>
+      </div>
+
+      <div className="sc-teacher-review-tools">
+        <button
+          type="button"
+          className={`sc-btn sc-btn-ghost sc-flag-btn${flaggedForReview ? " is-flagged" : ""}`}
+          onClick={onToggleFlag}
+          disabled={!canUseTeacherReviewTools}
+          aria-pressed={flaggedForReview}
+        >
+          ⭐ Flag for Review{flaggedForReview ? " (on)" : ""}
+        </button>
+        <label className="sc-label" htmlFor="private-teacher-notes">
+          📝 Private Teacher Notes
+          <span className="sc-mark-pages-hint">Visible to Teacher and Department Head only</span>
+        </label>
+        <textarea
+          id="private-teacher-notes"
+          className="sc-input sc-private-notes"
+          rows={3}
+          value={privateTeacherNotes}
+          readOnly={!canUseTeacherReviewTools}
+          onChange={(e) => onPrivateNotesChange?.(e.target.value)}
+          placeholder="Notes for you and the Department Head…"
+        />
+      </div>
 
       <div className="sc-mark-totals sc-mark-totals-compact">
         <div className="sc-mark-total-card">
@@ -121,48 +180,81 @@ export default function ScriptMarkingPanel({
         </div>
       ) : null}
 
-      {activeQuestion && teacherMode && !hodMode ? (
+      {activeQuestion ? (
         <div className="sc-mark-focus-card" aria-label="Current question">
           <p className="sc-mark-focus-progress">
             Question {questionIndex + 1} of {questions.length}
           </p>
-          <p className="sc-marking-q-num">Q{activeQuestion.questionNumber}</p>
-          {activeQuestion.questionText ? (
-            <p className="sc-mark-comment-read">{activeQuestion.questionText}</p>
+          <div className="sc-synced-sources" aria-label="Aligned paper sources">
+            <div className="sc-synced-source">
+              <span className="sc-synced-source-label">Question Paper</span>
+              <p className="sc-marking-q-num">Q{activeQuestion.questionNumber}</p>
+              {activeQuestion.questionText ? (
+                <p className="sc-mark-comment-read">{activeQuestion.questionText}</p>
+              ) : (
+                <p className="sc-mark-comment-read">Question text unavailable.</p>
+              )}
+            </div>
+            <div className="sc-synced-source">
+              <span className="sc-synced-source-label">Memorandum</span>
+              {activeQuestion.expectedAnswer ? (
+                <p className="sc-mark-comment-read">{activeQuestion.expectedAnswer}</p>
+              ) : (
+                <p className="sc-mark-comment-read">No memorandum excerpt for this question.</p>
+              )}
+            </div>
+            <div className="sc-synced-source">
+              <span className="sc-synced-source-label">Learner Script</span>
+              <p className="sc-mark-comment-read">
+                Stay on this question while you mark — navigation stays aligned.
+              </p>
+            </div>
+          </div>
+          {activeConfidence ? (
+            <p
+              className={`sc-ai-confidence sc-ai-confidence-${activeConfidence.level ?? "none"}`}
+              aria-label="AI confidence"
+            >
+              {activeConfidence.label}
+            </p>
           ) : null}
-          <label className="sc-label" htmlFor={`mark-input-${activeQuestion.assessmentQuestionId}`}>
-            Mark out of {activeQuestion.maxMarks}
-          </label>
-          <input
-            id={`mark-input-${activeQuestion.assessmentQuestionId}`}
-            className="sc-input sc-mark-focus-input"
-            type="number"
-            min={0}
-            max={activeQuestion.maxMarks}
-            step={0.5}
-            value={marks[activeQuestion.assessmentQuestionId]?.teacherMark ?? activeQuestion.teacherMark ?? ""}
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw !== "" && Number(raw) > activeQuestion.maxMarks) return;
-              onUpdateMark(activeQuestion.assessmentQuestionId, "teacherMark", raw);
-            }}
-            aria-describedby={`mark-help-${activeQuestion.assessmentQuestionId}`}
-          />
-          <p id={`mark-help-${activeQuestion.assessmentQuestionId}`} className="sc-mark-pages-hint">
-            Enter 0 up to {activeQuestion.maxMarks}. Leave blank if not marked yet.
-          </p>
-          <label className="sc-label" htmlFor={`comment-${activeQuestion.assessmentQuestionId}`}>
-            Comment (optional)
-          </label>
-          <input
-            id={`comment-${activeQuestion.assessmentQuestionId}`}
-            className="sc-input"
-            placeholder="Comment"
-            value={marks[activeQuestion.assessmentQuestionId]?.teacherComment ?? activeQuestion.teacherComment ?? ""}
-            onChange={(e) =>
-              onUpdateMark(activeQuestion.assessmentQuestionId, "teacherComment", e.target.value)
-            }
-          />
+          {teacherMode && !hodMode ? (
+            <>
+              <label className="sc-label" htmlFor={`mark-input-${activeQuestion.assessmentQuestionId}`}>
+                Mark out of {activeQuestion.maxMarks}
+              </label>
+              <input
+                id={`mark-input-${activeQuestion.assessmentQuestionId}`}
+                className="sc-input sc-mark-focus-input"
+                type="number"
+                min={0}
+                max={activeQuestion.maxMarks}
+                step={0.5}
+                value={marks[activeQuestion.assessmentQuestionId]?.teacherMark ?? activeQuestion.teacherMark ?? ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw !== "" && Number(raw) > activeQuestion.maxMarks) return;
+                  onUpdateMark(activeQuestion.assessmentQuestionId, "teacherMark", raw);
+                }}
+                aria-describedby={`mark-help-${activeQuestion.assessmentQuestionId}`}
+              />
+              <p id={`mark-help-${activeQuestion.assessmentQuestionId}`} className="sc-mark-pages-hint">
+                Enter 0 up to {activeQuestion.maxMarks}. Leave blank if not marked yet.
+              </p>
+              <label className="sc-label" htmlFor={`comment-${activeQuestion.assessmentQuestionId}`}>
+                Comment (optional)
+              </label>
+              <input
+                id={`comment-${activeQuestion.assessmentQuestionId}`}
+                className="sc-input"
+                placeholder="Comment"
+                value={marks[activeQuestion.assessmentQuestionId]?.teacherComment ?? activeQuestion.teacherComment ?? ""}
+                onChange={(e) =>
+                  onUpdateMark(activeQuestion.assessmentQuestionId, "teacherComment", e.target.value)
+                }
+              />
+            </>
+          ) : null}
           <div className="sc-form-actions sc-mark-focus-nav">
             <button
               type="button"
@@ -219,9 +311,21 @@ export default function ScriptMarkingPanel({
                     {q.questionText ? (
                       <p className="sc-mark-comment-read">{q.questionText}</p>
                     ) : null}
-                    {q.expectedAnswer && (hodMode || showMore) ? (
+                    {q.expectedAnswer && (hodMode || showMore || teacherMode) ? (
                       <p className="sc-mark-comment-read">Model answer: {q.expectedAnswer}</p>
                     ) : null}
+                    {(() => {
+                      const conf = resolveAiConfidence({
+                        confidence: script.confidence,
+                        teacherComment: m.teacherComment ?? q.teacherComment,
+                        hodComment: m.hodComment ?? q.hodComment,
+                      });
+                      return (
+                        <p className={`sc-ai-confidence sc-ai-confidence-${conf.level ?? "none"}`}>
+                          {conf.label}
+                        </p>
+                      );
+                    })()}
                   </td>
                   <td>{q.maxMarks}</td>
                   <td>

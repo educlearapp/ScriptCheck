@@ -334,10 +334,14 @@ export async function applyModerationApproveLocks(
 export async function applyReturnToTeacherUnlocks(
   batchId: string,
   workspaceId: string,
-  actorId: string
+  actorId: string,
+  scriptIds?: string[]
 ) {
   const scripts = await prisma.learnerScript.findMany({
-    where: { batchId },
+    where: {
+      batchId,
+      ...(scriptIds?.length ? { id: { in: scriptIds } } : {}),
+    },
     select: { id: true },
   });
 

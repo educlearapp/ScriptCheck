@@ -61,6 +61,9 @@ function countByWorkflow(
   let moderation = 0;
   let moderated = 0;
   let finalised = 0;
+  let notStarted = 0;
+  let inProgress = 0;
+  let submitted = 0;
 
   for (const s of scripts) {
     const wf = normalizeWorkflowStatus(s.status, s.pageCount);
@@ -70,9 +73,38 @@ function countByWorkflow(
     if (wf === "MODERATION") moderation++;
     if (MODERATED_STATUSES.includes(s.status) || wf === "MODERATED") moderated++;
     if (wf === "FINALISED") finalised++;
+
+    if (wf === "UPLOADED" || s.status === LearnerScriptStatus.NOT_MARKED) {
+      notStarted++;
+    } else if (
+      s.status === LearnerScriptStatus.MARKING ||
+      s.status === LearnerScriptStatus.IN_PROGRESS ||
+      s.status === LearnerScriptStatus.RETURNED_TO_TEACHER ||
+      wf === "MARKING" ||
+      wf === "RETURNED"
+    ) {
+      inProgress++;
+    } else if (
+      s.status === LearnerScriptStatus.SUBMITTED_TO_HOD ||
+      s.status === LearnerScriptStatus.HOD_REVIEW ||
+      s.status === LearnerScriptStatus.MODERATION ||
+      wf === "MODERATION"
+    ) {
+      submitted++;
+    }
   }
 
-  return { uploaded, marking, marked, moderation, moderated, finalised };
+  return {
+    uploaded,
+    marking,
+    marked,
+    moderation,
+    moderated,
+    finalised,
+    notStarted,
+    inProgress,
+    submitted,
+  };
 }
 
 export async function getBatchModerationAnalytics(
@@ -102,6 +134,23 @@ export async function getBatchModerationAnalytics(
     ).length,
   };
 
+  const teacherReviewFlagged = scripts.filter((s) => s.flaggedForReview).length;
+  const completedForProgress = scripts.filter(
+    (s) =>
+      MARKED_STATUSES.includes(s.status) ||
+      s.status === LearnerScriptStatus.RETURNED_TO_TEACHER
+  ).length;
+  const progressPercent =
+    scripts.length > 0
+      ? Math.round((workflowCounts.marked / scripts.length) * 1000) / 10
+      : 0;
+
+  const nextUnfinished = scripts.find(
+    (s) =>
+      !MARKED_STATUSES.includes(s.status) &&
+      s.status !== LearnerScriptStatus.FINALISED
+  );
+
   return {
     batchId: batch.id,
     title: batch.title,
@@ -109,6 +158,21 @@ export async function getBatchModerationAnalytics(
     assessment: batch.assessment,
     totalScripts: scripts.length,
     workflowCounts,
+    teacherDashboard: {
+      totalScripts: scripts.length,
+      notStarted: workflowCounts.notStarted,
+      inProgress: workflowCounts.inProgress,
+      marked: workflowCounts.marked,
+      submitted: workflowCounts.submitted,
+      averageMark: totals.length ? round1(avg(totals)) : null,
+      progressPercent,
+      completedCount: completedForProgress,
+      flaggedForReview: teacherReviewFlagged,
+      nextUnfinishedScriptId: nextUnfinished?.id ?? null,
+      allMarked:
+        scripts.length > 0 &&
+        scripts.every((s) => MARKED_STATUSES.includes(s.status)),
+    },
     marks: {
       average: totals.length ? round1(avg(totals)) : null,
       highest: totals.length ? Math.max(...totals) : null,
@@ -129,6 +193,9 @@ export async function getBatchModerationAnalytics(
       moderationVariancePercent: s.moderationVariancePercent,
       varianceLevel: s.varianceLevel,
       varianceLabel: VARIANCE_LABELS[s.varianceLevel],
+      flaggedForReview: s.flaggedForReview,
+      privateTeacherNotes: s.privateTeacherNotes,
+      submittedToHodAt: s.submittedToHodAt,
     })),
   };
 }

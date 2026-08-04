@@ -12,6 +12,7 @@ import {
   getLearnerScript,
   saveScriptMarks,
   ScriptError,
+  updateTeacherReviewMeta,
 } from "../services/scriptMarking";
 import {
   getRubricMarksForScript,
@@ -444,6 +445,49 @@ router.put(
       }
 
       return res.json(result.script);
+    } catch (err) {
+      return handleError(res, err);
+    }
+  }
+);
+
+router.patch(
+  "/:id/teacher-review",
+  requireAuth,
+  requirePermission(PERMISSIONS.SCRIPTS_MARK),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const script = await updateTeacherReviewMeta(
+        String(req.params.id),
+        req.auth!.workspaceId,
+        req.auth!.userId,
+        req.access!,
+        {
+          flaggedForReview:
+            typeof req.body?.flaggedForReview === "boolean"
+              ? req.body.flaggedForReview
+              : undefined,
+          privateTeacherNotes:
+            req.body?.privateTeacherNotes === undefined
+              ? undefined
+              : req.body.privateTeacherNotes,
+        }
+      );
+
+      await logAudit({
+        action: "SCRIPT_MARK_UPDATED",
+        actorId: req.auth!.userId,
+        workspaceId: req.auth!.workspaceId,
+        metadata: {
+          scriptId: String(req.params.id),
+          kind: "teacher_review_meta",
+          flaggedForReview: script.flaggedForReview,
+          hasPrivateNotes: Boolean(script.privateTeacherNotes?.trim()),
+        },
+        ...auditRequestMeta(req),
+      });
+
+      return res.json(script);
     } catch (err) {
       return handleError(res, err);
     }

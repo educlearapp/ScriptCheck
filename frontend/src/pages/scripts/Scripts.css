@@ -870,3 +870,113 @@
     min-height: 0;
   }
 }
+
+.sc-script-panel-header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sc-autosave-status {
+  font-size: 0.75rem;
+  color: var(--sc-text-muted);
+  min-height: 1rem;
+}
+
+.sc-teacher-review-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--sc-border);
+}
+
+.sc-flag-btn.is-flagged {
+  border-color: var(--sc-gold);
+  color: var(--sc-gold-light, var(--sc-gold));
+}
+
+.sc-private-notes {
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.sc-synced-sources {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.sc-synced-source {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--sc-border);
+  border-radius: var(--sc-radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+}
+
+.sc-synced-source-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sc-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.sc-ai-confidence {
+  margin: 0.35rem 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--sc-text-muted);
+}
+
+.sc-ai-confidence-high {
+  color: #6bcf7f;
+}
+
+.sc-ai-confidence-medium {
+  color: #e0b84a;
+}
+
+.sc-ai-confidence-low {
+  color: #e07a5f;
+}
+
+.sc-submit-review-panel {
+  margin: 0.75rem 0 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(220, 80, 80, 0.35);
+  border-radius: var(--sc-radius-sm);
+  background: rgba(220, 80, 80, 0.06);
+}
+
+.sc-submit-review-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.sc-submit-review-panel ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+}
+
+@media (max-width: 430px) {
+  .sc-script-detail,
+  .sc-script-workspace,
+  .sc-script-marking-panel,
+  .sc-script-viewer {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .sc-script-learner-nav {
+    width: 100%;
+  }
+
+  .sc-script-learner-nav .sc-btn {
+    flex: 1;
+  }
+}
